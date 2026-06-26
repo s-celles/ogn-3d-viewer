@@ -324,7 +324,7 @@ const lighting = new LightingEffect({
   sun:new DirectionalLight({color:[255,245,225],intensity:2.2,direction:[-0.6,-1,-0.5]})
 });
 function makeTerrain(){ const k=exo; return new TerrainLayer({
-  id:'terrain', minZoom:0, maxZoom:15, elevationData:TERRAIN, texture:TEXTURE,
+  id:'terrain', minZoom:0, maxZoom:13, elevationData:TERRAIN, texture:TEXTURE,
   elevationDecoder:{rScaler:256*k,gScaler:1*k,bScaler:k/256,offset:-32768*k},
   // the browser otherwise applies colour management to the ImageBitmap, shifting the
   // RGB-encoded elevation (R = 256 m/unit) and producing spurious spikes.
