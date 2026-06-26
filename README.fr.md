@@ -18,6 +18,7 @@ le vario.
 - **Recherche d'aérodrome** par code OACI avec autocomplétion.
 - **Relief 3D** avec imagerie satellite et exagération verticale réglable.
 - **Lecture temporelle** avec curseur d'heure de la journée et vitesses 1× / 8× / 30× / 120×.
+- **Mode direct** — vue temps réel épinglée à l'heure courante, qui rafraîchit les planeurs actifs toutes les 20 s.
 - **Deux vues :** vue d'ensemble (dessus) et vue subjective (cockpit).
 - **Modes caméra cockpit :** suivi du cap ou regard libre.
 - **Modes d'affichage des traces :** historique, historique + futur, ou fenêtre glissante.

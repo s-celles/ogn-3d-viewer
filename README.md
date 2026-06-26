@@ -17,6 +17,7 @@ and a head-up display showing heading, altitude and vario.
 - **Airfield search** by ICAO code with autocomplete.
 - **3D terrain** with satellite imagery and adjustable vertical exaggeration.
 - **Time playback** with a time-of-day scrubber and 1× / 8× / 30× / 120× speeds.
+- **Live mode** — a real-time view pinned to the current time that auto-refreshes active gliders every 20 s.
 - **Two views:** top-down overview and cockpit (first-person) view.
 - **Cockpit camera modes:** lock-to-heading or free look.
 - **Track display modes:** history, history + future, or a rolling time window.
