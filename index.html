@@ -1,0 +1,620 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>OGN 3D Replay</title>
+<script src="https://unpkg.com/deck.gl@9.1.0/dist.min.js"></script>
+<style>
+  :root{ --bg:#0c1015; --card:rgba(18,24,33,.88); --line:rgba(255,255,255,.12);
+         --txt:#e7edf3; --mut:#9fb0c0; --accent:#ff8c00; }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--txt);
+            font-family:ui-sans-serif,system-ui,"Segoe UI",Roboto,Helvetica,Arial}
+  #map{position:fixed;inset:0}
+  .card{position:fixed;background:var(--card);backdrop-filter:blur(8px);
+        border:1px solid var(--line);border-radius:12px;padding:12px 14px;
+        box-shadow:0 8px 30px rgba(0,0,0,.45)}
+  #panel{top:12px;left:12px;width:320px;max-width:calc(100vw - 24px);max-height:calc(100vh - 24px);overflow:auto}
+  #panel h1{font-size:14px;margin:0 0 2px;font-weight:650}
+  #panel .sub{font-size:11px;color:var(--mut);margin-bottom:10px;line-height:1.35}
+  .row{display:flex;align-items:center;gap:8px;margin:9px 0}
+  .spread{justify-content:space-between}
+  .clock{font-variant-numeric:tabular-nums;font-size:20px;font-weight:600}
+  .clock small{font-size:11px;color:var(--mut);font-weight:400;margin-left:6px}
+  button{background:#1b2531;color:var(--txt);border:1px solid var(--line);
+         border-radius:8px;padding:6px 10px;font-size:12px;cursor:pointer}
+  button:hover{background:#243040}
+  button.on{background:var(--accent);color:#101010;border-color:var(--accent);font-weight:600}
+  button:disabled{opacity:.5;cursor:default}
+  .seg{display:flex;gap:4px}
+  .lang button{padding:4px 8px;font-size:11px;font-weight:600}
+  #infoBtn{padding:4px 8px;font-size:12px;font-weight:600}
+  .disc{font-size:10.5px;color:var(--mut);line-height:1.4;border-top:1px solid var(--line);margin-top:8px;padding-top:8px}
+  .disc b{color:var(--txt);font-size:11px}
+  .disc ul{margin:5px 0 0;padding-left:16px} .disc li{margin:3px 0}
+  select,input[type=text],input[type=date]{background:#1b2531;color:var(--txt);border:1px solid var(--line);
+         border-radius:8px;padding:6px 8px;font-size:12px;width:100%}
+  input[type=range]{width:100%;accent-color:var(--accent)}
+  label.lbl{font-size:11px;color:var(--mut);display:block;margin-bottom:3px}
+  .ac{position:relative}
+  .aclist{position:absolute;left:0;right:0;top:calc(100% + 2px);z-index:10;background:#10171f;
+          border:1px solid var(--line);border-radius:8px;overflow:hidden;display:none}
+  .aclist.open{display:block}
+  .aclist .it{padding:6px 9px;font-size:12px;cursor:pointer;display:flex;gap:8px}
+  .aclist .it:hover{background:#243040}
+  .aclist .it b{color:var(--accent);min-width:42px}
+  .aclist .it span{color:var(--mut);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .status{font-size:11px;color:var(--mut);min-height:15px;margin:4px 0 2px}
+  .status.err{color:#ff7a7a}
+  .status.warn{color:#ffce6b}
+  .sep{height:1px;background:var(--line);margin:10px 0}
+  #controls{transition:opacity .2s}
+  body:not(.loaded) #controls{opacity:.35;pointer-events:none}
+  body:not(.loaded) #legend, body:not(.loaded) #nav, body:not(.loaded) #hud{display:none !important}
+  #legend{bottom:12px;left:12px;width:320px;max-width:calc(100vw - 24px);font-size:12px}
+  #legend .lg{display:flex;align-items:center;gap:8px;margin:5px 0;font-variant-numeric:tabular-nums}
+  .dot{width:11px;height:11px;border-radius:50%;flex:0 0 auto;border:1px solid rgba(255,255,255,.5)}
+  .reg{font-weight:600;width:64px}
+  .mut{color:var(--mut)}
+  #legend .ttl{font-size:11px;color:var(--mut);margin-bottom:4px}
+  .fpvOnly,.followOnly,.freeOnly,.windowOnly{display:none}
+  body.fpv .fpvOnly{display:flex}
+  body.fpv.follow .followOnly{display:flex}
+  body.fpv.free .freeOnly{display:flex}
+  body.win .windowOnly{display:flex}
+  body.fpv #legend{opacity:.5}
+  #hud{right:12px;bottom:12px;width:210px;display:none}
+  body.fpv.loaded #hud{display:block}
+  #hud .hreg{font-size:13px;font-weight:650;color:var(--accent);margin-bottom:6px}
+  #hud .g{display:grid;grid-template-columns:auto 1fr;gap:2px 10px;font-variant-numeric:tabular-nums}
+  #hud .k{color:var(--mut);font-size:11px;align-self:center}
+  #hud .v{font-size:18px;font-weight:600;text-align:right}
+  #hud .vario.pos{color:#5fd35f} #hud .vario.neg{color:#ff6b6b}
+  .hint{font-size:10px;color:var(--mut);margin-top:8px}
+  #nav{right:12px;bottom:12px;width:auto;padding:10px;display:flex;flex-direction:column;gap:6px;align-items:center}
+  body.fpv #nav{display:none}
+  #nav .nrow{display:flex;gap:6px;align-items:center;justify-content:center}
+  #nav button{width:34px;height:34px;padding:0;font-size:16px;line-height:1;display:flex;align-items:center;justify-content:center;border-radius:9px}
+  #nav .cap{font-size:9px;color:var(--mut);text-align:center;max-width:128px;line-height:1.3;margin-top:2px}
+  .compass{width:42px;height:42px;cursor:pointer;flex:0 0 auto}
+  .compass:hover circle{stroke:var(--accent)}
+</style>
+</head>
+<body>
+<div id="map"></div>
+
+<div id="panel" class="card">
+  <div class="row spread" style="margin-top:0">
+    <h1 data-i18n="h1">…</h1>
+    <div style="display:flex;gap:6px;align-items:center">
+      <button id="infoBtn" data-i18n-title="info" title="">ⓘ</button>
+      <div class="seg lang" id="lang"></div>
+    </div>
+  </div>
+  <div class="sub" data-i18n="sub">…</div>
+  <div id="disclaimer" class="disc" style="display:none"></div>
+
+  <div class="row" style="flex-direction:column;align-items:stretch">
+    <label class="lbl" data-i18n="airfieldLabel">Aérodrome (OACI)</label>
+    <div class="ac">
+      <input id="icao" type="text" autocomplete="off" placeholder="LFBI">
+      <div id="aclist" class="aclist"></div>
+    </div>
+  </div>
+  <div class="row" style="align-items:flex-end">
+    <div style="flex:1">
+      <label class="lbl" data-i18n="dateLabel">Date</label>
+      <input id="date" type="date">
+    </div>
+    <button id="load" class="on" data-i18n="loadBtn">Charger</button>
+  </div>
+  <div class="status" id="status"></div>
+
+  <div id="controls">
+    <div class="sep"></div>
+    <div class="row"><span class="clock"><span id="clk">--:--</span><small id="tz" data-i18n="localTz">…</small></span></div>
+
+    <div class="row">
+      <label class="lbl" style="margin:0" data-i18n="view">Vue</label>
+      <div class="seg" id="views"></div>
+    </div>
+    <div class="row fpvOnly">
+      <label class="lbl" style="margin:0" data-i18n="camera">Caméra</label>
+      <div class="seg" id="cammode"></div>
+    </div>
+    <div class="row fpvOnly">
+      <label class="lbl" style="margin:0" data-i18n="subject">Planeur suivi</label>
+      <select id="subject"></select>
+    </div>
+
+    <div class="row">
+      <label class="lbl" style="margin:0" data-i18n="trace">Trace</label>
+      <select id="trace"></select>
+    </div>
+    <div class="row windowOnly" style="flex-direction:column;align-items:stretch">
+      <label class="lbl"><span data-i18n="windowLabel">Fenêtre (min) :</span> <b id="winval">10</b></label>
+      <input id="win" type="range" min="1" max="30" value="10" step="1">
+    </div>
+
+    <div class="row">
+      <button id="play" class="on">⏸ Pause</button>
+      <div class="seg" id="speeds"></div>
+    </div>
+    <div class="row" style="flex-direction:column;align-items:stretch">
+      <label class="lbl" data-i18n="timeOfDay">Heure de la journée</label>
+      <input id="scrub" type="range" min="0" max="1000" value="0" step="1">
+    </div>
+    <div class="row" style="flex-direction:column;align-items:stretch">
+      <label class="lbl"><span data-i18n="exo">Exagération du relief vertical :</span> <b id="exval">2.0×</b></label>
+      <input id="exo" type="range" min="1" max="6" value="2" step="0.5">
+    </div>
+    <div class="row followOnly" style="flex-direction:column;align-items:stretch">
+      <label class="lbl"><span data-i18n="gaze">Regard (assiette caméra) :</span> <b id="pitchval">+6°</b></label>
+      <input id="pitch" type="range" min="-25" max="25" value="6" step="1">
+    </div>
+    <div class="row freeOnly"><span class="hint" style="margin:0" data-i18n="freeHint">…</span></div>
+    <div class="row"><button id="reset" data-i18n="defaultView">↺ Vue par défaut</button></div>
+    <div class="hint" data-i18n="shortcuts">…</div>
+  </div>
+</div>
+
+<div id="legend" class="card"><div class="ttl" data-i18n="legendTitle">…</div><div id="lglist"></div></div>
+
+<div id="nav" class="card">
+  <div class="nrow">
+    <button id="rotL" data-i18n-title="rotL" title="">⟲</button>
+    <div id="compass" class="compass" data-i18n-title="northUp" title="">
+      <svg viewBox="0 0 40 40" width="42" height="42" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="20" cy="20" r="18" fill="#0e141b" stroke="rgba(255,255,255,.28)" stroke-width="1.5"/>
+        <g id="rose">
+          <polygon points="20,4 24,20 20,16.5 16,20" fill="#ff5b5b"/>
+          <polygon points="20,36 24,20 20,23.5 16,20" fill="#c7d2dd"/>
+          <text x="20" y="12" text-anchor="middle" font-size="7" fill="#ff9a9a" font-family="sans-serif">N</text>
+        </g>
+      </svg>
+    </div>
+    <button id="rotR" data-i18n-title="rotR" title="">⟳</button>
+  </div>
+  <div class="nrow">
+    <button id="tiltDn" data-i18n-title="tiltTop" title="">▲</button>
+    <button id="tiltUp" data-i18n-title="tiltGround" title="">▼</button>
+  </div>
+  <div class="nrow">
+    <button id="zOut" data-i18n-title="zoomOut" title="">−</button>
+    <button id="zIn" data-i18n-title="zoomIn" title="">+</button>
+  </div>
+  <div class="cap" data-i18n="navCap">…</div>
+</div>
+
+<div id="hud" class="card">
+  <div class="hreg" id="hudreg">—</div>
+  <div class="g">
+    <div class="k" data-i18n="hdg">Cap</div><div class="v" id="hudhdg">—</div>
+    <div class="k" data-i18n="alt">Altitude</div><div class="v" id="hudalt">—</div>
+    <div class="k" data-i18n="vario">Vario</div><div class="v vario" id="hudvar">—</div>
+  </div>
+</div>
+
+<script>
+// ============ config ============
+// FlightBook expose un CORS ouvert (access-control-allow-origin: *) : appel direct possible.
+// Pour self-hoster un proxy/cache (>24 h d'archive), changez API_BASE.
+const API_BASE = "https://flightbook.glidernet.org";
+const PALETTE = [[255,140,0],[60,180,255],[160,120,255],[120,230,120],[255,90,160],
+                 [250,210,70],[80,220,210],[235,120,90],[150,200,255],[200,160,120]];
+
+// ============ i18n ============
+const I18N = {
+  fr: {
+    h1:"OGN — rejeu 3D",
+    sub:"Choisissez un aérodrome (OACI) et une date, puis « Charger ».",
+    airfieldLabel:"Aérodrome (OACI)", dateLabel:"Date", loadBtn:"Charger",
+    loading:"Chargement…", searching:"Recherche…",
+    noFlights:"Aucune trace exploitable ce jour.", errLoad:"Erreur de chargement.",
+    flights:"trace(s)", tracksNote:"⚠ Les traces OGN ne sont gardées que ~24 h.",
+    localTz:"locale", view:"Vue", overview:"Vue d'ensemble", fpv:"Vue subjective",
+    camera:"Caméra", follow:"Suivre le cap", free:"Libre", subject:"Planeur suivi",
+    pause:"⏸ Pause", play:"▶ Lecture", timeOfDay:"Heure de la journée",
+    exo:"Exagération du relief vertical :", gaze:"Regard (assiette caméra) :",
+    freeHint:"Glissez pour regarder autour · la caméra reste sur le planeur.",
+    defaultView:"↺ Vue par défaut",
+    shortcuts:"Raccourcis : V = changer de vue · 1/2/3 = choisir le planeur",
+    trace:"Trace", traceHist:"Historique (passé)", traceHistFut:"Historique + futur",
+    traceWindow:"Fenêtre glissante", windowLabel:"Fenêtre (min) :",
+    legendTitle:"Planeurs (clic = isoler / choisir le sujet)",
+    navCap:"Glisser : déplacer · Ctrl ou clic-droit + glisser : pivoter / incliner · molette : zoom",
+    northUp:"Nord en haut", rotL:"Pivoter vers la gauche", rotR:"Pivoter vers la droite",
+    tiltTop:"Redresser (vue du dessus)", tiltGround:"Incliner (vue rasante)",
+    zoomOut:"Reculer (dézoomer)", zoomIn:"Avancer (zoomer)",
+    hdg:"Cap", alt:"Altitude", vario:"Vario", landed:"posé", beforeTk:"décollage à venir", min:"min",
+    info:"Limites / à propos", disclaimerTitle:"Limites d'affichage",
+    disc:[
+      "Données OGN : la trace dépend de la réception par les stations au sol — trous, décrochages ou montées tronquées possibles.",
+      "Seuls les aéronefs enregistrés et « suivis » dans la base OGN apparaissent ; les appareils anonymes ou non équipés sont absents.",
+      "La position est interpolée entre les balises reçues : ce n'est pas exactement la trajectoire réellement volée.",
+      "Altitude GNSS affichée sur un relief en MSL : léger flottement possible près du sol (écart géoïde de plusieurs dizaines de mètres).",
+      "Aucune donnée d'attitude : la caméra ne s'incline pas dans les virages. Traces IGC conservées ~24 h par OGN."
+    ]
+  },
+  en: {
+    h1:"OGN — 3D replay",
+    sub:"Pick an airfield (ICAO) and a date, then “Load”.",
+    airfieldLabel:"Airfield (ICAO)", dateLabel:"Date", loadBtn:"Load",
+    loading:"Loading…", searching:"Searching…",
+    noFlights:"No usable track that day.", errLoad:"Loading error.",
+    flights:"track(s)", tracksNote:"⚠ OGN tracks are only kept for ~24 h.",
+    localTz:"local", view:"View", overview:"Overview", fpv:"Cockpit view",
+    camera:"Camera", follow:"Lock to heading", free:"Free look", subject:"Followed glider",
+    pause:"⏸ Pause", play:"▶ Play", timeOfDay:"Time of day",
+    exo:"Vertical terrain exaggeration:", gaze:"Gaze (camera tilt):",
+    freeHint:"Drag to look around · the camera stays on the glider.",
+    defaultView:"↺ Default view",
+    shortcuts:"Shortcuts: V = switch view · 1/2/3 = pick glider",
+    trace:"Track", traceHist:"History (past)", traceHistFut:"History + future",
+    traceWindow:"Rolling window", windowLabel:"Window (min):",
+    legendTitle:"Gliders (click = isolate / pick subject)",
+    navCap:"Drag: pan · Ctrl or right-drag: rotate / tilt · wheel: zoom",
+    northUp:"North up", rotL:"Rotate left", rotR:"Rotate right",
+    tiltTop:"Level out (top-down)", tiltGround:"Tilt (oblique)",
+    zoomOut:"Zoom out", zoomIn:"Zoom in",
+    hdg:"Heading", alt:"Altitude", vario:"Vario", landed:"landed", beforeTk:"before takeoff", min:"min",
+    info:"Limitations / about", disclaimerTitle:"Display limitations",
+    disc:[
+      "OGN data: the track depends on ground-station reception — gaps, dropouts or truncated climbs are possible.",
+      "Only aircraft registered and “tracked” in the OGN database appear; anonymous or non-equipped aircraft are missing.",
+      "Position is interpolated between received beacons: it is not exactly the path actually flown.",
+      "GNSS altitude shown over MSL terrain: slight floating near the ground is possible (geoid offset of tens of metres).",
+      "No attitude data: the camera does not bank in turns. OGN keeps IGC tracks for ~24 h."
+    ]
+  }
+};
+let lang = (navigator.language||'').toLowerCase().startsWith('fr') ? 'fr' : 'en';
+const t = k => (I18N[lang] && I18N[lang][k]) ?? I18N.fr[k] ?? k;
+
+const {Deck, MapView, FirstPersonView, TerrainLayer, PathLayer, TripsLayer,
+       ScatterplotLayer, LightingEffect, AmbientLight, DirectionalLight} = deck;
+const TERRAIN='https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png';
+const TEXTURE='https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
+
+// ============ state (filled by loadData) ============
+let AF=null, G0=0, G1=0, SPAN=1, TRACKS=[], ready=false;
+let exo=2.0, cur=0, playing=false, speed=30, solo=null;
+let mode='over', subject=null, fpvPitch=6, fpvFollow=true, freeCam={bearing:0,pitch:6};
+let trace='hist', windowMin=10;
+let INIT={longitude:2.4, latitude:46.6, zoom:4.6, pitch:0, bearing:0, maxPitch:85};
+let mapVS={...INIT}, mapTarget={...INIT};
+
+const lighting = new LightingEffect({
+  amb:new AmbientLight({color:[255,255,255],intensity:1.1}),
+  sun:new DirectionalLight({color:[255,245,225],intensity:2.2,direction:[-0.6,-1,-0.5]})
+});
+function makeTerrain(){ const k=exo; return new TerrainLayer({
+  id:'terrain', minZoom:0, maxZoom:13, elevationData:TERRAIN, texture:TEXTURE,
+  elevationDecoder:{rScaler:256*k,gScaler:1*k,bScaler:k/256,offset:-32768*k},
+  material:{ambient:0.4,diffuse:0.85,shininess:6,specularColor:[30,30,30]}, color:[255,255,255] }); }
+let terrainInst = makeTerrain();
+
+// ============ data fetching ============
+function parseTz(s){ const m=/([+-]\d{2})(\d{2})/.exec(s||''); return m?(+m[1])+(+m[2])/60:0; }
+function parseIGC(txt){
+  const pts=[];
+  for(const line of txt.split('\n')){
+    if(line[0]!=='B' || line.length<35) continue;
+    const tt=(+line.slice(1,3))*3600+(+line.slice(3,5))*60+(+line.slice(5,7));
+    let lat=(+line.slice(7,9))+((+line.slice(9,11))+(+line.slice(11,14))/1000)/60; if(line[14]==='S')lat=-lat;
+    let lon=(+line.slice(15,18))+((+line.slice(18,20))+(+line.slice(20,23))/1000)/60; if(line[23]==='W')lon=-lon;
+    const gps=+line.slice(30,35);
+    if(Number.isFinite(lat)&&Number.isFinite(lon)) pts.push([+lon.toFixed(6),+lat.toFixed(6),gps||0,tt]);
+  }
+  return pts;
+}
+async function pool(items, n, worker){
+  const q=items.slice(); const runners=Array.from({length:Math.min(n,q.length)}, async ()=>{
+    while(q.length){ await worker(q.shift()); } });
+  await Promise.all(runners);
+}
+function setStatus(msg, cls){ statusEl.className='status'+(cls?(' '+cls):''); statusEl.textContent=msg; }
+
+async function loadFlights(icao, date){
+  if(!icao || icao.length<3){ setStatus(t('errLoad'),'err'); return; }
+  loadBtn.disabled=true; setStatus(t('loading'));
+  try{
+    const lb = await fetch(`${API_BASE}/api/logbook/${encodeURIComponent(icao)}/${date}`).then(r=>r.json());
+    const af = lb.airfield;
+    if(!af || !af.latlng){ setStatus(t('noFlights')); loadBtn.disabled=false; return; }
+    const tzoff = parseTz(af.time_info && af.time_info.tz_offset);
+    const devices = lb.devices||[], flights = lb.flights||[];
+    const tasks = flights.map(f=>{
+      const dev = devices[f.device];
+      if(!dev || f.start_tsp==null || f.stop_tsp==null || dev.address[0]==='~' || dev.address[0]==='_') return null;
+      return {dev, t0:f.start_tsp-30, t1:f.stop_tsp+30, maxalt:f.max_alt};
+    }).filter(Boolean);
+
+    const tracks=[];
+    await pool(tasks, 4, async (task)=>{
+      try{
+        const txt = await fetch(`${API_BASE}/api/live/igc/${task.dev.address}/${task.t0}/${task.t1}?date=${date}`).then(r=>r.text());
+        const pts = parseIGC(txt);
+        if(pts.length>=2) tracks.push({
+          label: task.dev.aircraft || task.dev.aircraft_type || '?',
+          reg:   task.dev.registration || task.dev.competition || task.dev.address.slice(-5),
+          path:  pts, tstart:pts[0][3], tend:pts[pts.length-1][3],
+          maxalt:task.maxalt || Math.max(...pts.map(p=>p[2]))
+        });
+      }catch(e){ /* IGC indispo (>24 h ou pas de réception) */ }
+    });
+
+    if(!tracks.length){ setStatus(t('noFlights')); loadBtn.disabled=false; return; }
+    tracks.sort((a,b)=>a.tstart-b.tstart);
+    tracks.forEach((tr,i)=>tr.color = PALETTE[i%PALETTE.length]);
+    const g0=Math.min(...tracks.map(x=>x.tstart)), g1=Math.max(...tracks.map(x=>x.tend));
+    applyData({ airfield:{name:af.name, code:af.code, lon:af.latlng[1], lat:af.latlng[0],
+                          elev:af.elevation||0, tz_off:tzoff}, g0, g1, tracks });
+    let msg = tracks.length+' '+t('flights');
+    const today = new Date().toISOString().slice(0,10);
+    if(date!==today) msg += ' · ' + t('tracksNote');
+    setStatus(msg, date!==today ? 'warn' : '');
+  }catch(e){ setStatus(t('errLoad'),'err'); }
+  loadBtn.disabled=false;
+}
+
+function applyData(DATA){
+  AF=DATA.airfield; G0=DATA.g0; G1=DATA.g1; SPAN=Math.max(1,G1-G0);
+  TRACKS = DATA.tracks.map(tr=>({...tr,
+    rel: tr.path.map(p=>[p[0],p[1],p[2],p[3]-G0]), rstart:tr.tstart-G0, rend:tr.tend-G0}));
+  subject = TRACKS[0].reg; solo=null; cur=0; playing=true; mode='over';
+  document.body.classList.remove('fpv'); applyFollowClass();
+  // subject select
+  subjEl.innerHTML='';
+  TRACKS.forEach(tr=>{ const o=document.createElement('option'); o.value=tr.reg;
+    o.textContent=`${tr.reg} — ${tr.label}`; subjEl.appendChild(o); });
+  subjEl.value=subject;
+  // camera: keep current view and fly down to the airfield
+  INIT={longitude:AF.lon, latitude:AF.lat, zoom:11.3, pitch:62, bearing:0, maxPitch:85};
+  mapTarget={...INIT};
+  ready=true; document.body.classList.add('loaded');
+  [...viewsEl.children].forEach(c=>c.classList.toggle('on', c.dataset.m==='over'));
+  playBtn.textContent=t('pause'); playBtn.classList.add('on');
+  buildLegend(); render(); syncUI();
+}
+
+// ============ viewer ============
+const subjectTrack = () => TRACKS.find(tr=>tr.reg===subject) || TRACKS[0];
+function shown(tr){ if(mode==='fpv') return true; return !solo || solo===tr.reg; }
+function scaled(tr){ const k=exo; return tr.rel.map(p=>[p[0],p[1],p[2]*k]); }
+function posAt(tr, time){
+  const P=tr.rel;
+  if(time<=tr.rstart) return P[0]; if(time>=tr.rend) return P[P.length-1];
+  for(let i=1;i<P.length;i++){ if(P[i][3]>=time){ const a=P[i-1],b=P[i],f=(time-a[3])/Math.max(1e-3,b[3]-a[3]);
+    return [a[0]+(b[0]-a[0])*f, a[1]+(b[1]-a[1])*f, a[2]+(b[2]-a[2])*f]; } }
+  return P[P.length-1];
+}
+const airborne=(tr,time)=>time>=tr.rstart&&time<=tr.rend;
+function slice(tr,t0,t1){ t0=Math.max(t0,tr.rstart); t1=Math.min(t1,tr.rend); if(t1<=t0) return [];
+  const out=[posAt(tr,t0)]; for(const p of tr.rel){ if(p[3]>t0&&p[3]<t1) out.push([p[0],p[1],p[2]]); }
+  out.push(posAt(tr,t1)); return out; }
+function brg(a,b){ const lat=(a[1]+b[1])/2*Math.PI/180, e=(b[0]-a[0])*Math.cos(lat), n=(b[1]-a[1]);
+  if(Math.abs(e)<1e-9&&Math.abs(n)<1e-9) return null; return (Math.atan2(e,n)*180/Math.PI+360)%360; }
+function headingAt(tr,time){ return brg(posAt(tr,Math.max(tr.rstart,time-3)), posAt(tr,Math.min(tr.rend,time+3))) ?? 0; }
+function varioAt(tr,time){ const t0=Math.max(tr.rstart,time-4),t1=Math.min(tr.rend,time+4),a=posAt(tr,t0),b=posAt(tr,t1),dt=t1-t0;
+  return dt>0?(b[2]-a[2])/dt:0; }
+
+function dynamicLayers(){
+  if(!ready) return [];
+  const k=exo, vis=TRACKS.filter(shown);
+  const histStart = tr => trace==='window' ? Math.max(tr.rstart, cur-windowMin*60) : tr.rstart;
+  const pastData = vis.map(tr=>{ const pts=slice(tr,histStart(tr),cur).map(p=>[p[0],p[1],p[2]*k]);
+    return pts.length>=2?{color:tr.color,pts}:null; }).filter(Boolean);
+  const futData = (trace==='histfut') ? vis.map(tr=>{ const pts=slice(tr,cur,tr.rend).map(p=>[p[0],p[1],p[2]*k]);
+    return pts.length>=2?{color:tr.color,pts}:null; }).filter(Boolean) : [];
+  const heads = vis.map(tr=>{ if(mode==='fpv'&&tr.reg===subject) return null; const p=posAt(tr,cur);
+    return (p&&airborne(tr,cur))?{pos:[p[0],p[1],p[2]*k],c:tr.color}:null; }).filter(Boolean);
+  const pastAlpha=(mode==='fpv'||solo)?215:165, trail=trace==='window'?windowMin*60:240;
+  return [
+    new PathLayer({id:'future',data:futData,getPath:d=>d.pts,getColor:d=>[...d.color,55],
+      getWidth:2,widthUnits:'pixels',jointRounded:true,capRounded:true,parameters:{depthTest:true}}),
+    new PathLayer({id:'past',data:pastData,getPath:d=>d.pts,getColor:d=>[...d.color,pastAlpha],
+      getWidth:2,widthUnits:'pixels',jointRounded:true,capRounded:true,parameters:{depthTest:true}}),
+    new TripsLayer({id:'trips',data:vis,getPath:scaled,getTimestamps:tr=>tr.rel.map(p=>p[3]),getColor:tr=>tr.color,
+      currentTime:cur,trailLength:trail,fadeTrail:true,widthMinPixels:3,capRounded:true,jointRounded:true,
+      parameters:{depthTest:true},updateTriggers:{getPath:[exo]}}),
+    new ScatterplotLayer({id:'heads',data:heads,getPosition:d=>d.pos,getFillColor:d=>d.c,getRadius:5,radiusUnits:'pixels',
+      stroked:true,lineWidthMinPixels:1.5,getLineColor:[255,255,255],parameters:{depthTest:true}}),
+    new ScatterplotLayer({id:'airfield',data:AF?[{pos:[AF.lon,AF.lat,AF.elev*k]}]:[],getPosition:d=>d.pos,
+      getFillColor:[255,60,60],getRadius:6,radiusUnits:'pixels',stroked:true,lineWidthMinPixels:1.5,getLineColor:[255,255,255]})
+  ];
+}
+
+const clampCur=tr=>Math.max(tr.rstart,Math.min(tr.rend,cur));
+function computeFPV(){ const tr=subjectTrack(),time=clampCur(tr),p=posAt(tr,time);
+  const base={longitude:p[0],latitude:p[1],position:[0,0,p[2]*exo+3]};
+  return fpvFollow?{...base,bearing:headingAt(tr,time),pitch:fpvPitch}:{...base,bearing:freeCam.bearing,pitch:freeCam.pitch}; }
+
+const deckgl = new Deck({
+  parent: document.getElementById('map'),
+  views:[ new MapView({id:'main'}) ], viewState:{ main: mapVS }, controller:{keyboard:false}, effects:[lighting],
+  onViewStateChange: ({viewState, interactionState}) => {
+    if(mode==='over'){ mapVS=viewState; const it=interactionState||{};
+      if(it.isDragging||it.isPanning||it.isRotating||it.isZooming) mapTarget={...viewState}; }
+    else if(mode==='fpv' && !fpvFollow){ freeCam={bearing:viewState.bearing,pitch:viewState.pitch}; }
+  },
+  layers:[terrainInst, ...dynamicLayers()]
+});
+function render(){
+  if(mode==='over'){
+    deckgl.setProps({views:[new MapView({id:'main'})], viewState:{main:mapVS}, controller:{keyboard:false},
+      layers:[terrainInst, ...dynamicLayers()]});
+  } else {
+    deckgl.setProps({views:[new FirstPersonView({id:'fpv',fovy:64,near:1,far:200000})], viewState:{fpv:computeFPV()},
+      controller: fpvFollow?false:{keyboard:false,scrollZoom:false,inertia:200}, layers:[terrainInst, ...dynamicLayers()]});
+    updateHUD();
+  }
+}
+
+// ---- HUD ----
+const hudreg=document.getElementById('hudreg'),hudhdg=document.getElementById('hudhdg'),
+      hudalt=document.getElementById('hudalt'),hudvar=document.getElementById('hudvar');
+function updateHUD(){ if(!ready) return; const tr=subjectTrack(); hudreg.textContent=tr.reg+' · '+tr.label;
+  if(!airborne(tr,cur)){ hudhdg.textContent='—';hudalt.textContent='—';
+    hudvar.textContent=cur<tr.rstart?t('beforeTk'):t('landed'); hudvar.className='vario'; return; }
+  const p=posAt(tr,cur),h=headingAt(tr,cur),v=varioAt(tr,cur);
+  hudhdg.textContent=Math.round(h).toString().padStart(3,'0')+'°'; hudalt.textContent=Math.round(p[2])+' m';
+  hudvar.textContent=(v>=0?'+':'')+v.toFixed(1)+' m/s'; hudvar.className='vario '+(v>=0.1?'pos':(v<=-0.1?'neg':'')); }
+
+// ---- clock ----
+function fmt(secRel){ const utc=G0+secRel+(AF?AF.tz_off:0)*3600, z=n=>String(n).padStart(2,'0');
+  return `${z(Math.floor(utc/3600)%24)}:${z(Math.floor(utc/60)%60)}:${z(Math.floor(utc)%60)}`; }
+const clkEl=document.getElementById('clk'), scrub=document.getElementById('scrub'), statusEl=document.getElementById('status');
+function syncUI(){ clkEl.textContent= ready?fmt(cur):'--:--'; scrub.value=Math.round(cur/SPAN*1000); }
+scrub.addEventListener('input', e=>{ if(!ready)return; cur=e.target.value/1000*SPAN; render(); syncUI(); });
+
+// ---- view toggle ----
+const viewsEl=document.getElementById('views');
+['over','fpv'].forEach(m=>{ const b=document.createElement('button'); b.dataset.m=m; if(m===mode)b.classList.add('on');
+  b.onclick=()=>setMode(m); viewsEl.appendChild(b); });
+function setMode(m){ if(m==='fpv'&&!ready) return; mode=m;
+  [...viewsEl.children].forEach(c=>c.classList.toggle('on', c.dataset.m===m));
+  document.body.classList.toggle('fpv', m==='fpv'); applyFollowClass();
+  if(m==='fpv'){ const tr=subjectTrack(); if(!airborne(tr,cur)) cur=tr.rstart; } render(); syncUI(); }
+function applyFollowClass(){ document.body.classList.toggle('follow', fpvFollow);
+  document.body.classList.toggle('free', !fpvFollow);
+  [...cammodeEl.children].forEach(c=>c.classList.toggle('on',(c.dataset.f==='1')===fpvFollow)); }
+function setFollow(v){ if(!v){ const tr=subjectTrack(); freeCam={bearing:headingAt(tr,clampCur(tr)),pitch:fpvPitch}; }
+  fpvFollow=v; applyFollowClass(); render(); }
+
+const cammodeEl=document.getElementById('cammode');
+['1','0'].forEach(f=>{ const b=document.createElement('button'); b.dataset.f=f;
+  if((f==='1')===fpvFollow)b.classList.add('on'); b.onclick=()=>setFollow(f==='1'); cammodeEl.appendChild(b); });
+
+const subjEl=document.getElementById('subject');
+subjEl.addEventListener('change', e=>{ subject=e.target.value; const tr=subjectTrack();
+  if(!airborne(tr,cur)) cur=tr.rstart; render(); syncUI(); });
+
+// ---- trace mode ----
+const traceEl=document.getElementById('trace');
+[['hist','traceHist'],['histfut','traceHistFut'],['window','traceWindow']].forEach(([v,key])=>{
+  const o=document.createElement('option'); o.value=v; o.dataset.k=key; traceEl.appendChild(o); });
+traceEl.value=trace;
+traceEl.addEventListener('change', e=>{ trace=e.target.value;
+  document.body.classList.toggle('win', trace==='window'); render(); });
+const winEl=document.getElementById('win'), winval=document.getElementById('winval');
+winEl.addEventListener('input', e=>{ windowMin=parseFloat(e.target.value); winval.textContent=windowMin; render(); });
+
+// ---- play / speed ----
+const playBtn=document.getElementById('play');
+playBtn.onclick=()=>{ if(!ready)return; playing=!playing; playBtn.textContent=playing?t('pause'):t('play'); playBtn.classList.toggle('on',playing); };
+const segEl=document.getElementById('speeds');
+[1,8,30,120].forEach(s=>{ const b=document.createElement('button'); b.textContent=s+'×'; if(s===speed)b.classList.add('on');
+  b.onclick=()=>{ speed=s; [...segEl.children].forEach(c=>c.classList.remove('on')); b.classList.add('on'); }; segEl.appendChild(b); });
+
+// ---- exaggeration & pitch ----
+const exoEl=document.getElementById('exo'), exval=document.getElementById('exval');
+exoEl.addEventListener('input', e=>{ exo=parseFloat(e.target.value); exval.textContent=exo.toFixed(1)+'×'; terrainInst=makeTerrain(); render(); });
+const pitchEl=document.getElementById('pitch'), pitchval=document.getElementById('pitchval');
+pitchEl.addEventListener('input', e=>{ fpvPitch=parseFloat(e.target.value); pitchval.textContent=(fpvPitch>=0?'+':'')+fpvPitch+'°'; render(); });
+
+document.getElementById('reset').onclick=()=>{ if(mode==='over'){ mapTarget={...INIT}; }
+  else { fpvPitch=6; pitchEl.value=6; pitchval.textContent='+6°'; setFollow(true); } };
+
+// ---- legend ----
+const lglist=document.getElementById('lglist');
+function buildLegend(){ lglist.innerHTML='';
+  TRACKS.forEach(tr=>{ const d=document.createElement('div'); d.className='lg'; const dur=Math.round((tr.rend-tr.rstart)/60);
+    d.innerHTML=`<span class="dot" style="background:rgb(${tr.color.join(',')})"></span>`+
+                `<span class="reg">${tr.reg}</span>`+`<span class="mut">${tr.label} · ${tr.maxalt} m · ${dur} ${t('min')}</span>`;
+    d.style.cursor='pointer'; d.style.opacity=(solo&&solo!==tr.reg)?0.45:1;
+    d.onclick=()=>{ if(mode==='fpv'){ subject=tr.reg; subjEl.value=tr.reg; const tt=subjectTrack(); if(!airborne(tt,cur)) cur=tt.rstart; }
+      else { solo=(solo===tr.reg)?null:tr.reg; [...lglist.children].forEach((c,i)=>c.style.opacity=(solo&&TRACKS[i].reg!==solo)?0.45:1); }
+      render(); };
+    lglist.appendChild(d); }); }
+
+// ---- navigation ----
+function easeCamera(){ const e=0.25, d=((mapTarget.bearing-mapVS.bearing+540)%360)-180;
+  mapVS={...mapVS, longitude:mapVS.longitude+(mapTarget.longitude-mapVS.longitude)*e,
+    latitude:mapVS.latitude+(mapTarget.latitude-mapVS.latitude)*e, zoom:mapVS.zoom+(mapTarget.zoom-mapVS.zoom)*e,
+    pitch:mapVS.pitch+(mapTarget.pitch-mapVS.pitch)*e, bearing:mapVS.bearing+d*e}; }
+const rose=document.getElementById('rose');
+function updateCompass(){ if(rose) rose.setAttribute('transform','rotate('+(-(mapVS.bearing||0))+' 20 20)'); }
+const MINZ=8.5,MAXZ=14.5,PMIN=0,PMAX=85, clampv=(v,a,b)=>Math.max(a,Math.min(b,v));
+const NAV={ rotL:()=>mapTarget.bearing-=30, rotR:()=>mapTarget.bearing+=30,
+  tiltUp:()=>mapTarget.pitch=clampv(mapTarget.pitch+12,PMIN,PMAX), tiltDn:()=>mapTarget.pitch=clampv(mapTarget.pitch-12,PMIN,PMAX),
+  zIn:()=>mapTarget.zoom=clampv(mapTarget.zoom+0.7,MINZ,MAXZ), zOut:()=>mapTarget.zoom=clampv(mapTarget.zoom-0.7,MINZ,MAXZ) };
+Object.entries(NAV).forEach(([id,fn])=>document.getElementById(id).onclick=fn);
+document.getElementById('compass').onclick=()=>{ mapTarget.bearing=0; };
+
+// ---- airfield autocomplete ----
+const icaoEl=document.getElementById('icao'), acEl=document.getElementById('aclist'),
+      dateEl=document.getElementById('date'), loadBtn=document.getElementById('load');
+let acTimer=null;
+icaoEl.addEventListener('input', ()=>{ const q=icaoEl.value.trim(); clearTimeout(acTimer);
+  if(q.length<2){ acEl.classList.remove('open'); return; }
+  acTimer=setTimeout(async ()=>{
+    try{ const list=await fetch(`${API_BASE}/api/autocomp/${encodeURIComponent(q)}`).then(r=>r.json());
+      acEl.innerHTML=''; (list||[]).slice(0,8).forEach(a=>{ const it=document.createElement('div'); it.className='it';
+        it.innerHTML=`<b>${a.code}</b><span>${a.name||''}</span>`;
+        it.onclick=()=>{ icaoEl.value=a.code; acEl.classList.remove('open'); };
+        acEl.appendChild(it); });
+      acEl.classList.toggle('open', acEl.children.length>0);
+    }catch(e){ acEl.classList.remove('open'); }
+  }, 200);
+});
+document.addEventListener('click', e=>{ if(!e.target.closest('.ac')) acEl.classList.remove('open'); });
+icaoEl.addEventListener('keydown', e=>{ if(e.key==='Enter'){ acEl.classList.remove('open'); loadBtn.click(); } });
+loadBtn.onclick=()=>{ loadFlights(icaoEl.value.trim().toUpperCase(), dateEl.value); };
+
+// ---- language ----
+const langEl=document.getElementById('lang');
+['fr','en'].forEach(L=>{ const b=document.createElement('button'); b.textContent=L.toUpperCase(); b.dataset.l=L;
+  b.onclick=()=>{ lang=L; applyI18n(); }; langEl.appendChild(b); });
+function applyI18n(){
+  document.documentElement.lang=lang; 
+  document.querySelectorAll('[data-i18n]').forEach(el=>el.textContent=t(el.dataset.i18n));
+  document.querySelectorAll('[data-i18n-title]').forEach(el=>el.title=t(el.dataset.i18nTitle));
+  [...langEl.children].forEach(b=>b.classList.toggle('on', b.dataset.l===lang));
+  [...viewsEl.children].forEach(b=>b.textContent=t(b.dataset.m==='over'?'overview':'fpv'));
+  [...cammodeEl.children].forEach(b=>b.textContent=t(b.dataset.f==='1'?'follow':'free'));
+  [...traceEl.options].forEach(o=>o.textContent=t(o.dataset.k));
+  playBtn.textContent= playing?t('pause'):t('play');
+  renderDisc();
+  if(ready) buildLegend(); if(mode==='fpv') updateHUD();
+}
+const discEl=document.getElementById('disclaimer'), infoBtn=document.getElementById('infoBtn');
+function renderDisc(){
+  const arr=(I18N[lang]&&I18N[lang].disc)||I18N.fr.disc;
+  discEl.innerHTML='<b>'+t('disclaimerTitle')+'</b><ul>'+arr.map(x=>'<li>'+x+'</li>').join('')+'</ul>';
+}
+infoBtn.onclick=()=>{ const open=discEl.style.display!=='none';
+  discEl.style.display=open?'none':'block'; infoBtn.classList.toggle('on',!open); };
+
+// ---- keyboard ----
+addEventListener('keydown', e=>{
+  const typing = e.target.tagName==='INPUT' || e.target.tagName==='SELECT';
+  if(typing) return;
+  if(e.key==='v'||e.key==='V'){ setMode(mode==='over'?'fpv':'over'); }
+  else if('123'.includes(e.key)){ const i=+e.key-1; if(TRACKS[i]){ subject=TRACKS[i].reg; subjEl.value=subject;
+    const tr=subjectTrack(); if(mode==='fpv'&&!airborne(tr,cur)) cur=tr.rstart; render(); } }
+  else if(e.key===' '){ e.preventDefault(); playBtn.click(); }
+  else if(mode==='over'){
+    if(e.key==='ArrowLeft') mapTarget.bearing-=15; else if(e.key==='ArrowRight') mapTarget.bearing+=15;
+    else if(e.key==='ArrowUp') mapTarget.pitch=clampv(mapTarget.pitch+8,PMIN,PMAX);
+    else if(e.key==='ArrowDown') mapTarget.pitch=clampv(mapTarget.pitch-8,PMIN,PMAX);
+    else if(e.key==='+'||e.key==='=') mapTarget.zoom=clampv(mapTarget.zoom+0.6,MINZ,MAXZ);
+    else if(e.key==='-') mapTarget.zoom=clampv(mapTarget.zoom-0.6,MINZ,MAXZ);
+  }
+});
+
+// ---- init ----
+const todayStr=new Date().toISOString().slice(0,10);
+dateEl.value=todayStr; dateEl.max=todayStr;
+applyI18n(); applyFollowClass(); syncUI();
+
+let last=performance.now();
+function frame(now){ const dt=(now-last)/1000; last=now;
+  if(ready && playing){ cur+=dt*speed; if(cur>SPAN+300) cur=0; syncUI(); }
+  if(mode==='over') easeCamera();
+  updateCompass(); render(); requestAnimationFrame(frame); }
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
