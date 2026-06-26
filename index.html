@@ -79,17 +79,28 @@
   #nav .cap{font-size:9px;color:var(--mut);text-align:center;max-width:128px;line-height:1.3;margin-top:2px}
   .compass{width:42px;height:42px;cursor:pointer;flex:0 0 auto}
   .compass:hover circle{stroke:var(--accent)}
+  #collapseBtn{padding:4px 8px;font-size:12px;font-weight:600}
+  /* Collapsed: keep only the header bar so the map stays visible (handy on phones). */
+  body.collapsed #panel > :not(.hdr){display:none}
+  body.collapsed #legend{display:none}
+  @media (max-width:640px){
+    #panel{width:auto;left:8px;right:8px;top:8px;max-height:calc(100vh - 16px)}
+    #legend{left:8px;right:8px;width:auto;bottom:8px}
+    #nav{right:8px;bottom:8px}
+    #hud{right:8px;bottom:8px}
+  }
 </style>
 </head>
 <body>
 <div id="map"></div>
 
 <div id="panel" class="card">
-  <div class="row spread" style="margin-top:0">
+  <div class="row spread hdr" style="margin-top:0">
     <h1 data-i18n="h1">…</h1>
     <div style="display:flex;gap:6px;align-items:center">
       <button id="infoBtn" data-i18n-title="info" title="">ⓘ</button>
       <div class="seg lang" id="lang"></div>
+      <button id="collapseBtn" data-i18n-title="collapse" title="">▾</button>
     </div>
   </div>
   <div class="sub" data-i18n="sub">…</div>
@@ -98,7 +109,7 @@
   <div class="row" style="flex-direction:column;align-items:stretch">
     <label class="lbl" data-i18n="airfieldLabel">Aérodrome (OACI)</label>
     <div class="ac">
-      <input id="icao" type="text" autocomplete="off" placeholder="LFBI">
+      <input id="icao" type="text" autocomplete="off" placeholder="LFMX" value="LFMX">
       <div id="aclist" class="aclist"></div>
     </div>
   </div>
@@ -108,6 +119,10 @@
       <input id="date" type="date">
     </div>
     <button id="load" class="on" data-i18n="loadBtn">Charger</button>
+  </div>
+  <div class="row seg" style="gap:6px">
+    <button id="todayBtn" data-i18n="today" style="flex:1">Aujourd'hui</button>
+    <button id="yestBtn" data-i18n="yesterday" style="flex:1">Hier</button>
   </div>
   <div class="status" id="status"></div>
 
@@ -210,6 +225,7 @@ const I18N = {
     h1:"OGN — rejeu 3D",
     sub:"Choisissez un aérodrome (OACI) et une date, puis « Charger ».",
     airfieldLabel:"Aérodrome (OACI)", dateLabel:"Date", loadBtn:"Charger",
+    today:"Aujourd'hui", yesterday:"Hier", collapse:"Réduire le panneau", expand:"Afficher le panneau",
     loading:"Chargement…", searching:"Recherche…",
     noFlights:"Aucune trace exploitable ce jour.", errLoad:"Erreur de chargement.",
     flights:"trace(s)", tracksNote:"⚠ Les traces OGN ne sont gardées que ~24 h.",
@@ -241,6 +257,7 @@ const I18N = {
     h1:"OGN — 3D replay",
     sub:"Pick an airfield (ICAO) and a date, then “Load”.",
     airfieldLabel:"Airfield (ICAO)", dateLabel:"Date", loadBtn:"Load",
+    today:"Today", yesterday:"Yesterday", collapse:"Collapse panel", expand:"Show panel",
     loading:"Loading…", searching:"Searching…",
     noFlights:"No usable track that day.", errLoad:"Loading error.",
     flights:"track(s)", tracksNote:"⚠ OGN tracks are only kept for ~24 h.",
@@ -292,6 +309,9 @@ const lighting = new LightingEffect({
 function makeTerrain(){ const k=exo; return new TerrainLayer({
   id:'terrain', minZoom:0, maxZoom:13, elevationData:TERRAIN, texture:TEXTURE,
   elevationDecoder:{rScaler:256*k,gScaler:1*k,bScaler:k/256,offset:-32768*k},
+  // the browser otherwise applies colour management to the ImageBitmap, shifting the
+  // RGB-encoded elevation (R = 256 m/unit) and producing spurious spikes.
+  loadOptions:{ imagebitmap:{ premultiplyAlpha:'none', colorSpaceConversion:'none' } },
   material:{ambient:0.4,diffuse:0.85,shininess:6,specularColor:[30,30,30]}, color:[255,255,255] }); }
 let terrainInst = makeTerrain();
 
@@ -377,6 +397,8 @@ function applyData(DATA){
   [...viewsEl.children].forEach(c=>c.classList.toggle('on', c.dataset.m==='over'));
   playBtn.textContent=t('pause'); playBtn.classList.add('on');
   buildLegend(); render(); syncUI();
+  // On a phone, fold the panel away so the freshly loaded map is visible.
+  if(window.innerWidth<=640) setCollapsed(true);
 }
 
 // ============ viewer ============
@@ -562,6 +584,19 @@ icaoEl.addEventListener('input', ()=>{ const q=icaoEl.value.trim(); clearTimeout
 document.addEventListener('click', e=>{ if(!e.target.closest('.ac')) acEl.classList.remove('open'); });
 icaoEl.addEventListener('keydown', e=>{ if(e.key==='Enter'){ acEl.classList.remove('open'); loadBtn.click(); } });
 loadBtn.onclick=()=>{ loadFlights(icaoEl.value.trim().toUpperCase(), dateEl.value); };
+
+// ---- quick date (today / yesterday) ----
+function quickDate(daysAgo){ const d=new Date(); d.setDate(d.getDate()-daysAgo);
+  dateEl.value=d.toISOString().slice(0,10);
+  if(icaoEl.value.trim().length>=2) loadBtn.click(); }
+document.getElementById('todayBtn').onclick=()=>quickDate(0);
+document.getElementById('yestBtn').onclick=()=>quickDate(1);
+
+// ---- collapse panel (keeps the map visible, esp. on phones) ----
+const collapseBtn=document.getElementById('collapseBtn');
+function setCollapsed(c){ document.body.classList.toggle('collapsed',c);
+  collapseBtn.textContent=c?'▸':'▾'; collapseBtn.title=t(c?'expand':'collapse'); }
+collapseBtn.onclick=()=>setCollapsed(!document.body.classList.contains('collapsed'));
 
 // ---- language ----
 const langEl=document.getElementById('lang');
