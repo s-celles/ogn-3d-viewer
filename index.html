@@ -5,6 +5,12 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>OGN 3D Replay</title>
 <script src="https://unpkg.com/deck.gl@9.1.0/dist.min.js"></script>
+<!-- Pure-JS PNG decode for terrain tiles. deck.gl's TerrainLayer decodes terrarium
+     tiles in a Web Worker whose createImageBitmap mangles the RGB-encoded elevation
+     (visible as random spikes) when the page is *served over http*; file:// is spared
+     only because it can't spawn the worker. We bypass that pipeline entirely. -->
+<script src="https://cdn.jsdelivr.net/npm/pako@2.1.0/dist/pako.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/upng-js@2.1.0/UPNG.js"></script>
 <style>
   :root{ --bg:#0c1015; --card:rgba(18,24,33,.88); --line:rgba(255,255,255,.12);
          --txt:#e7edf3; --mut:#9fb0c0; --accent:#ff8c00; }
@@ -305,7 +311,7 @@ const I18N = {
 let lang = (navigator.language||'').toLowerCase().startsWith('fr') ? 'fr' : 'en';
 const t = k => (I18N[lang] && I18N[lang][k]) ?? I18N.fr[k] ?? k;
 
-const {Deck, MapView, FirstPersonView, TerrainLayer, PathLayer, TripsLayer,
+const {Deck, MapView, FirstPersonView, TileLayer, SimpleMeshLayer, PathLayer, TripsLayer,
        ScatterplotLayer, LightingEffect, AmbientLight, DirectionalLight} = deck;
 const TERRAIN='https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png';
 const TEXTURE='https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
@@ -323,13 +329,56 @@ const lighting = new LightingEffect({
   amb:new AmbientLight({color:[255,255,255],intensity:1.1}),
   sun:new DirectionalLight({color:[255,245,225],intensity:2.2,direction:[-0.6,-1,-0.5]})
 });
-function makeTerrain(){ const k=exo; return new TerrainLayer({
-  id:'terrain', minZoom:0, maxZoom:13, elevationData:TERRAIN, texture:TEXTURE,
-  elevationDecoder:{rScaler:256*k,gScaler:1*k,bScaler:k/256,offset:-32768*k},
-  // the browser otherwise applies colour management to the ImageBitmap, shifting the
-  // RGB-encoded elevation (R = 256 m/unit) and producing spurious spikes.
-  loadOptions:{ imagebitmap:{ premultiplyAlpha:'none', colorSpaceConversion:'none' } },
-  material:{ambient:0.4,diffuse:0.85,shininess:6,specularColor:[30,30,30]}, color:[255,255,255] }); }
+// ---- terrain: decode terrarium tiles in pure JS (UPNG) and build the mesh ourselves ----
+const TERRAIN_N = 96;   // grid resolution per tile
+function tileBBox(x,y,z){ const n=2**z;
+  const lng=xx=>xx/n*360-180, lat=yy=>{const m=Math.PI*(1-2*yy/n);return 180/Math.PI*Math.atan(Math.sinh(m));};
+  return {west:lng(x), east:lng(x+1), north:lat(y), south:lat(y+1)}; }
+function buildTerrainMesh(t, west, south, east, north){
+  const {rgba,w,h}=t, cols=TERRAIN_N, rows=TERRAIN_N, k=exo;
+  const positions=new Float32Array(cols*rows*3), normals=new Float32Array(cols*rows*3),
+        texCoords=new Float32Array(cols*rows*2), heights=new Float32Array(cols*rows);
+  const mPerLat=111320, mPerLng=111320*Math.cos((south+north)/2*Math.PI/180);
+  const elevAt=(px,py)=>{const i=(py*w+px)*4; return rgba[i]*256+rgba[i+1]+rgba[i+2]/256-32768;};
+  for(let r=0;r<rows;r++) for(let c=0;c<cols;c++){
+    const u=c/(cols-1), v=r/(rows-1);
+    const e=elevAt(Math.min(w-1,Math.round(u*(w-1))), Math.min(h-1,Math.round((1-v)*(h-1)))), idx=r*cols+c;
+    heights[idx]=e;
+    positions[idx*3]=(east-west)*mPerLng*u; positions[idx*3+1]=(north-south)*mPerLat*v; positions[idx*3+2]=e*k;
+    texCoords[idx*2]=u; texCoords[idx*2+1]=1-v;
+  }
+  const dx=(east-west)*mPerLng/(cols-1), dy=(north-south)*mPerLat/(rows-1);
+  for(let r=0;r<rows;r++) for(let c=0;c<cols;c++){
+    const idx=r*cols+c;
+    const hL=heights[r*cols+Math.max(0,c-1)], hR=heights[r*cols+Math.min(cols-1,c+1)];
+    const hD=heights[Math.max(0,r-1)*cols+c], hU=heights[Math.min(rows-1,r+1)*cols+c];
+    let nx=-(hR-hL)*k/(2*dx), ny=-(hU-hD)*k/(2*dy), nz=1; const L=Math.hypot(nx,ny,nz)||1;
+    normals[idx*3]=nx/L; normals[idx*3+1]=ny/L; normals[idx*3+2]=nz/L;
+  }
+  const indices=new Uint32Array((cols-1)*(rows-1)*6); let q=0;
+  for(let r=0;r<rows-1;r++) for(let c=0;c<cols-1;c++){
+    const a=r*cols+c, b=a+1, d=a+cols, e=d+1;
+    indices[q++]=a; indices[q++]=d; indices[q++]=b; indices[q++]=b; indices[q++]=d; indices[q++]=e;
+  }
+  return {attributes:{POSITION:{value:positions,size:3},NORMAL:{value:normals,size:3},TEXCOORD_0:{value:texCoords,size:2}},
+          indices:{value:indices,size:1}, mode:4};
+}
+const TERRAIN_ANCHOR=[{}];
+function makeTerrain(){ return new TileLayer({
+  id:'terrain', data:TERRAIN, minZoom:0, maxZoom:13, tileSize:256, maxCacheSize:300,
+  getTileData: async (tile)=>{ const {x,y,z}=tile.index||tile;
+    const url=TERRAIN.replace('{z}',z).replace('{x}',x).replace('{y}',y);
+    try{ const buf=await fetch(url,{signal:tile.signal}).then(r=>r.arrayBuffer());
+      const img=UPNG.decode(buf); return {rgba:new Uint8Array(UPNG.toRGBA8(img)[0]), w:img.width, h:img.height};
+    }catch(e){ return null; } },
+  renderSubLayers: (props)=>{ const t=props.data; if(!t) return null;
+    const {x,y,z}=props.tile.index, bb=tileBBox(x,y,z);
+    const turl=TEXTURE.replace('{z}',z).replace('{x}',x).replace('{y}',y);
+    return new SimpleMeshLayer({ id:String(props.id)+'-m', data:TERRAIN_ANCHOR, getPosition:()=>[bb.west,bb.south],
+      mesh: buildTerrainMesh(t, bb.west, bb.south, bb.east, bb.north), texture:turl,
+      getColor:[255,255,255], pickable:false,
+      material:{ambient:0.4,diffuse:0.85,shininess:6,specularColor:[30,30,30]} }); }
+}); }
 let terrainInst = makeTerrain();
 
 // ============ data fetching ============
