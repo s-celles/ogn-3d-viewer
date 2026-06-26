@@ -69,6 +69,13 @@ push sur `main`.
 Pour l'activer sur un fork : allez dans **Settings → Pages → Build and deployment
 → Source** et choisissez **GitHub Actions**.
 
+## Divulgation de l'usage de l'IA
+
+Ce projet a été développé avec l'aide d'outils d'IA. L'IA a contribué à la
+rédaction et à l'amélioration du code de l'application, du workflow de
+déploiement et de cette documentation. Toutes les productions ont été relues par
+un mainteneur humain avant publication.
+
 ## Licence
 
 Voir le dépôt pour les détails de licence. Les données OGN appartiennent à

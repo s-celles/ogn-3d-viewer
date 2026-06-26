@@ -68,6 +68,12 @@ workflow on every push to `main`.
 To enable it on a fork: go to **Settings → Pages → Build and deployment → Source**
 and select **GitHub Actions**.
 
+## AI assistance disclosure
+
+This project was developed with the assistance of AI tools. AI was used to help
+write and refine the application code, the deployment workflow and this
+documentation. All output was reviewed by a human maintainer before publication.
+
 ## License
 
 See the repository for license details. OGN data belongs to the
