@@ -47,6 +47,9 @@ the app via the ⓘ button:
 - No attitude data: the camera does not bank in turns.
 - **OGN keeps IGC tracks for only ~24 hours**, so older dates often have no replayable data.
 
+Please review and respect the official
+[OGN data usage policy](https://www.glidernet.org/ogn-data-usage/).
+
 ## Running locally
 
 Because everything runs client-side, you can just open the file — but a tiny
@@ -76,5 +79,10 @@ documentation. All output was reviewed by a human maintainer before publication.
 
 ## License
 
-See the repository for license details. OGN data belongs to the
-[Open Glider Network](http://wiki.glidernet.org/) and its contributors.
+Licensed under the **GNU Affero General Public License v3.0 (AGPL-3.0)** — see
+[`LICENSE`](LICENSE). In short: you may use, modify and redistribute this code,
+but if you run a modified version as a network service you must make your
+modified source available to its users.
+
+OGN data belongs to the [Open Glider Network](http://wiki.glidernet.org/) and
+its contributors.

@@ -252,7 +252,8 @@ const I18N = {
       "Seuls les aéronefs enregistrés et « suivis » dans la base OGN apparaissent ; les appareils anonymes ou non équipés sont absents.",
       "La position est interpolée entre les balises reçues : ce n'est pas exactement la trajectoire réellement volée.",
       "Altitude GNSS affichée sur un relief en MSL : léger flottement possible près du sol (écart géoïde de plusieurs dizaines de mètres).",
-      "Aucune donnée d'attitude : la caméra ne s'incline pas dans les virages. Traces IGC conservées ~24 h par OGN."
+      "Aucune donnée d'attitude : la caméra ne s'incline pas dans les virages. Traces IGC conservées ~24 h par OGN.",
+      "Usage des données : voir la <a href='https://www.glidernet.org/ogn-data-usage/' target='_blank' rel='noopener' style='color:var(--accent)'>politique d'usage des données OGN</a>."
     ]
   },
   en: {
@@ -284,7 +285,8 @@ const I18N = {
       "Only aircraft registered and “tracked” in the OGN database appear; anonymous or non-equipped aircraft are missing.",
       "Position is interpolated between received beacons: it is not exactly the path actually flown.",
       "GNSS altitude shown over MSL terrain: slight floating near the ground is possible (geoid offset of tens of metres).",
-      "No attitude data: the camera does not bank in turns. OGN keeps IGC tracks for ~24 h."
+      "No attitude data: the camera does not bank in turns. OGN keeps IGC tracks for ~24 h.",
+      "Data usage: see the <a href='https://www.glidernet.org/ogn-data-usage/' target='_blank' rel='noopener' style='color:var(--accent)'>OGN data usage policy</a>."
     ]
   }
 };
@@ -300,7 +302,7 @@ const TEXTURE='https://server.arcgisonline.com/ArcGIS/rest/services/World_Imager
 let AF=null, G0=0, G1=0, SPAN=1, TRACKS=[], ready=false;
 let exo=2.0, cur=0, playing=false, speed=30, solo=null;
 let mode='over', subject=null, fpvPitch=6, fpvFollow=true, freeCam={bearing:0,pitch:6};
-let trace='hist', windowMin=10;
+let trace='window', windowMin=10;
 let INIT={longitude:2.4, latitude:46.6, zoom:4.6, pitch:0, bearing:0, maxPitch:85};
 let mapVS={...INIT}, mapTarget={...INIT};
 
@@ -309,7 +311,7 @@ const lighting = new LightingEffect({
   sun:new DirectionalLight({color:[255,245,225],intensity:2.2,direction:[-0.6,-1,-0.5]})
 });
 function makeTerrain(){ const k=exo; return new TerrainLayer({
-  id:'terrain', minZoom:0, maxZoom:13, elevationData:TERRAIN, texture:TEXTURE,
+  id:'terrain', minZoom:0, maxZoom:15, elevationData:TERRAIN, texture:TEXTURE,
   elevationDecoder:{rScaler:256*k,gScaler:1*k,bScaler:k/256,offset:-32768*k},
   // the browser otherwise applies colour management to the ImageBitmap, shifting the
   // RGB-encoded elevation (R = 256 m/unit) and producing spurious spikes.
@@ -520,6 +522,7 @@ const traceEl=document.getElementById('trace');
 [['hist','traceHist'],['histfut','traceHistFut'],['window','traceWindow']].forEach(([v,key])=>{
   const o=document.createElement('option'); o.value=v; o.dataset.k=key; traceEl.appendChild(o); });
 traceEl.value=trace;
+document.body.classList.toggle('win', trace==='window'); // reflect the default (rolling window)
 traceEl.addEventListener('change', e=>{ trace=e.target.value;
   document.body.classList.toggle('win', trace==='window'); render(); });
 const winEl=document.getElementById('win'), winval=document.getElementById('winval');

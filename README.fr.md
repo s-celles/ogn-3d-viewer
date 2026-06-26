@@ -48,6 +48,9 @@ Les données OGN sont issues de la communauté et présentent quelques limites �
 - Aucune donnée d'attitude : la caméra ne s'incline pas dans les virages.
 - **OGN ne conserve les traces IGC que ~24 h**, les dates anciennes n'ont donc souvent aucune donnée rejouable.
 
+Merci de consulter et de respecter la
+[politique d'usage des données OGN](https://www.glidernet.org/ogn-data-usage/).
+
 ## Lancer en local
 
 Comme tout s'exécute côté client, vous pouvez simplement ouvrir le fichier — mais
@@ -78,5 +81,10 @@ un mainteneur humain avant publication.
 
 ## Licence
 
-Voir le dépôt pour les détails de licence. Les données OGN appartiennent à
-l'[Open Glider Network](http://wiki.glidernet.org/) et à ses contributeurs.
+Sous licence **GNU Affero General Public License v3.0 (AGPL-3.0)** — voir
+[`LICENSE`](LICENSE). En résumé : vous pouvez utiliser, modifier et redistribuer
+ce code, mais si vous exploitez une version modifiée comme service en réseau,
+vous devez en fournir le code source modifié à ses utilisateurs.
+
+Les données OGN appartiennent à l'[Open Glider Network](http://wiki.glidernet.org/)
+et à ses contributeurs.
