@@ -82,6 +82,13 @@
   .compass{width:42px;height:42px;cursor:pointer;flex:0 0 auto}
   .compass:hover circle{stroke:var(--accent)}
   #collapseBtn{padding:4px 8px;font-size:12px;font-weight:600}
+  #liveBtn.on{background:#e23b3b;color:#fff;border-color:#e23b3b}
+  /* Live badge + hide replay-only controls while live. */
+  #liveBadge{display:none;align-items:center;gap:6px;font-size:11px;font-weight:700;color:#ff6b6b;letter-spacing:.5px}
+  body.live #liveBadge{display:inline-flex}
+  body.live .liveHide{display:none!important}
+  .livedot{width:9px;height:9px;border-radius:50%;background:#ff3b3b;animation:livepulse 1.5s infinite}
+  @keyframes livepulse{0%{box-shadow:0 0 0 0 rgba(255,59,59,.55)}70%{box-shadow:0 0 0 7px rgba(255,59,59,0)}100%{box-shadow:0 0 0 0 rgba(255,59,59,0)}}
   /* Collapsed: keep only the header bar so the map stays visible (handy on phones). */
   body.collapsed #panel > :not(.hdr){display:none}
   body.collapsed #legend{display:none}
@@ -126,11 +133,12 @@
     <button id="todayBtn" data-i18n="today" style="flex:1">Aujourd'hui</button>
     <button id="yestBtn" data-i18n="yesterday" style="flex:1">Hier</button>
   </div>
+  <div class="row"><button id="liveBtn" data-i18n="live" style="flex:1">🔴 En direct</button></div>
   <div class="status" id="status"></div>
 
   <div id="controls">
     <div class="sep"></div>
-    <div class="row"><span class="clock"><span id="clk">--:--</span><small id="tz" data-i18n="localTz">…</small></span></div>
+    <div class="row"><span class="clock"><span id="clk">--:--</span><small id="tz" data-i18n="localTz">…</small></span><span id="liveBadge"><span class="livedot"></span><span data-i18n="liveLabel">EN DIRECT</span></span></div>
 
     <div class="row">
       <label class="lbl" style="margin:0" data-i18n="view">Vue</label>
@@ -154,11 +162,11 @@
       <input id="win" type="range" min="1" max="30" value="10" step="1">
     </div>
 
-    <div class="row">
+    <div class="row liveHide">
       <button id="play" class="on">⏸ Pause</button>
       <div class="seg" id="speeds"></div>
     </div>
-    <div class="row" style="flex-direction:column;align-items:stretch">
+    <div class="row liveHide" style="flex-direction:column;align-items:stretch">
       <label class="lbl" data-i18n="timeOfDay">Heure de la journée</label>
       <input id="scrub" type="range" min="0" max="1000" value="0" step="1">
     </div>
@@ -228,6 +236,7 @@ const I18N = {
     sub:"Choisissez un aérodrome (OACI) et une date, puis « Charger ».",
     airfieldLabel:"Aérodrome (OACI)", dateLabel:"Date", loadBtn:"Charger",
     today:"Aujourd'hui", yesterday:"Hier", collapse:"Réduire le panneau", expand:"Afficher le panneau",
+    live:"🔴 En direct", liveExit:"Quitter le direct", liveLabel:"EN DIRECT",
     loading:"Chargement…", searching:"Recherche…",
     noFlights:"Aucune trace exploitable ce jour.", errLoad:"Erreur de chargement.",
     flights:"trace(s)", tracksNote:"⚠ Les traces OGN ne sont gardées que ~24 h.",
@@ -261,6 +270,7 @@ const I18N = {
     sub:"Pick an airfield (ICAO) and a date, then “Load”.",
     airfieldLabel:"Airfield (ICAO)", dateLabel:"Date", loadBtn:"Load",
     today:"Today", yesterday:"Yesterday", collapse:"Collapse panel", expand:"Show panel",
+    live:"🔴 Live", liveExit:"Exit live", liveLabel:"LIVE",
     loading:"Loading…", searching:"Searching…",
     noFlights:"No usable track that day.", errLoad:"Loading error.",
     flights:"track(s)", tracksNote:"⚠ OGN tracks are only kept for ~24 h.",
@@ -303,6 +313,7 @@ let AF=null, G0=0, G1=0, SPAN=1, TRACKS=[], ready=false;
 let exo=2.0, cur=0, playing=false, speed=30, solo=null;
 let mode='over', subject=null, fpvPitch=6, fpvFollow=true, freeCam={bearing:0,pitch:6};
 let trace='window', windowMin=10;
+let live=false, liveTimer=null;
 let INIT={longitude:2.4, latitude:46.6, zoom:4.6, pitch:0, bearing:0, maxPitch:85};
 let mapVS={...INIT}, mapTarget={...INIT};
 
@@ -340,69 +351,109 @@ async function pool(items, n, worker){
 }
 function setStatus(msg, cls){ statusEl.className='status'+(cls?(' '+cls):''); statusEl.textContent=msg; }
 
+// Source tracks (path times = UTC seconds of day). RAW is the merge target for
+// live refreshes; rebuild() turns it into the render-ready TRACKS.
+let RAW=[], CURAF=null, CURTZ=0;
+const COLOR={}; let colorN=0;
+function colorFor(reg){ if(!(reg in COLOR)) COLOR[reg]=PALETTE[colorN++ % PALETTE.length]; return COLOR[reg]; }
+
+async function fetchData(icao, date, onlyActive){
+  const lb = await fetch(`${API_BASE}/api/logbook/${encodeURIComponent(icao)}/${date}`).then(r=>r.json());
+  const af = lb.airfield;
+  if(!af || !af.latlng) return null;
+  const tzoff = parseTz(af.time_info && af.time_info.tz_offset);
+  const devices = lb.devices||[], flights = lb.flights||[];
+  const nowTsp = Math.floor(Date.now()/1000);
+  let tasks = flights.map(f=>{
+    const dev = devices[f.device];
+    if(!dev || f.start_tsp==null || f.stop_tsp==null || dev.address[0]==='~' || dev.address[0]==='_') return null;
+    return {dev, t0:f.start_tsp-30, t1:f.stop_tsp+30, maxalt:f.max_alt, stop:f.stop_tsp};
+  }).filter(Boolean);
+  // Live refresh only re-fetches flights seen in the last ~20 min (the growing ones).
+  if(onlyActive) tasks = tasks.filter(t=>t.stop >= nowTsp-1200);
+  const tracks=[];
+  await pool(tasks, 4, async (task)=>{
+    try{
+      const txt = await fetch(`${API_BASE}/api/live/igc/${task.dev.address}/${task.t0}/${task.t1}?date=${date}`).then(r=>r.text());
+      const pts = parseIGC(txt);
+      if(pts.length>=2) tracks.push({
+        label: task.dev.aircraft || task.dev.aircraft_type || '?',
+        reg:   task.dev.registration || task.dev.competition || task.dev.address.slice(-5),
+        path:  pts, tstart:pts[0][3], tend:pts[pts.length-1][3],
+        maxalt:task.maxalt || Math.max(...pts.map(p=>p[2]))
+      });
+    }catch(e){ /* IGC indispo (>24 h ou pas de réception) */ }
+  });
+  return {af, tzoff, tracks};
+}
+
+function statusMsg(date, n){
+  let msg = n+' '+t('flights');
+  const today = new Date().toISOString().slice(0,10);
+  if(live) msg = t('liveLabel')+' · '+msg;
+  else if(date && date!==today) msg += ' · ' + t('tracksNote');
+  setStatus(msg, (!live && date && date!==today) ? 'warn' : '');
+}
+
 async function loadFlights(icao, date){
   if(!icao || icao.length<3){ setStatus(t('errLoad'),'err'); return; }
   loadBtn.disabled=true; setStatus(t('loading'));
   try{
-    const lb = await fetch(`${API_BASE}/api/logbook/${encodeURIComponent(icao)}/${date}`).then(r=>r.json());
-    const af = lb.airfield;
-    if(!af || !af.latlng){ setStatus(t('noFlights')); loadBtn.disabled=false; return; }
-    const tzoff = parseTz(af.time_info && af.time_info.tz_offset);
-    const devices = lb.devices||[], flights = lb.flights||[];
-    const tasks = flights.map(f=>{
-      const dev = devices[f.device];
-      if(!dev || f.start_tsp==null || f.stop_tsp==null || dev.address[0]==='~' || dev.address[0]==='_') return null;
-      return {dev, t0:f.start_tsp-30, t1:f.stop_tsp+30, maxalt:f.max_alt};
-    }).filter(Boolean);
-
-    const tracks=[];
-    await pool(tasks, 4, async (task)=>{
-      try{
-        const txt = await fetch(`${API_BASE}/api/live/igc/${task.dev.address}/${task.t0}/${task.t1}?date=${date}`).then(r=>r.text());
-        const pts = parseIGC(txt);
-        if(pts.length>=2) tracks.push({
-          label: task.dev.aircraft || task.dev.aircraft_type || '?',
-          reg:   task.dev.registration || task.dev.competition || task.dev.address.slice(-5),
-          path:  pts, tstart:pts[0][3], tend:pts[pts.length-1][3],
-          maxalt:task.maxalt || Math.max(...pts.map(p=>p[2]))
-        });
-      }catch(e){ /* IGC indispo (>24 h ou pas de réception) */ }
-    });
-
-    if(!tracks.length){ setStatus(t('noFlights')); loadBtn.disabled=false; return; }
-    tracks.sort((a,b)=>a.tstart-b.tstart);
-    tracks.forEach((tr,i)=>tr.color = PALETTE[i%PALETTE.length]);
-    const g0=Math.min(...tracks.map(x=>x.tstart)), g1=Math.max(...tracks.map(x=>x.tend));
-    applyData({ airfield:{name:af.name, code:af.code, lon:af.latlng[1], lat:af.latlng[0],
-                          elev:af.elevation||0, tz_off:tzoff}, g0, g1, tracks });
-    let msg = tracks.length+' '+t('flights');
-    const today = new Date().toISOString().slice(0,10);
-    if(date!==today) msg += ' · ' + t('tracksNote');
-    setStatus(msg, date!==today ? 'warn' : '');
+    const res = await fetchData(icao, date, false);
+    if(!res){ setStatus(t('noFlights')); loadBtn.disabled=false; return; }
+    RAW = res.tracks;
+    if(!RAW.length){ setStatus(t('noFlights')); loadBtn.disabled=false; return; }
+    rebuild(res.af, res.tzoff, false);
+    statusMsg(date, RAW.length);
   }catch(e){ setStatus(t('errLoad'),'err'); }
   loadBtn.disabled=false;
 }
 
-function applyData(DATA){
-  AF=DATA.airfield; G0=DATA.g0; G1=DATA.g1; SPAN=Math.max(1,G1-G0);
-  TRACKS = DATA.tracks.map(tr=>({...tr,
+// Build render-ready state from RAW. preserve=true keeps the current view,
+// subject, camera and cursor (used by live refresh); false = fresh load.
+function rebuild(af, tzoff, preserve){
+  if(af) CURAF=af; if(tzoff!=null) CURTZ=tzoff;
+  const tracks = RAW.slice().sort((a,b)=>a.tstart-b.tstart);
+  tracks.forEach(tr=>tr.color = colorFor(tr.reg));
+  const g0=Math.min(...tracks.map(x=>x.tstart)), g1=Math.max(...tracks.map(x=>x.tend));
+  AF={name:CURAF.name, code:CURAF.code, lon:CURAF.latlng[1], lat:CURAF.latlng[0], elev:CURAF.elevation||0, tz_off:CURTZ};
+  G0=g0; G1=g1; SPAN=Math.max(1,G1-G0);
+  TRACKS = tracks.map(tr=>({...tr,
     rel: tr.path.map(p=>[p[0],p[1],p[2],p[3]-G0]), rstart:tr.tstart-G0, rend:tr.tend-G0}));
-  subject = TRACKS[0].reg; solo=null; cur=0; playing=true; mode='over';
-  document.body.classList.remove('fpv'); applyFollowClass();
-  // subject select
+  if(!preserve){
+    subject = TRACKS[0].reg; solo=null; cur=0; playing=true; mode='over';
+    document.body.classList.remove('fpv'); applyFollowClass();
+    INIT={longitude:AF.lon, latitude:AF.lat, zoom:11.3, pitch:62, bearing:0, maxPitch:85};
+    mapTarget={...INIT};
+  } else {
+    if(!TRACKS.some(t=>t.reg===subject)) subject=TRACKS[0].reg;
+    if(solo && !TRACKS.some(t=>t.reg===solo)) solo=null;
+  }
   subjEl.innerHTML='';
   TRACKS.forEach(tr=>{ const o=document.createElement('option'); o.value=tr.reg;
     o.textContent=`${tr.reg} — ${tr.label}`; subjEl.appendChild(o); });
   subjEl.value=subject;
-  // camera: keep current view and fly down to the airfield
-  INIT={longitude:AF.lon, latitude:AF.lat, zoom:11.3, pitch:62, bearing:0, maxPitch:85};
-  mapTarget={...INIT};
   ready=true; document.body.classList.add('loaded');
-  [...viewsEl.children].forEach(c=>c.classList.toggle('on', c.dataset.m==='over'));
-  playBtn.textContent=t('pause'); playBtn.classList.add('on');
+  [...viewsEl.children].forEach(c=>c.classList.toggle('on', c.dataset.m===mode));
+  playBtn.textContent=playing?t('pause'):t('play'); playBtn.classList.toggle('on',playing);
   buildLegend(); render(); syncUI();
-  // On a phone, fold the panel away so the freshly loaded map is visible.
-  if(window.innerWidth<=640) setCollapsed(true);
+  if(!preserve && window.innerWidth<=640) setCollapsed(true);
+}
+
+async function refreshLive(){
+  if(!live) return;
+  try{
+    const today = new Date().toISOString().slice(0,10);
+    const res = await fetchData(icaoEl.value.trim().toUpperCase(), today, true);
+    if(res && res.tracks.length){
+      const byReg = new Map(RAW.map(tr=>[tr.reg,tr]));
+      res.tracks.forEach(tr=>byReg.set(tr.reg,tr)); // upsert active flights
+      RAW=[...byReg.values()];
+      rebuild(res.af, res.tzoff, true);
+      statusMsg(null, RAW.length);
+    }
+  }catch(e){ /* transient network error: keep last frame, try again next tick */ }
+  if(live) liveTimer=setTimeout(refreshLive, 20000);
 }
 
 // ============ viewer ============
@@ -588,14 +639,29 @@ icaoEl.addEventListener('input', ()=>{ const q=icaoEl.value.trim(); clearTimeout
 });
 document.addEventListener('click', e=>{ if(!e.target.closest('.ac')) acEl.classList.remove('open'); });
 icaoEl.addEventListener('keydown', e=>{ if(e.key==='Enter'){ acEl.classList.remove('open'); loadBtn.click(); } });
-loadBtn.onclick=()=>{ loadFlights(icaoEl.value.trim().toUpperCase(), dateEl.value); };
+loadBtn.onclick=()=>{ stopLive(); loadFlights(icaoEl.value.trim().toUpperCase(), dateEl.value); };
 
 // ---- quick date (today / yesterday) ----
-function quickDate(daysAgo){ const d=new Date(); d.setDate(d.getDate()-daysAgo);
+function quickDate(daysAgo){ stopLive(); const d=new Date(); d.setDate(d.getDate()-daysAgo);
   dateEl.value=d.toISOString().slice(0,10);
-  if(icaoEl.value.trim().length>=2) loadBtn.click(); }
+  if(icaoEl.value.trim().length>=2) loadFlights(icaoEl.value.trim().toUpperCase(), dateEl.value); }
 document.getElementById('todayBtn').onclick=()=>quickDate(0);
 document.getElementById('yestBtn').onclick=()=>quickDate(1);
+
+// ---- live mode (real-time, auto-refreshing) ----
+const liveBtn=document.getElementById('liveBtn');
+function stopLive(){ live=false; clearTimeout(liveTimer); liveTimer=null;
+  document.body.classList.remove('live'); liveBtn.classList.remove('on'); liveBtn.title=t('live');
+  if(ready){ playing=false; playBtn.textContent=t('play'); playBtn.classList.remove('on'); } }
+async function setLive(){
+  if(live){ stopLive(); return; }
+  live=true; document.body.classList.add('live'); liveBtn.classList.add('on'); liveBtn.title=t('liveExit');
+  dateEl.value=new Date().toISOString().slice(0,10);
+  await loadFlights(icaoEl.value.trim().toUpperCase(), dateEl.value);
+  if(live){ if(ready) statusMsg(dateEl.value, RAW.length); else setStatus(t('noFlights'));
+    clearTimeout(liveTimer); liveTimer=setTimeout(refreshLive, 20000); } // keep polling (waits for first flight too)
+}
+liveBtn.onclick=setLive;
 
 // ---- collapse panel (keeps the map visible, esp. on phones) ----
 const collapseBtn=document.getElementById('collapseBtn');
@@ -649,9 +715,11 @@ const todayStr=new Date().toISOString().slice(0,10);
 dateEl.value=todayStr; dateEl.max=todayStr;
 applyI18n(); applyFollowClass(); syncUI();
 
+const nowSod=()=> (Date.now()/1000) % 86400; // current UTC seconds-of-day
 let last=performance.now();
 function frame(now){ const dt=(now-last)/1000; last=now;
-  if(ready && playing){ cur+=dt*speed; if(cur>SPAN+300) cur=0; syncUI(); }
+  if(ready && live){ cur=Math.max(0, nowSod()-G0); syncUI(); }       // pin to real time
+  else if(ready && playing){ cur+=dt*speed; if(cur>SPAN+300) cur=0; syncUI(); }
   if(mode==='over') easeCamera();
   updateCompass(); render(); requestAnimationFrame(frame); }
 requestAnimationFrame(frame);
