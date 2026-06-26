@@ -312,7 +312,7 @@ let lang = (navigator.language||'').toLowerCase().startsWith('fr') ? 'fr' : 'en'
 const t = k => (I18N[lang] && I18N[lang][k]) ?? I18N.fr[k] ?? k;
 
 const {Deck, MapView, FirstPersonView, TileLayer, SimpleMeshLayer, PathLayer, TripsLayer,
-       ScatterplotLayer, LightingEffect, AmbientLight, DirectionalLight} = deck;
+       ScatterplotLayer, LightingEffect, AmbientLight, DirectionalLight, COORDINATE_SYSTEM} = deck;
 const TERRAIN='https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png';
 const TEXTURE='https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
 
@@ -344,7 +344,7 @@ function buildTerrainMesh(t, west, south, east, north){
     const u=c/(cols-1), v=r/(rows-1);
     const e=elevAt(Math.min(w-1,Math.round(u*(w-1))), Math.min(h-1,Math.round((1-v)*(h-1)))), idx=r*cols+c;
     heights[idx]=e;
-    positions[idx*3]=(east-west)*mPerLng*u; positions[idx*3+1]=(north-south)*mPerLat*v; positions[idx*3+2]=e*k;
+    positions[idx*3]=west+(east-west)*u; positions[idx*3+1]=south+(north-south)*v; positions[idx*3+2]=e*k;
     texCoords[idx*2]=u; texCoords[idx*2+1]=1-v;
   }
   const dx=(east-west)*mPerLng/(cols-1), dy=(north-south)*mPerLat/(rows-1);
@@ -374,7 +374,8 @@ function makeTerrain(){ return new TileLayer({
   renderSubLayers: (props)=>{ const t=props.data; if(!t) return null;
     const {x,y,z}=props.tile.index, bb=tileBBox(x,y,z);
     const turl=TEXTURE.replace('{z}',z).replace('{x}',x).replace('{y}',y);
-    return new SimpleMeshLayer({ id:String(props.id)+'-m', data:TERRAIN_ANCHOR, getPosition:()=>[bb.west,bb.south],
+    return new SimpleMeshLayer({ id:String(props.id)+'-m', data:TERRAIN_ANCHOR, getPosition:()=>[0,0,0],
+      _instanced:false, coordinateSystem:COORDINATE_SYSTEM.LNGLAT,
       mesh: buildTerrainMesh(t, bb.west, bb.south, bb.east, bb.north), texture:turl,
       getColor:[255,255,255], pickable:false,
       material:{ambient:0.4,diffuse:0.85,shininess:6,specularColor:[30,30,30]} }); }
