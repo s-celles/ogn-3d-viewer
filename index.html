@@ -15,7 +15,7 @@
   .card{position:fixed;background:var(--card);backdrop-filter:blur(8px);
         border:1px solid var(--line);border-radius:12px;padding:12px 14px;
         box-shadow:0 8px 30px rgba(0,0,0,.45)}
-  #panel{top:12px;left:12px;width:320px;max-width:calc(100vw - 24px);max-height:calc(100vh - 24px);overflow:auto}
+  #panel{top:12px;left:12px;width:320px;max-width:calc(100vw - 24px);max-height:calc(100vh - 24px);overflow:auto;z-index:3}
   #panel h1{font-size:14px;margin:0 0 2px;font-weight:650}
   #panel .sub{font-size:11px;color:var(--mut);margin-bottom:10px;line-height:1.35}
   .row{display:flex;align-items:center;gap:8px;margin:9px 0}
@@ -52,7 +52,9 @@
   #controls{transition:opacity .2s}
   body:not(.loaded) #controls{opacity:.35;pointer-events:none}
   body:not(.loaded) #legend, body:not(.loaded) #nav, body:not(.loaded) #hud{display:none !important}
-  #legend{bottom:12px;left:12px;width:320px;max-width:calc(100vw - 24px);font-size:12px}
+  /* z-index below the panel so a tall legend never paints over the panel's
+     lower controls (e.g. the time-of-day scrubber) on busy days. */
+  #legend{bottom:12px;left:12px;width:320px;max-width:calc(100vw - 24px);font-size:12px;z-index:2;max-height:48vh;overflow:auto}
   /* Cap the glider list so a busy day doesn't grow the legend off-screen. */
   #lglist{max-height:34vh;overflow-y:auto}
   #legend .lg{display:flex;align-items:center;gap:8px;margin:5px 0;font-variant-numeric:tabular-nums}
