@@ -53,6 +53,8 @@
   body:not(.loaded) #controls{opacity:.35;pointer-events:none}
   body:not(.loaded) #legend, body:not(.loaded) #nav, body:not(.loaded) #hud{display:none !important}
   #legend{bottom:12px;left:12px;width:320px;max-width:calc(100vw - 24px);font-size:12px}
+  /* Cap the glider list so a busy day doesn't grow the legend off-screen. */
+  #lglist{max-height:34vh;overflow-y:auto}
   #legend .lg{display:flex;align-items:center;gap:8px;margin:5px 0;font-variant-numeric:tabular-nums}
   .dot{width:11px;height:11px;border-radius:50%;flex:0 0 auto;border:1px solid rgba(255,255,255,.5)}
   .reg{font-weight:600;width:64px}
