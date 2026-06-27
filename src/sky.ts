@@ -71,9 +71,16 @@ export function skyColors(elev: number): { zenith: RGB; horizon: RGB } {
 
 const clamp = (x: number, a: number, b: number) => Math.max(a, Math.min(b, x));
 
-// Sun light params for deck's LightingEffect, derived from the sun elevation.
-export interface SunLight { dir: [number, number, number]; intensity: number; color: RGB; ambient: number; }
-let sun: SunLight = { dir: [-0.6, -1, -0.5], intensity: 2.4, color: [255, 245, 225], ambient: 1.05 };
+// Sun params: deck LightingEffect inputs + sky-disc info (direction toward the
+// sun, whether it's above the horizon, and the disc colour).
+export interface SunLight {
+  dir: [number, number, number]; intensity: number; color: RGB; ambient: number;
+  toward: [number, number, number]; up: boolean; disc: RGB;
+}
+let sun: SunLight = {
+  dir: [-0.6, -1, -0.5], intensity: 2.4, color: [255, 245, 225], ambient: 1.05,
+  toward: [0.6, 1, 0.5], up: false, disc: [255, 240, 220],
+};
 export const getSun = (): SunLight => sun;
 
 let lastKey = '';
@@ -104,10 +111,15 @@ export function updateSky(): void {
   const altL = Math.min(alt, 52 * RAD);
   const day = clamp((altDeg + 4) / 10, 0, 1);               // 1 above ~6°, 0 below ~-4°
   const warm = clamp((10 - altDeg) / 24, 0, 0.8);           // warmer toward the horizon
+  const ca = Math.cos(alt), sa = Math.sin(alt);
   sun = {
     dir: [Math.cos(altL) * Math.sin(az), Math.cos(altL) * Math.cos(az), -Math.sin(altL)],
     intensity: 1.4 * day,
     color: mix([255, 247, 232], [255, 165, 100], warm),
     ambient: 0.4 + 0.45 * day,
+    // Unit vector toward the sun (ENU: east, north, up) at the real elevation.
+    toward: [-ca * Math.sin(az), -ca * Math.cos(az), sa],
+    up: altDeg > -0.5,
+    disc: mix([255, 130, 62], [255, 250, 235], clamp((altDeg + 2) / 14, 0, 1)),
   };
 }

@@ -75,6 +75,25 @@ function dynamicLayers() {
       sizeScale: MODEL_SCALE, material: aircraftMaterial as any, parameters: { depthTest: true } as any }),
     new ScatterplotLayer({ id: 'airfield', data: S.AF ? [{ pos: [S.AF.lon, S.AF.lat, S.AF.elev * k] as Pos3 }] : [], getPosition: (d: any) => d.pos,
       getFillColor: [255, 60, 60], getRadius: 6, radiusUnits: 'pixels', stroked: true, lineWidthMinPixels: 1.5, getLineColor: [255, 255, 255] }),
+    ...sunLayers(),
+  ];
+}
+
+// The sun disc + glow, drawn on top (depthTest off) at a far point in the sun's
+// direction so it sits in the sky. Distance is kept inside the views' far plane.
+function sunLayers() {
+  const s = getSun();
+  if (!s.up || !S.AF) return [];
+  const [tx, ty, tz] = s.toward, D = 60000; // 60 km along the 3D sun direction (inside the far plane)
+  const lon = S.AF.lon + (D * tx) / (111320 * Math.cos(S.AF.lat * Math.PI / 180));
+  const lat = S.AF.lat + (D * ty) / 111320;
+  const pos = [lon, lat, (S.AF.elev || 0) + D * tz] as Pos3;
+  const data = [{ pos }], c = s.disc;
+  return [
+    new ScatterplotLayer({ id: 'sun-glow', data, getPosition: (d: any) => d.pos, getFillColor: [...c, 45] as any,
+      getRadius: 46, radiusUnits: 'pixels' }),
+    new ScatterplotLayer({ id: 'sun', data, getPosition: (d: any) => d.pos, getFillColor: [...c, 255] as any,
+      getRadius: 15, radiusUnits: 'pixels' }),
   ];
 }
 
@@ -129,6 +148,8 @@ export function initDeck(): void {
 }
 
 export function render(): void {
+  updateSky();        // recompute sky colours + sun (before building the layers)
+  applySunLight();
   if (S.mode === 'over') {
     deckgl.setProps({
       views: [new MapView({ id: 'main' })], viewState: { main: S.mapVS }, controller: { keyboard: false },
@@ -148,8 +169,6 @@ export function render(): void {
     updateHUD();
   }
   feedVarioSound();
-  updateSky();
-  applySunLight();
 }
 
 // Drive the audio variometer from the followed glider's Vz (cockpit & chase only,
