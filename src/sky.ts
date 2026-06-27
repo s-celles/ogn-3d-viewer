@@ -7,9 +7,10 @@ import { S } from './state';
 
 const RAD = Math.PI / 180;
 
-// Sun altitude (degrees above the horizon) for a UTC instant and location.
-// Compact SunCalc / NOAA solar-position formula.
-export function sunAltitudeDeg(ms: number, lat: number, lon: number): number {
+// Sun altitude + azimuth (radians) for a UTC instant and location. Compact
+// SunCalc / NOAA solar-position formula. Azimuth follows SunCalc: measured from
+// south, positive toward west.
+function solar(ms: number, lat: number, lon: number): { alt: number; az: number } {
   const d = ms / 86400000 - 0.5 + 2440588 - 2451545;       // days since J2000.0
   const M = RAD * (357.5291 + 0.98560028 * d);              // solar mean anomaly
   const C = RAD * (1.9148 * Math.sin(M) + 0.02 * Math.sin(2 * M) + 0.0003 * Math.sin(3 * M)); // equation of center
@@ -21,7 +22,20 @@ export function sunAltitudeDeg(ms: number, lat: number, lon: number): number {
   const H = th - ra;                                        // hour angle
   const phi = RAD * lat;
   const alt = Math.asin(Math.sin(phi) * Math.sin(dec) + Math.cos(phi) * Math.cos(dec) * Math.cos(H));
-  return alt / RAD;
+  const az = Math.atan2(Math.sin(H), Math.cos(H) * Math.sin(phi) - Math.tan(dec) * Math.cos(phi));
+  return { alt, az };
+}
+
+// Sun altitude in degrees above the horizon.
+export function sunAltitudeDeg(ms: number, lat: number, lon: number): number {
+  return solar(ms, lat, lon).alt / RAD;
+}
+
+// deck.gl DirectionalLight `direction` (the way light travels: from the sun to
+// the scene) in LNGLAT common space (x=east, y=north, z=up). Unit vector.
+export function sunLightDir(ms: number, lat: number, lon: number): [number, number, number] {
+  const { alt, az } = solar(ms, lat, lon);
+  return [Math.cos(alt) * Math.sin(az), Math.cos(alt) * Math.cos(az), -Math.sin(alt)];
 }
 
 type RGB = [number, number, number];
@@ -55,9 +69,17 @@ export function skyColors(elev: number): { zenith: RGB; horizon: RGB } {
   return { zenith: last[1], horizon: last[2] };
 }
 
+const clamp = (x: number, a: number, b: number) => Math.max(a, Math.min(b, x));
+
+// Sun light params for deck's LightingEffect, derived from the sun elevation.
+export interface SunLight { dir: [number, number, number]; intensity: number; color: RGB; ambient: number; }
+let sun: SunLight = { dir: [-0.6, -1, -0.5], intensity: 2.4, color: [255, 245, 225], ambient: 1.05 };
+export const getSun = (): SunLight => sun;
+
 let lastKey = '';
-// Recompute the sky from the current position/date/time and update the CSS
-// variables. Throttled to once per simulated minute. Called each render.
+// Recompute the sky colours AND the sun light from the current position / date /
+// time, so the terrain shading matches the time of day. Throttled to once per
+// simulated minute; called each render.
 export function updateSky(): void {
   if (!S.ready || !S.AF || !S.date) return;
   const utcSod = S.G0 + S.cur;                              // UTC seconds-of-day
@@ -65,8 +87,27 @@ export function updateSky(): void {
   if (key === lastKey) return; lastKey = key;
   const ms = Date.parse(S.date + 'T00:00:00Z') + utcSod * 1000;
   if (!Number.isFinite(ms)) return;
-  const { zenith, horizon } = skyColors(sunAltitudeDeg(ms, S.AF.lat, S.AF.lon));
+
+  const { alt, az } = solar(ms, S.AF.lat, S.AF.lon);
+  const altDeg = alt / RAD;
+
+  // Sky gradient.
+  const { zenith, horizon } = skyColors(altDeg);
   const css = document.documentElement.style;
   css.setProperty('--sky-zenith', `rgb(${zenith.join(',')})`);
   css.setProperty('--sky-horizon', `rgb(${horizon.join(',')})`);
+
+  // Sun light: direction from the sun position, intensity fading to night,
+  // colour warming near the horizon, ambient dimming after dark. The light
+  // elevation is capped so it stays oblique even at noon — a near-overhead sun
+  // hits the bright satellite texture face-on and washes it out to white/yellow.
+  const altL = Math.min(alt, 52 * RAD);
+  const day = clamp((altDeg + 4) / 10, 0, 1);               // 1 above ~6°, 0 below ~-4°
+  const warm = clamp((10 - altDeg) / 24, 0, 0.8);           // warmer toward the horizon
+  sun = {
+    dir: [Math.cos(altL) * Math.sin(az), Math.cos(altL) * Math.cos(az), -Math.sin(altL)],
+    intensity: 1.4 * day,
+    color: mix([255, 247, 232], [255, 165, 100], warm),
+    ambient: 0.4 + 0.45 * day,
+  };
 }

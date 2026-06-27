@@ -8,7 +8,7 @@ import {
 } from './deck';
 import { makeTerrain } from './terrain';
 import { varioAudio } from './vario-audio';
-import { updateSky } from './sky';
+import { updateSky, getSun } from './sky';
 import { subjectTrack, shown, scaled, posAt, airborne, slice, headingAt, varioAt, compVarioAt, clampCur, attitudeAt } from './flight-math';
 import { GLIDER_MESH, PLANE_MESH, isPowered } from './aircraft-mesh';
 import { CHASE, MODEL_SCALE } from './config';
@@ -17,10 +17,16 @@ import type { RGB, Pos3 } from './types';
 interface PathDatum { color: RGB; pts: Pos3[]; }
 interface AircraftDatum { pos: Pos3; orient: [number, number, number]; c: RGB; }
 
-const lighting = new LightingEffect({
-  amb: new AmbientLight({ color: [255, 255, 255], intensity: 1.1 }),
-  sun: new DirectionalLight({ color: [255, 245, 225], intensity: 2.2, direction: [-0.6, -1, -0.5] }),
-});
+const ambLight = new AmbientLight({ color: [255, 255, 255], intensity: 1.1 });
+const sunLight = new DirectionalLight({ color: [255, 245, 225], intensity: 2.2, direction: [-0.6, -1, -0.5] });
+const lighting = new LightingEffect({ amb: ambLight, sun: sunLight });
+
+// Apply the time-of-day sun light (deck reads these each render).
+function applySunLight(): void {
+  const s = getSun();
+  sunLight.direction = s.dir; sunLight.intensity = s.intensity; sunLight.color = s.color;
+  ambLight.intensity = s.ambient;
+}
 
 // The glider/airfield/terrain layers, rebuilt every frame from the cursor.
 function dynamicLayers() {
@@ -143,6 +149,7 @@ export function render(): void {
   }
   feedVarioSound();
   updateSky();
+  applySunLight();
 }
 
 // Drive the audio variometer from the followed glider's Vz (cockpit & chase only,

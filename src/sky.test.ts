@@ -1,5 +1,5 @@
 import { test, expect } from 'bun:test';
-import { sunAltitudeDeg, skyColors } from './sky';
+import { sunAltitudeDeg, skyColors, sunLightDir } from './sky';
 
 const ms = (iso: string) => Date.parse(iso);
 
@@ -17,6 +17,19 @@ test('sunAltitudeDeg: winter noon is much lower than summer noon', () => {
   const winter = sunAltitudeDeg(ms('2026-12-21T12:00:00Z'), 45, 0);
   expect(winter).toBeLessThan(summer - 30); // ~22° vs ~68°
   expect(winter).toBeGreaterThan(0);
+});
+
+test('sunLightDir: light travels down at noon, from the east at sunrise / west at sunset', () => {
+  // Noon: sun overhead-ish → light travels downward (z < 0)
+  expect(sunLightDir(ms('2026-06-21T12:00:00Z'), 45, 0)[2]).toBeLessThan(-0.3);
+  // Morning (sun in the east) → light travels westward (x < 0); evening → eastward (x > 0)
+  const morning = sunLightDir(ms('2026-06-21T05:30:00Z'), 45, 0);
+  const evening = sunLightDir(ms('2026-06-21T18:30:00Z'), 45, 0);
+  expect(morning[0]).toBeLessThan(0);
+  expect(evening[0]).toBeGreaterThan(0);
+  // direction is a unit vector
+  const L = Math.hypot(...sunLightDir(ms('2026-06-21T12:00:00Z'), 45, 0));
+  expect(L).toBeCloseTo(1, 6);
 });
 
 test('skyColors: blue by day, warm near the horizon, dark at night', () => {
