@@ -4,7 +4,7 @@ import { t, I18N } from './i18n';
 import { API_BASE, REPO_URL, MINZ, MAXZ, PMIN, PMAX, clampv } from './config';
 import {
   subjEl, viewsEl, cammodeEl, traceEl, smoothBtn, compBtn, bankBtn, soundBtn, winEl, winval, playBtn, segEl,
-  exoEl, exval, pitchEl, pitchval, scrub, clkEl, lglist, rose, icaoEl, acEl,
+  exoEl, exval, pitchEl, pitchval, scrub, clkEl, lglist, rose, altsl, icaoEl, acEl,
   dateEl, loadBtn, langEl, discEl, infoBtn, collapseBtn, liveBtn,
 } from './dom';
 import { subjectTrack, airborne, headingAt, clampCur, fmt } from './flight-math';
@@ -139,7 +139,22 @@ export function easeCamera(): void {
     pitch: S.mapVS.pitch + (S.mapTarget.pitch - S.mapVS.pitch) * e, bearing: S.mapVS.bearing + d * e,
   };
 }
-export function updateCompass(): void { if (rose) rose.setAttribute('transform', 'rotate(' + (-(S.mapVS.bearing || 0)) + ' 20 20)'); }
+// Viewpoint-altitude slider ⇄ camera pitch. At fixed zoom (distance) and a fixed
+// look-at point, raising the eye = orbiting toward overhead = a SMALLER pitch
+// (pitch 0 is straight-down). The native vertical range runs min→max top→bottom,
+// so binding pitch = value puts the top (pitch 0) = highest viewpoint: dragging
+// up raises the eye. Only the height changes; the centred point you observe does
+// not (this is independent of zoom).
+if (altsl) {
+  altsl.min = String(PMIN); altsl.max = String(PMAX);
+  altsl.addEventListener('input', () => { S.mapTarget.pitch = clampv(+altsl.value, PMIN, PMAX); });
+}
+
+export function updateCompass(): void {
+  if (rose) rose.setAttribute('transform', 'rotate(' + (-(S.mapVS.bearing || 0)) + ' 20 20)');
+  // Keep the altitude slider in sync with drag/tilt-button pitch, unless dragged.
+  if (altsl && document.activeElement !== altsl) altsl.value = String(S.mapVS.pitch);
+}
 const NAV: Record<string, () => void> = {
   rotL: () => S.mapTarget.bearing -= 30, rotR: () => S.mapTarget.bearing += 30,
   tiltUp: () => S.mapTarget.pitch = clampv(S.mapTarget.pitch + 12, PMIN, PMAX), tiltDn: () => S.mapTarget.pitch = clampv(S.mapTarget.pitch - 12, PMIN, PMAX),

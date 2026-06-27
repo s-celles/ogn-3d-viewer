@@ -29,6 +29,7 @@ export const scrub      = $<HTMLInputElement>('scrub');
 export const clkEl      = $('clk');
 export const lglist     = $('lglist');
 export const rose       = $<SVGGElement>('rose');
+export const altsl      = $<HTMLInputElement>('altsl');
 export const icaoEl     = $<HTMLInputElement>('icao');
 export const acEl       = $('aclist');
 export const dateEl     = $<HTMLInputElement>('date');
