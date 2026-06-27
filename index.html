@@ -72,6 +72,10 @@
       <label class="lbl" style="margin:0" data-i18n="sound">Son du vario</label>
       <button id="soundBtn" class="on">Activé</button>
     </div>
+    <div class="row subjOnly spread">
+      <label class="lbl" style="margin:0" data-i18n="antiColl">Anti-collision</label>
+      <button id="trafficBtn" class="on">Activé</button>
+    </div>
     <div class="row spread">
       <label class="lbl" style="margin:0" data-i18n="graphs">Graphes</label>
       <select id="graphMode" style="width:auto;flex:0 0 auto"></select>
@@ -174,6 +178,10 @@
   <div id="graphTabs" class="seg"></div>
   <button id="graphClose" title="">✕</button>
   <canvas id="graphCanvas"></canvas>
+</div>
+
+<div id="traffic" class="card">
+  <canvas id="trafficCanvas"></canvas>
 </div>
 
 <div id="hud" class="card">

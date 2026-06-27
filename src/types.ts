@@ -127,6 +127,7 @@ export interface AppState {
   spline: boolean;
   compensated: boolean;
   sound: boolean;
+  traffic: boolean;       // traffic-awareness radar (focus views)
   graphMode: GraphMode;   // time-series graphs drawer mode (off = hidden)
   live: boolean;
   liveTimer: ReturnType<typeof setTimeout> | null;

@@ -15,6 +15,15 @@ export const TEXTURE = 'https://server.arcgisonline.com/ArcGIS/rest/services/Wor
 
 export const TERRAIN_N = 96; // grid resolution per tile
 
+// Traffic-awareness radar (focus views): show other airborne aircraft within
+// `range` m of the subject, track-up. Threat levels by horizontal/vertical
+// separation — alert (close) and warn (proximate).
+export const TRAFFIC = {
+  range: 8000,
+  warn: { h: 1500, v: 250 },
+  alert: { h: 500, v: 100 },
+};
+
 // OGN reception loss: a gap between consecutive beacons longer than
 // max(GAP_MIN, GAP_FACTOR × the track's median beacon interval) is treated as a
 // reception loss (the track is interpolated across it and drawn dashed).

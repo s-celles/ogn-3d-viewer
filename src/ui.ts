@@ -4,7 +4,7 @@ import { t, I18N } from './i18n';
 import { API_BASE, REPO_URL, MINZ, MAXZ, PMIN, PMAX, CHASE, clampv } from './config';
 import { APP_VERSION, GIT_HASH } from './version';
 import {
-  subjEl, viewsEl, cammodeEl, traceEl, smoothBtn, compBtn, bankBtn, soundBtn, graphModeEl, graphClose, winEl, winval, playBtn, segEl,
+  subjEl, viewsEl, cammodeEl, traceEl, smoothBtn, compBtn, bankBtn, soundBtn, trafficBtn, graphModeEl, graphClose, winEl, winval, playBtn, segEl,
   exoEl, exval, pitchEl, pitchval, scrub, clkEl, lglist, rose, altsl, icaoEl, fblink, acEl,
   dateEl, loadBtn, langEl, discEl, infoBtn, collapseBtn, liveBtn,
 } from './dom';
@@ -94,6 +94,12 @@ soundBtn.onclick = () => {
   soundBtn.textContent = S.sound ? t('on') : t('off'); soundBtn.classList.toggle('on', S.sound);
   if (S.sound) varioAudio.resume(); // this click is the user gesture that unlocks audio
   render();
+};
+// ---- traffic-awareness radar, default on ----
+trafficBtn.onclick = () => {
+  S.traffic = !S.traffic;
+  trafficBtn.textContent = S.traffic ? t('on') : t('off'); trafficBtn.classList.toggle('on', S.traffic);
+  document.body.classList.toggle('traffic', S.traffic); render();
 };
 // ---- graphs drawer (off / history / history+future / rolling) ----
 ([['off', 'graphsOff'], ['hist', 'traceHist'], ['histfut', 'traceHistFut'], ['rolling', 'traceWindow']] as [string, string][])
@@ -263,6 +269,8 @@ export function applyI18n(): void {
   compBtn.textContent = S.compensated ? t('on') : t('off'); compBtn.classList.toggle('on', S.compensated);
   bankBtn.textContent = S.bank ? t('on') : t('off'); bankBtn.classList.toggle('on', S.bank);
   soundBtn.textContent = S.sound ? t('on') : t('off'); soundBtn.classList.toggle('on', S.sound);
+  trafficBtn.textContent = S.traffic ? t('on') : t('off'); trafficBtn.classList.toggle('on', S.traffic);
+  document.body.classList.toggle('traffic', S.traffic);
   [...graphModeEl.options].forEach(o => o.textContent = t(o.dataset.k!));
   refreshGraphTabs();
   playBtn.textContent = S.playing ? t('pause') : t('play');

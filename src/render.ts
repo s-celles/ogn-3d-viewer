@@ -8,6 +8,7 @@ import {
 } from './deck';
 import { makeTerrain, terrainElevAt } from './terrain';
 import { drawGraphs } from './graphs';
+import { drawTraffic } from './traffic';
 import { varioAudio } from './vario-audio';
 import { updateSky, getSun, getMoon } from './sky';
 import { subjectTrack, shown, scaled, posAt, airborne, headingAt, varioAt, compVarioAt, clampCur, attitudeAt } from './flight-math';
@@ -271,6 +272,7 @@ export function render(): void {
   feedVarioSound();
   updateCelestial();
   drawGraphs();
+  drawTraffic();
 }
 
 // Drive the audio variometer from the followed glider's Vz (cockpit & chase only,
