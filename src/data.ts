@@ -1,6 +1,7 @@
 // ============ data fetching & render-state assembly ============
+import UPNG from 'upng-js';
 import { S } from './state';
-import { API_BASE, PALETTE } from './config';
+import { API_BASE, PALETTE, TERRAIN } from './config';
 import { parseTz, parseIGC, pool } from './igc';
 import { t } from './i18n';
 import { statusEl, loadBtn, subjEl, viewsEl, playBtn, icaoEl } from './dom';
@@ -93,10 +94,57 @@ export async function loadFlights(icao: string, date: string): Promise<void> {
       if (res.af.latlng) S.mapTarget = { longitude: res.af.latlng[1], latitude: res.af.latlng[0], zoom: 11, pitch: 55, bearing: 0, maxPitch: 85 };
       loadBtn.disabled = false; return;
     }
+    // Sample the rendered DEM at the airfield so the geoid/datum offset lands
+    // aircraft on the terrain (see geoidOffset). Cached for live refreshes.
+    afDemElev = res.af.latlng ? await terrainElevAt(res.af.latlng[0], res.af.latlng[1]) : null;
     rebuild(res.af, res.tzoff, false);
     statusMsgInner(date, S.RAW.length);
   } catch (e) { setStatus(t('errLoad'), 'err'); }
   loadBtn.disabled = false;
+}
+
+// Sample the rendered terrain (terrarium DEM, orthometric) elevation at a
+// lng/lat by fetching + decoding the tile that contains it. Same decode as
+// terrain.ts: elev = R*256 + G + B/256 - 32768. Returns null on failure.
+async function terrainElevAt(lat: number, lon: number): Promise<number | null> {
+  const z = 13, n = 2 ** z;
+  const xf = (lon + 180) / 360 * n, latR = lat * Math.PI / 180;
+  const yf = (1 - Math.log(Math.tan(latR) + 1 / Math.cos(latR)) / Math.PI) / 2 * n;
+  const x = Math.floor(xf), y = Math.floor(yf);
+  const url = TERRAIN.replace('{z}', String(z)).replace('{x}', String(x)).replace('{y}', String(y));
+  try {
+    const buf = await fetch(url).then(r => r.arrayBuffer());
+    const img = UPNG.decode(buf);
+    const rgba = new Uint8Array(UPNG.toRGBA8(img)[0]), w = img.width, h = img.height;
+    const px = Math.min(w - 1, Math.floor((xf - x) * w)), py = Math.min(h - 1, Math.floor((yf - y) * h));
+    const i = (py * w + px) * 4;
+    return rgba[i] * 256 + rgba[i + 1] + rgba[i + 2] / 256 - 32768;
+  } catch { return null; }
+}
+let afDemElev: number | null = null;   // rendered DEM elevation at the loaded airfield
+
+// IGC GNSS altitude is WGS84 ellipsoidal (HAE), so aircraft float above the
+// orthometric terrain by the geoid undulation (~+48 m in W. Europe); published
+// airfield elevations can also disagree with the DEM. Estimate the offset that
+// lands aircraft ON the rendered terrain. Each track's first/last points are
+// take-off/landing at the home field (≈ ground level there); their MEDIAN
+// altitude minus the DEM elevation at the field ≈ the offset. The median + the
+// near-field filter ignore land-outs and aircraft over lower valley terrain.
+// Falls back to the published elevation if the DEM sample is unavailable.
+// Self-corrects MSL sources (offset ≈ 0) and is clamped so garbage can't sink
+// the whole scene.
+function geoidOffset(tracks: Track[], af: { lat: number; lon: number; elev: number }): number {
+  const ref = afDemElev != null ? afDemElev : af.elev;
+  if (!ref) return 0;                                         // no reliable reference
+  const cosLat = Math.cos(af.lat * Math.PI / 180), ground: number[] = [];
+  for (const tr of tracks) for (const p of [tr.path[0], tr.path[tr.path.length - 1]]) {
+    const dN = (p[1] - af.lat) * 111320, dE = (p[0] - af.lon) * 111320 * cosLat;
+    if (dN * dN + dE * dE < 3000 * 3000) ground.push(p[2]);   // take-off/landing at the home field
+  }
+  if (ground.length < 6) return 0;
+  ground.sort((a, b) => a - b);
+  const off = ground[ground.length >> 1] - ref;              // median ground altitude − DEM
+  return Math.abs(off) <= 200 ? off : 0;
 }
 
 // Build render-ready state from RAW. preserve=true keeps the current view,
@@ -109,6 +157,7 @@ export function rebuild(af: FBAirfield | null, tzoff: number | null, preserve: b
   const g0 = Math.min(...tracks.map(x => x.tstart)), g1 = Math.max(...tracks.map(x => x.tend));
   S.AF = { name: curaf.name, code: curaf.code, lon: curaf.latlng[1], lat: curaf.latlng[0], elev: curaf.elevation || 0, tz_off: S.CURTZ };
   S.G0 = g0; S.G1 = g1; S.SPAN = Math.max(1, S.G1 - S.G0);
+  S.altOffset = geoidOffset(tracks, S.AF);   // before buildRel (which subtracts it)
   S.TRACKS = tracks.map(tr => ({
     ...tr, color: tr.color!,
     rel: buildRel(tr.path, S.G0, S.spline),

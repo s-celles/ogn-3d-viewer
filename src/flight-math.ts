@@ -39,7 +39,8 @@ function densify(base: RelPoint[]): RelPoint[] {
 // Build a track's render-ready points from raw [lon,lat,alt,sod] beacons,
 // shifting time by G0 and optionally smoothing with a Catmull-Rom spline.
 export function buildRel(path: TrackPoint[], G0: number, spline: boolean): RelPoint[] {
-  const base = path.map(p => [p[0], p[1], p[2], p[3] - G0] as RelPoint);
+  const dz = S.altOffset;   // geoid/datum correction (ellipsoidal → orthometric)
+  const base = path.map(p => [p[0], p[1], p[2] - dz, p[3] - G0] as RelPoint);
   return spline ? densify(base) : base;
 }
 
