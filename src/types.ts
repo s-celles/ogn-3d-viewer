@@ -109,6 +109,7 @@ export interface AppState {
   subject: string | null;
   fpvPitch: number;
   fpvFollow: boolean;
+  bank: boolean;
   freeCam: { bearing: number; pitch: number };
   trace: Trace;
   windowMin: number;

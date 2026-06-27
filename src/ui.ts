@@ -3,7 +3,7 @@ import { S } from './state';
 import { t, I18N } from './i18n';
 import { API_BASE, REPO_URL, MINZ, MAXZ, PMIN, PMAX, clampv } from './config';
 import {
-  subjEl, viewsEl, cammodeEl, traceEl, smoothBtn, compBtn, winEl, winval, playBtn, segEl,
+  subjEl, viewsEl, cammodeEl, traceEl, smoothBtn, compBtn, bankBtn, winEl, winval, playBtn, segEl,
   exoEl, exval, pitchEl, pitchval, scrub, clkEl, lglist, rose, icaoEl, acEl,
   dateEl, loadBtn, langEl, discEl, infoBtn, collapseBtn, liveBtn,
 } from './dom';
@@ -76,6 +76,13 @@ compBtn.onclick = () => {
   S.compensated = !S.compensated;
   compBtn.textContent = S.compensated ? t('on') : t('off'); compBtn.classList.toggle('on', S.compensated);
   render(); // HUD vario refreshes (cockpit / chase)
+};
+
+// ---- horizon banking in cockpit follow mode, default on ----
+bankBtn.onclick = () => {
+  S.bank = !S.bank;
+  bankBtn.textContent = S.bank ? t('on') : t('off'); bankBtn.classList.toggle('on', S.bank);
+  render();
 };
 
 // ---- play / speed ----
@@ -202,6 +209,7 @@ export function applyI18n(): void {
   [...traceEl.options].forEach(o => { o.textContent = t(o.dataset.k!); });
   smoothBtn.textContent = S.spline ? t('on') : t('off'); smoothBtn.classList.toggle('on', S.spline);
   compBtn.textContent = S.compensated ? t('on') : t('off'); compBtn.classList.toggle('on', S.compensated);
+  bankBtn.textContent = S.bank ? t('on') : t('off'); bankBtn.classList.toggle('on', S.bank);
   playBtn.textContent = S.playing ? t('pause') : t('play');
   renderDisc();
   if (S.ready) buildLegend(); if (S.mode === 'fpv') updateHUD();

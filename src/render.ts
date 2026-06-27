@@ -83,7 +83,9 @@ function computeFPV() {
   const tr = subjectTrack(), time = clampCur(tr), p = posAt(tr, time);
   const base = { longitude: p[0], latitude: p[1], position: [0, 0, p[2] * S.exo + 3] };
   if (!S.fpvFollow) return { ...base, bearing: S.freeCam.bearing, pitch: S.freeCam.pitch };
-  const bearing = headingAt(tr, time), pitch = S.fpvPitch, roll = attitudeAt(tr, time).roll;
+  const bearing = headingAt(tr, time), pitch = S.fpvPitch;
+  if (!S.bank) return { ...base, bearing, pitch }; // level horizon
+  const roll = attitudeAt(tr, time).roll;
   return { ...base, bearing, pitch, up: rollUp(forwardVec(bearing, pitch), roll) };
 }
 
