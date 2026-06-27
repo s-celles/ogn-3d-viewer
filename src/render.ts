@@ -3,14 +3,14 @@ import { S } from './state';
 import { t } from './i18n';
 import { mapDiv, sunEl, moonEl, hudreg, hudhdg, hudalt, hudvar } from './dom';
 import {
-  Deck, MapView, FirstPersonView, PathLayer, TripsLayer, ScatterplotLayer, SimpleMeshLayer,
+  Deck, MapView, FirstPersonView, PathLayer, PolygonLayer, TripsLayer, ScatterplotLayer, SimpleMeshLayer,
   LightingEffect, AmbientLight, DirectionalLight, PathStyleExtension,
 } from './deck';
 import { makeTerrain, terrainElevAt } from './terrain';
 import { drawGraphs } from './graphs';
 import { drawTraffic } from './traffic';
 import { varioAudio } from './vario-audio';
-import { updateSky, getSun, getMoon } from './sky';
+import { updateSky, getSun, getMoon, nightPolygon } from './sky';
 import { subjectTrack, shown, scaled, posAt, airborne, headingAt, varioAt, compVarioAt, clampCur, attitudeAt } from './flight-math';
 import { GLIDER_MESH, PLANE_MESH, isPowered } from './aircraft-mesh';
 import { CHASE, MODEL_SCALE } from './config';
@@ -92,7 +92,17 @@ function dynamicLayers() {
   const planes = aircraft.filter(d => isPowered(d.type));
   const aircraftMaterial = { ambient: 0.5, diffuse: 0.8, shininess: 24, specularColor: [40, 40, 40] };
   const pastAlpha = (S.mode === 'fpv' || S.solo) ? 215 : 165, trail = S.trace === 'window' ? S.windowMin * 60 : 240;
+  // Day/night terminator overlay: darken the night side of the world so a
+  // zoomed-out view isn't uniformly "night everywhere" (the scene's single sun
+  // light can't show this on the flat map). Drawn over the terrain, under the
+  // trails/aircraft.
+  const ms = S.date ? Date.parse(S.date + 'T00:00:00Z') + (S.G0 + S.cur) * 1000 : NaN;
+  const night = Number.isFinite(ms) ? nightPolygon(ms) : null;
   return [
+    ...(night ? [new PolygonLayer({
+      id: 'night', data: [night], getPolygon: (d: any) => d, getFillColor: [4, 7, 22, 200],
+      stroked: false, parameters: { depthTest: false } as any,
+    } as any)] : []),
     new PathLayer<PathDatum>({ id: 'future', data: futData, getPath: d => d.pts, getColor: d => [...d.color, 55],
       getWidth: 2, widthUnits: 'pixels', jointRounded: true, capRounded: true, parameters: { depthTest: true } as any }),
     new PathLayer<PathDatum>({ id: 'future-gap', data: futGap, getPath: (d: PathDatum) => d.pts, getColor: (d: PathDatum) => [...d.color, 45],

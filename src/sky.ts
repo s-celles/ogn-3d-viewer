@@ -47,6 +47,33 @@ function sunRaDec(d: number): { ra: number; dec: number } {
   return { ra: Math.atan2(Math.sin(L) * Math.cos(E), Math.cos(L)), dec: Math.asin(Math.sin(E) * Math.sin(L)) };
 }
 
+// Subsolar point (deg) — where the sun is directly overhead at `ms`.
+export function subsolar(ms: number): { lat: number; lon: number } {
+  const d = days(ms), { ra, dec } = sunRaDec(d);
+  let lon = ra * 180 / Math.PI - (280.16 + 360.9856235 * d);
+  lon = ((lon + 180) % 360 + 360) % 360 - 180;
+  return { lat: dec * 180 / Math.PI, lon };
+}
+
+// Day/night terminator: the night-side polygon (web-mercator lng/lat ring) at
+// `ms`. The terminator latitude at a longitude is atan(-cos(H)/tan(dec)); the
+// night is the side away from the subsolar point, closed off at the winter pole.
+// Returns null near the equinox (dec≈0 → terminator along meridians, degenerate).
+export function nightPolygon(ms: number): [number, number][] | null {
+  const d = days(ms), { ra, dec } = sunRaDec(d);
+  if (Math.abs(dec) < 0.06) return null;
+  let lonSs = ra * 180 / Math.PI - (280.16 + 360.9856235 * d);
+  lonSs = ((lonSs + 180) % 360 + 360) % 360 - 180;
+  const tanDec = Math.tan(dec), clampLat = (x: number) => Math.max(-85, Math.min(85, x));
+  const curve: [number, number][] = [];
+  for (let lon = -180; lon <= 180; lon += 2) {
+    const H = (lon - lonSs) * Math.PI / 180;
+    curve.push([lon, clampLat(Math.atan(-Math.cos(H) / tanDec) * 180 / Math.PI)]);
+  }
+  const pole = dec > 0 ? -85 : 85;                  // winter pole = polar night
+  return [[-180, pole], ...curve, [180, pole]];
+}
+
 // Moon geocentric ecliptic → equatorial coords + distance (km). SunCalc's
 // low-precision lunar series — good to ~a few arcminutes, plenty for a sky disc.
 function moonRaDec(d: number): { ra: number; dec: number; dist: number } {
@@ -180,7 +207,11 @@ export function updateSky(): void {
     dir: [Math.cos(altL) * Math.sin(az), Math.cos(altL) * Math.cos(az), -Math.sin(altL)],
     intensity: 1.4 * day,
     color: mix([255, 247, 232], [255, 165, 100], warm),
-    ambient: 0.4 + 0.45 * day,
+    // Skylight kept high regardless of the airfield's local time: the terrain
+    // base brightness must NOT collapse at night, otherwise a zoomed-out view is
+    // dark even on the sunlit side of the globe. The night side is darkened
+    // per-location by the day/night terminator overlay instead (see render.ts).
+    ambient: 0.85,
     // Unit vector toward the sun (ENU: east, north, up) at the real elevation.
     toward: [-ca * Math.sin(az), -ca * Math.cos(az), sa],
     up: altDeg > -0.5,

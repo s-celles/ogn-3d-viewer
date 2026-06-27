@@ -1,5 +1,5 @@
 import { test, expect } from 'bun:test';
-import { sunAltitudeDeg, skyColors, sunLightDir } from './sky';
+import { sunAltitudeDeg, skyColors, sunLightDir, subsolar, nightPolygon } from './sky';
 
 const ms = (iso: string) => Date.parse(iso);
 
@@ -39,4 +39,20 @@ test('skyColors: blue by day, warm near the horizon, dark at night', () => {
   expect(set[0]).toBeGreaterThan(set[2]);
   const night = skyColors(-30).zenith;    // night → dark
   expect(Math.max(...night)).toBeLessThan(40);
+});
+
+test('subsolar point near June solstice noon', () => {
+  const s = subsolar(ms('2026-06-27T12:00:00Z'));
+  expect(s.lat).toBeGreaterThan(22);
+  expect(s.lat).toBeLessThan(24);
+  expect(Math.abs(s.lon)).toBeLessThan(6);
+});
+
+test('night polygon excludes the subsolar point and includes the antisolar point', () => {
+  const at = ms('2026-06-27T12:00:00Z');
+  expect(nightPolygon(at)).not.toBeNull();
+  const s = subsolar(at);
+  expect(sunAltitudeDeg(at, s.lat, s.lon)).toBeGreaterThan(80);          // subsolar → daylight
+  const antiLon = ((s.lon + 360) % 360) - 180;
+  expect(sunAltitudeDeg(at, -s.lat, antiLon)).toBeLessThan(0);           // antisolar → night
 });
