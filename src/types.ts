@@ -125,6 +125,7 @@ export interface AppState {
   RAW: Track[];
   CURAF: FBAirfield | null;
   CURTZ: number;
+  date: string;       // loaded date (YYYY-MM-DD), used for the sun/sky computation
   COLOR: Record<string, RGB>;
   colorN: number;
   lang: Lang;

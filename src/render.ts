@@ -8,6 +8,7 @@ import {
 } from './deck';
 import { makeTerrain } from './terrain';
 import { varioAudio } from './vario-audio';
+import { updateSky } from './sky';
 import { subjectTrack, shown, scaled, posAt, airborne, slice, headingAt, varioAt, compVarioAt, clampCur, attitudeAt } from './flight-math';
 import { GLIDER_MESH, PLANE_MESH, isPowered } from './aircraft-mesh';
 import { CHASE, MODEL_SCALE } from './config';
@@ -141,6 +142,7 @@ export function render(): void {
     updateHUD();
   }
   feedVarioSound();
+  updateSky();
 }
 
 // Drive the audio variometer from the followed glider's Vz (cockpit & chase only,

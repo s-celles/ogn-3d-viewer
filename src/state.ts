@@ -18,7 +18,7 @@ export const S: AppState = {
   mapTarget: { ...INIT },
   // source tracks (path times = UTC seconds of day). RAW is the merge target for
   // live refreshes; rebuild() turns it into the render-ready TRACKS.
-  RAW: [], CURAF: null, CURTZ: 0,
+  RAW: [], CURAF: null, CURTZ: 0, date: '',
   COLOR: {}, colorN: 0,
   // current UI language (fr/en/de), auto-detected from the browser
   lang: ((): Lang => { const l = (navigator.language || '').toLowerCase();

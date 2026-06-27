@@ -64,6 +64,7 @@ export { statusMsgInner as statusMsg };
 
 export async function loadFlights(icao: string, date: string): Promise<void> {
   if (!icao || icao.length < 3) { setStatus(t('errLoad'), 'err'); return; }
+  S.date = date; // for the sun/sky computation
   loadBtn.disabled = true; setStatus(t('loading'));
   try {
     const res = await fetchData(icao, date, false);
