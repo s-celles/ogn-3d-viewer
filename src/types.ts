@@ -115,6 +115,7 @@ export interface AppState {
   windowMin: number;
   spline: boolean;
   compensated: boolean;
+  sound: boolean;
   live: boolean;
   liveTimer: ReturnType<typeof setTimeout> | null;
   INIT: ViewStateLike;

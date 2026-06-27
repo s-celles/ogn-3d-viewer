@@ -3,7 +3,7 @@ import { S } from './state';
 import { t, I18N } from './i18n';
 import { API_BASE, REPO_URL, MINZ, MAXZ, PMIN, PMAX, clampv } from './config';
 import {
-  subjEl, viewsEl, cammodeEl, traceEl, smoothBtn, compBtn, bankBtn, winEl, winval, playBtn, segEl,
+  subjEl, viewsEl, cammodeEl, traceEl, smoothBtn, compBtn, bankBtn, soundBtn, winEl, winval, playBtn, segEl,
   exoEl, exval, pitchEl, pitchval, scrub, clkEl, lglist, rose, icaoEl, acEl,
   dateEl, loadBtn, langEl, discEl, infoBtn, collapseBtn, liveBtn,
 } from './dom';
@@ -11,6 +11,7 @@ import { subjectTrack, airborne, headingAt, clampCur, fmt } from './flight-math'
 import { makeTerrain } from './terrain';
 import { render, updateHUD } from './render';
 import { loadFlights, refreshLive, statusMsg, setStatus, rebuild } from './data';
+import { varioAudio } from './vario-audio';
 import type { Mode, Trace, Lang } from './types';
 
 const asEl = (c: Element) => c as HTMLElement;
@@ -84,6 +85,17 @@ bankBtn.onclick = () => {
   bankBtn.textContent = S.bank ? t('on') : t('off'); bankBtn.classList.toggle('on', S.bank);
   render();
 };
+
+// ---- audio variometer, default on ----
+soundBtn.onclick = () => {
+  S.sound = !S.sound;
+  soundBtn.textContent = S.sound ? t('on') : t('off'); soundBtn.classList.toggle('on', S.sound);
+  if (S.sound) varioAudio.resume(); // this click is the user gesture that unlocks audio
+  render();
+};
+// Browsers block audio until a user gesture; unlock on the first interaction.
+const unlockAudio = () => { if (S.sound) varioAudio.resume(); window.removeEventListener('pointerdown', unlockAudio); };
+window.addEventListener('pointerdown', unlockAudio);
 
 // ---- play / speed ----
 playBtn.onclick = () => { if (!S.ready) return; S.playing = !S.playing; playBtn.textContent = S.playing ? t('pause') : t('play'); playBtn.classList.toggle('on', S.playing); };
@@ -210,6 +222,7 @@ export function applyI18n(): void {
   smoothBtn.textContent = S.spline ? t('on') : t('off'); smoothBtn.classList.toggle('on', S.spline);
   compBtn.textContent = S.compensated ? t('on') : t('off'); compBtn.classList.toggle('on', S.compensated);
   bankBtn.textContent = S.bank ? t('on') : t('off'); bankBtn.classList.toggle('on', S.bank);
+  soundBtn.textContent = S.sound ? t('on') : t('off'); soundBtn.classList.toggle('on', S.sound);
   playBtn.textContent = S.playing ? t('pause') : t('play');
   renderDisc();
   if (S.ready) buildLegend(); if (S.mode === 'fpv') updateHUD();

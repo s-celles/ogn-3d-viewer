@@ -7,6 +7,7 @@ import {
   LightingEffect, AmbientLight, DirectionalLight,
 } from './deck';
 import { makeTerrain } from './terrain';
+import { varioAudio } from './vario-audio';
 import { subjectTrack, shown, scaled, posAt, airborne, slice, headingAt, varioAt, compVarioAt, clampCur, gliderShape, attitudeAt } from './flight-math';
 import { CHASE } from './config';
 import type { RGB, Pos3 } from './types';
@@ -132,6 +133,17 @@ export function render(): void {
     } as any);
     updateHUD();
   }
+  feedVarioSound();
+}
+
+// Drive the audio variometer from the followed glider's Vz (cockpit & chase only,
+// when airborne and sound is on). Uses the same compensated/raw setting as the HUD.
+function feedVarioSound(): void {
+  const following = S.mode === 'fpv' || S.mode === 'chase';
+  const tr = following && S.ready ? subjectTrack() : undefined;
+  const active = !!(S.sound && tr && airborne(tr, S.cur));
+  const vz = active ? (S.compensated ? compVarioAt(tr!, S.cur) : varioAt(tr!, S.cur)) : 0;
+  varioAudio.update(vz, active);
 }
 
 // ---- HUD ----
