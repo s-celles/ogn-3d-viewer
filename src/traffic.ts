@@ -9,6 +9,7 @@ import { S } from './state';
 import { trafficCanvas } from './dom';
 import { subjectTrack, posAt, airborne, headingAt } from './flight-math';
 import { TRAFFIC } from './config';
+import { LED_STEP, LED_OFFSET, litLeds } from './traffic-led';
 import { t } from './i18n';
 
 interface Tgt { dist: number; dAlt: number; rel: number; lvl: number; }
@@ -66,32 +67,35 @@ function drawRadar(ctx: CanvasRenderingContext2D, W: number, H: number, data: { 
 }
 
 // ---- directional (nearest-threat indicator) ----
+// A classic LED-style threat display: 12 horizontal direction LEDs arranged so
+// the NOSE is between two of them (no LED dead ahead → a frontal threat lights
+// the two front LEDs, see traffic-led.ts), and an ODD column of 5 vertical LEDs
+// for the relative-elevation angle (>14° / 7–14° / ±7° level / 7–14° / >14°).
 function drawDirectional(ctx: CanvasRenderingContext2D, W: number, H: number, data: { list: Tgt[] }): void {
-  const tgt = data.list.length ? data.list.slice().sort((a, b) => b.lvl - a.lvl || a.dist - b.dist)[0] : null;
+  // Most-threatening target; non-threats (level 0) only count when close — a
+  // collision indicator shouldn't point at distant traffic 7–8 km away.
+  const best = data.list.length ? data.list.slice().sort((a, b) => b.lvl - a.lvl || a.dist - b.dist)[0] : null;
+  const tgt = best && (best.lvl >= 1 || best.dist <= TRAFFIC.proximity) ? best : null;
   const c = tgt ? col(tgt.lvl) : DIM;
   const cxr = W * 0.40, cyr = H * 0.44, rr = Math.min(W, H) * 0.32;
-  // chevron ring (tip inward); light the one toward the threat bearing
-  const idx = tgt ? (((Math.round(tgt.rel / (Math.PI / 6)) % 12) + 12) % 12) : -1;
+  const lit = new Set<number>(tgt ? litLeds(tgt.rel * 180 / Math.PI) : []);
   for (let i = 0; i < 12; i++) {
-    const a = i * Math.PI / 6, ru = [Math.sin(a), -Math.cos(a)], pu = [Math.cos(a), Math.sin(a)], w = 4.2;
+    const a = (i * LED_STEP + LED_OFFSET) * Math.PI / 180, ru = [Math.sin(a), -Math.cos(a)], pu = [Math.cos(a), Math.sin(a)], w = 4.2;
     const tx = cxr + ru[0] * (rr - 9), ty = cyr + ru[1] * (rr - 9), bx = cxr + ru[0] * rr, by = cyr + ru[1] * rr;
-    ctx.fillStyle = i === idx ? c : DIM; ctx.beginPath();
+    ctx.fillStyle = lit.has(i) ? c : DIM; ctx.beginPath();
     ctx.moveTo(tx, ty); ctx.lineTo(bx + pu[0] * w, by + pu[1] * w); ctx.lineTo(bx - pu[0] * w, by - pu[1] * w); ctx.closePath(); ctx.fill();
   }
   plane(ctx, cxr, cyr, '#e7edf3');
-  // relative-elevation column (above >14° / >7° / level / >7° below / >14° below)
+  // relative-elevation column: 5 cells (odd), centre = level
   const eAng = tgt ? Math.atan2(tgt.dAlt, Math.max(1, tgt.dist)) * 180 / Math.PI : null;
   const cell = eAng == null ? -1 : eAng > 14 ? 0 : eAng > 7 ? 1 : eAng >= -7 ? 2 : eAng >= -14 ? 3 : 4;
-  const colX = W - 20, ch = 12, gap = 5, top = cyr - (ch * 5 + gap * 4) / 2;
+  const colX = W - 18, ch = 12, gap = 5, top = cyr - (ch * 5 + gap * 4) / 2;
   for (let i = 0; i < 5; i++) {
     const y = top + i * (ch + gap);
     ctx.fillStyle = i === cell ? c : DIM;
     ctx.beginPath(); (ctx as any).roundRect(colX - 8, y, 16, ch, 3); ctx.fill();
     if (i === 2) { ctx.strokeStyle = '#0c1015'; ctx.lineWidth = 1.4; ctx.beginPath(); ctx.moveTo(colX - 5, y + ch / 2); ctx.lineTo(colX + 5, y + ch / 2); ctx.stroke(); }
   }
-  ctx.fillStyle = '#7f8ea0'; ctx.font = '8px ui-sans-serif,system-ui'; ctx.textAlign = 'center';
-  ctx.textBaseline = 'bottom'; ctx.fillText('▲', colX, top - 1);
-  ctx.textBaseline = 'top'; ctx.fillText('▼', colX, top + ch * 5 + gap * 4 + 1);
   // distance readout
   ctx.fillStyle = c; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
   ctx.font = '600 24px ui-sans-serif,system-ui'; ctx.fillText(tgt ? (tgt.dist / 1000).toFixed(1) : '– –', cxr, H - 10);

@@ -19,7 +19,8 @@ export const TERRAIN_N = 96; // grid resolution per tile
 // `range` m of the subject, track-up. Threat levels by horizontal/vertical
 // separation — alert (close) and warn (proximate).
 export const TRAFFIC = {
-  range: 8000,
+  range: 8000,            // radar plan-view range (situational awareness)
+  proximity: 3000,        // directional view shows non-threat traffic only within this
   warn: { h: 1500, v: 250 },
   alert: { h: 500, v: 100 },
 };
