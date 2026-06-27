@@ -35,10 +35,11 @@ export const GLIDER = {
   dt: 3,            // ± window (s) for speed / turn-rate estimation
 };
 
-// Chase cam: a MapView that follows the subject glider from behind and above.
-// `lead` >1 shifts the framing so the glider sits slightly below screen centre
-// (looking ahead), <1 raises it; 1 centres it exactly.
-export const CHASE = { zoom: 13.6, pitch: 58, lead: 1.12 };
+// Chase cam: a FirstPersonView locked behind and above the subject aircraft,
+// looking forward along its heading. `dist`/`up` are the camera offset (metres)
+// behind and above the aircraft; chosen so the (scaled ~275 m) marker frames at
+// roughly a third of the screen. `fovy` is the vertical field of view.
+export const CHASE = { dist: 380, up: 115, fovy: 64 };
 
 // Glider position marker: a heading-oriented triangle (metres). `len` is the
 // nose distance ahead of the position, `back` the base behind it, `halfW` the

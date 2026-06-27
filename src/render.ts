@@ -109,9 +109,9 @@ function updateCelestial(): void {
   // which interfered with the pan/zoom controller).
   let vp: any;
   try {
-    vp = S.mode === 'fpv'
-      ? new FirstPersonView({ id: 'fpv', fovy: 64, near: 1, far: 200000 }).makeViewport({ width, height, viewState: computeFPV() as any })
-      : new MapView({ id: 'main' }).makeViewport({ width, height, viewState: (S.mode === 'chase' ? computeChase() : S.mapVS) as any });
+    vp = (S.mode === 'fpv' || S.mode === 'chase')
+      ? new FirstPersonView({ id: 'fpv', fovy: CHASE.fovy, near: 1, far: 200000 }).makeViewport({ width, height, viewState: (S.mode === 'chase' ? computeChase() : computeFPV()) as any })
+      : new MapView({ id: 'main' }).makeViewport({ width, height, viewState: S.mapVS as any });
   } catch (e) { hideSun(); hideMoon(); return; }
   if (!vp || !vp.viewProjectionMatrix) { hideSun(); hideMoon(); return; }
   const u = (vp.distanceScales && vp.distanceScales.unitsPerMeter) || [1, 1, 1];
@@ -173,21 +173,21 @@ function computeFPV() {
   return { ...base, bearing, pitch, up: rollUp(forwardVec(bearing, pitch), roll) };
 }
 
-// Chase cam: MapView following the glider from behind/above. A MapView always
-// looks at the ground (z=0) under its centre, but the glider is drawn at altitude
-// p[2]*exo above that plane — so centring on its ground position leaves it far
-// above the top of the screen (worse with vertical exaggeration). We shift the
-// look-at point FORWARD along the bearing by h/tan(depression) = h*tan(pitch),
-// so the camera's centre ray passes through the glider's actual 3D position.
+// Chase cam: a FirstPersonView locked behind and above the aircraft, looking
+// forward along its heading and tilted down to keep the aircraft centred. The
+// camera is anchored at the aircraft's lng/lat with a metric offset (behind by
+// CHASE.dist along -heading, up by CHASE.up above the aircraft's altitude), so
+// the framing is independent of altitude / terrain / vertical exaggeration.
 function computeChase() {
   const tr = subjectTrack(), time = clampCur(tr), p = posAt(tr, time);
-  const bearing = headingAt(tr, time);
-  const h = p[2] * S.exo;                                           // height above the z=0 look-at plane
-  const ahead = h * Math.tan(CHASE.pitch * Math.PI / 180) * CHASE.lead;
-  const br = bearing * Math.PI / 180;
-  const dLat = (ahead * Math.cos(br)) / 111320;
-  const dLng = (ahead * Math.sin(br)) / (111320 * Math.cos(p[1] * Math.PI / 180));
-  return { longitude: p[0] + dLng, latitude: p[1] + dLat, zoom: CHASE.zoom, pitch: CHASE.pitch, bearing, maxPitch: 85 };
+  const bearing = headingAt(tr, time), br = bearing * Math.PI / 180;
+  const z = p[2] * S.exo;                                           // aircraft height (common space)
+  const pitch = Math.atan2(CHASE.up, CHASE.dist) * 180 / Math.PI;   // look down at the aircraft
+  return {
+    longitude: p[0], latitude: p[1],
+    position: [-CHASE.dist * Math.sin(br), -CHASE.dist * Math.cos(br), z + CHASE.up],
+    bearing, pitch,
+  };
 }
 
 let deckgl: Deck;
@@ -218,8 +218,8 @@ export function render(): void {
     } as any);
   } else if (S.mode === 'chase') {
     deckgl.setProps({
-      views: [new MapView({ id: 'main' })], viewState: { main: computeChase() }, controller: false,
-      layers: [S.terrainInst, ...dynamicLayers()],
+      views: [new FirstPersonView({ id: 'fpv', fovy: CHASE.fovy, near: 1, far: 200000 })], viewState: { fpv: computeChase() },
+      controller: false, layers: [S.terrainInst, ...dynamicLayers()],
     } as any);
     updateHUD();
   } else {
