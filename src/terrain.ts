@@ -52,6 +52,33 @@ export function buildTerrainMesh(t: DecodedTile, west: number, south: number, ea
   };
 }
 
+// Decoded-tile elevation cache, populated as tiles stream in (see getTileData).
+// Lets us look up the ground elevation under any lng/lat that is currently
+// loaded — without any extra network — to keep aircraft from rendering below
+// the (coarse) terrain in steep mountains. FIFO-bounded.
+interface CachedTile { rgba: Uint8Array; w: number; h: number; }
+const TILE_CACHE = new Map<string, CachedTile>();
+function cacheTile(z: number, x: number, y: number, t: CachedTile): void {
+  TILE_CACHE.set(z + '/' + x + '/' + y, t);
+  if (TILE_CACHE.size > 400) TILE_CACHE.delete(TILE_CACHE.keys().next().value as string);
+}
+
+// Ground elevation (m, orthometric) at a lng/lat from the highest-resolution
+// loaded tile covering it, or null if no covering tile is currently cached.
+export function terrainElevAt(lon: number, lat: number): number | null {
+  for (let z = 13; z >= 7; z--) {
+    const n = 2 ** z, xf = (lon + 180) / 360 * n, latR = lat * Math.PI / 180;
+    const yf = (1 - Math.log(Math.tan(latR) + 1 / Math.cos(latR)) / Math.PI) / 2 * n;
+    const x = Math.floor(xf), y = Math.floor(yf), tile = TILE_CACHE.get(z + '/' + x + '/' + y);
+    if (!tile) continue;
+    const px = Math.min(tile.w - 1, Math.max(0, Math.floor((xf - x) * tile.w)));
+    const py = Math.min(tile.h - 1, Math.max(0, Math.floor((yf - y) * tile.h)));
+    const i = (py * tile.w + px) * 4;
+    return tile.rgba[i] * 256 + tile.rgba[i + 1] + tile.rgba[i + 2] / 256 - 32768;
+  }
+  return null;
+}
+
 const TERRAIN_ANCHOR = [{}];
 
 /** Build the streaming terrain TileLayer (rebuilt whenever exaggeration changes). */
@@ -64,7 +91,9 @@ export function makeTerrain() {
       try {
         const buf = await fetch(url, { signal: tile.signal }).then(r => r.arrayBuffer());
         const img = UPNG.decode(buf);
-        return { rgba: new Uint8Array(UPNG.toRGBA8(img)[0]), w: img.width, h: img.height };
+        const dec = { rgba: new Uint8Array(UPNG.toRGBA8(img)[0]), w: img.width, h: img.height };
+        cacheTile(z, x, y, dec);
+        return dec;
       } catch (e) { return null; }
     },
     renderSubLayers: (props: any) => {

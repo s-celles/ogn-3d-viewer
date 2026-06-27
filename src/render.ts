@@ -6,7 +6,7 @@ import {
   Deck, MapView, FirstPersonView, PathLayer, TripsLayer, ScatterplotLayer, SimpleMeshLayer,
   LightingEffect, AmbientLight, DirectionalLight,
 } from './deck';
-import { makeTerrain } from './terrain';
+import { makeTerrain, terrainElevAt } from './terrain';
 import { varioAudio } from './vario-audio';
 import { updateSky, getSun, getMoon } from './sky';
 import { subjectTrack, shown, scaled, posAt, airborne, slice, headingAt, varioAt, compVarioAt, clampCur, attitudeAt } from './flight-math';
@@ -26,6 +26,14 @@ function applySunLight(): void {
   const s = getSun();
   sunLight.direction = s.dir; sunLight.intensity = s.intensity; sunLight.color = s.color;
   ambLight.intensity = s.ambient;
+}
+
+// Keep an aircraft from rendering below the (coarse) terrain in steep mountains:
+// if its lng/lat projects onto ground higher than its altitude, lift it to the
+// surface. Uses only already-loaded tiles (null = no data → leave as-is).
+function groundClamp(p: Pos3): number {
+  const g = terrainElevAt(p[0], p[1]);
+  return g != null && p[2] < g ? g : p[2];
 }
 
 // The glider/airfield/terrain layers, rebuilt every frame from the cursor.
@@ -50,7 +58,7 @@ function dynamicLayers() {
     const p = posAt(tr, S.cur), a = attitudeAt(tr, S.cur), D = 180 / Math.PI;
     return {
       type: tr.type,
-      pos: [p[0], p[1], p[2] * k] as Pos3,
+      pos: [p[0], p[1], groundClamp(p) * k] as Pos3,
       orient: [-a.pitch * D, 90 - a.heading, a.roll * D] as [number, number, number],
       c: tr.color,
     };
@@ -165,7 +173,7 @@ function rollUp(F: Pos3, phi: number): Pos3 {
 // horizon banks with the estimated roll; free look stays level.
 function computeFPV() {
   const tr = subjectTrack(), time = clampCur(tr), p = posAt(tr, time);
-  const base = { longitude: p[0], latitude: p[1], position: [0, 0, p[2] * S.exo + 3] };
+  const base = { longitude: p[0], latitude: p[1], position: [0, 0, groundClamp(p) * S.exo + 3] };
   if (!S.fpvFollow) return { ...base, bearing: S.freeCam.bearing, pitch: S.freeCam.pitch };
   const bearing = headingAt(tr, time), pitch = S.fpvPitch;
   if (!S.bank) return { ...base, bearing, pitch }; // level horizon
@@ -181,7 +189,7 @@ function computeFPV() {
 // aircraft stays centred at any az/el/dist (look bearing/pitch point back at it).
 function computeChase() {
   const tr = subjectTrack(), time = clampCur(tr), p = posAt(tr, time);
-  const heading = headingAt(tr, time), z = p[2] * S.exo;           // aircraft height (common space)
+  const heading = headingAt(tr, time), z = groundClamp(p) * S.exo;  // aircraft height (clamped to terrain)
   const { az, el, dist } = S.chase;
   const camBearing = (heading + 180 + az) * Math.PI / 180;         // direction aircraft → camera
   const elR = el * Math.PI / 180, horiz = dist * Math.cos(elR), vert = dist * Math.sin(elR);
