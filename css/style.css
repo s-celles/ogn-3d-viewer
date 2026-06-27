@@ -124,7 +124,10 @@ body.collapsed #legend{display:none}
 @media (max-width:640px){
   /* Hide the app title on phones to save vertical space in the panel header. */
   #panel h1{display:none}
-  #panel{width:auto;left:8px;right:8px;top:8px;max-height:calc(100vh - 16px)}
+  /* Keep the panel compact (don't stretch edge-to-edge): size to its content,
+     capped, and anchored left — so it leaves the map visible. Collapsed, it
+     shrinks to just the header buttons. */
+  #panel{width:fit-content;left:8px;right:auto;top:8px;max-width:min(68vw,260px);max-height:calc(100vh - 16px)}
   #legend{left:8px;right:8px;width:auto;bottom:8px}
   #nav{right:8px;bottom:8px}
   #hud{right:8px;bottom:8px}
