@@ -4,6 +4,7 @@ import { dateEl, icaoEl } from './dom';
 import { initDeck, render } from './render';
 import { applyI18n, applyFollowClass, syncUI, easeCamera, updateCompass, updateFbLink } from './ui';
 import { loadFlights } from './data';
+import { initGraphs } from './graphs';
 
 const todayStr = new Date().toISOString().slice(0, 10);
 dateEl.value = todayStr; dateEl.max = todayStr;
@@ -15,6 +16,7 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
 }
 
 initDeck();
+initGraphs();
 applyI18n(); applyFollowClass(); syncUI();
 
 // Deep link: ?icao=LFBI (optionally &date=YYYY-MM-DD) preselects and loads an

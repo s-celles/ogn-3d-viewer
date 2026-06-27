@@ -7,6 +7,7 @@ import {
   LightingEffect, AmbientLight, DirectionalLight,
 } from './deck';
 import { makeTerrain, terrainElevAt } from './terrain';
+import { drawGraphs } from './graphs';
 import { varioAudio } from './vario-audio';
 import { updateSky, getSun, getMoon } from './sky';
 import { subjectTrack, shown, scaled, posAt, airborne, slice, headingAt, varioAt, compVarioAt, clampCur, attitudeAt } from './flight-math';
@@ -39,13 +40,13 @@ function groundClamp(p: Pos3): number {
 // The glider/airfield/terrain layers, rebuilt every frame from the cursor.
 function dynamicLayers() {
   if (!S.ready) return [];
-  const k = S.exo, vis = S.TRACKS.filter(shown);
+  const k = S.exo, vis = S.TRACKS.filter(shown), off = S.trace === 'off';
   const histStart = (tr: typeof vis[number]) => S.trace === 'window' ? Math.max(tr.rstart, S.cur - S.windowMin * 60) : tr.rstart;
-  const pastData = vis.map(tr => {
+  const pastData = off ? [] : vis.map(tr => {
     const pts = slice(tr, histStart(tr), S.cur).map(p => [p[0], p[1], p[2] * k] as Pos3);
     return pts.length >= 2 ? { color: tr.color, pts } : null;
   }).filter((d): d is PathDatum => d !== null);
-  const futData = (S.trace === 'histfut') ? vis.map(tr => {
+  const futData = (!off && S.trace === 'histfut') ? vis.map(tr => {
     const pts = slice(tr, S.cur, tr.rend).map(p => [p[0], p[1], p[2] * k] as Pos3);
     return pts.length >= 2 ? { color: tr.color, pts } : null;
   }).filter((d): d is PathDatum => d !== null) : [];
@@ -72,7 +73,7 @@ function dynamicLayers() {
       getWidth: 2, widthUnits: 'pixels', jointRounded: true, capRounded: true, parameters: { depthTest: true } as any }),
     new PathLayer<PathDatum>({ id: 'past', data: pastData, getPath: d => d.pts, getColor: d => [...d.color, pastAlpha],
       getWidth: 2, widthUnits: 'pixels', jointRounded: true, capRounded: true, parameters: { depthTest: true } as any }),
-    new TripsLayer({ id: 'trips', data: vis, getPath: (tr: any) => scaled(tr), getTimestamps: (tr: any) => tr.rel.map((p: number[]) => p[3]), getColor: (tr: any) => tr.color,
+    new TripsLayer({ id: 'trips', data: off ? [] : vis, getPath: (tr: any) => scaled(tr), getTimestamps: (tr: any) => tr.rel.map((p: number[]) => p[3]), getColor: (tr: any) => tr.color,
       currentTime: S.cur, trailLength: trail, fadeTrail: true, widthMinPixels: 3, capRounded: true, jointRounded: true,
       parameters: { depthTest: true } as any, updateTriggers: { getPath: [S.exo] } }),
     new SimpleMeshLayer<AircraftDatum>({ id: 'gliders', data: gliders, mesh: GLIDER_MESH as any,
@@ -242,6 +243,7 @@ export function render(): void {
   }
   feedVarioSound();
   updateCelestial();
+  drawGraphs();
 }
 
 // Drive the audio variometer from the followed glider's Vz (cockpit & chase only,

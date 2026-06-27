@@ -90,6 +90,15 @@ body.fpv.loaded #hud, body.chase.loaded #hud{display:block}
 #hud .v{font-size:18px;font-weight:600;text-align:right}
 #hud .vario.pos{color:#5fd35f} #hud .vario.neg{color:#ff6b6b}
 .hint{font-size:10px;color:var(--mut);margin-top:8px}
+/* Time-series graphs drawer: hidden by default, full-width strip at the bottom.
+   When open, the bottom-corner cards shift up so they stay visible. */
+#graphs{position:fixed;left:12px;right:12px;bottom:12px;height:172px;z-index:4;display:none;padding:6px 10px}
+body.graphs #graphs{display:block}
+#graphTabs{display:flex;gap:4px;margin:0 0 4px}
+#graphTabs button{padding:3px 9px;font-size:11px}
+#graphCanvas{width:100%;height:calc(100% - 30px);display:block;cursor:crosshair}
+#graphClose{position:absolute;top:5px;right:8px;padding:2px 7px;font-size:12px;z-index:1}
+body.graphs #legend, body.graphs #hud, body.graphs #nav, body.graphs #chasenav{bottom:196px}
 #nav{right:12px;bottom:12px;width:auto;padding:10px;display:flex;flex-direction:row;gap:8px;align-items:stretch}
 body.fpv #nav, body.chase #nav{display:none}
 .navcol{display:flex;flex-direction:column;gap:6px;align-items:center}
@@ -136,4 +145,6 @@ body.collapsed #legend{display:none}
   #hud{right:8px;bottom:8px}
   /* Stack the chase controls above the HUD on narrow screens. */
   #chasenav{right:8px;bottom:auto;top:8px}
+  #graphs{left:8px;right:8px;bottom:8px;height:128px}
+  body.graphs #legend, body.graphs #hud, body.graphs #nav{bottom:144px}
 }

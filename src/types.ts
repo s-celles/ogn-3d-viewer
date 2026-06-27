@@ -8,7 +8,8 @@ export type Pos3 = [number, number, number];
 export type RGB = [number, number, number];
 
 export type Mode = 'over' | 'fpv' | 'chase';
-export type Trace = 'hist' | 'histfut' | 'window';
+export type Trace = 'off' | 'hist' | 'histfut' | 'window';
+export type GraphMode = 'off' | 'hist' | 'histfut' | 'rolling';
 export type Lang = 'fr' | 'en' | 'de';
 
 /** A flight track as parsed from the API (before render prep). */
@@ -123,6 +124,7 @@ export interface AppState {
   spline: boolean;
   compensated: boolean;
   sound: boolean;
+  graphMode: GraphMode;   // time-series graphs drawer mode (off = hidden)
   live: boolean;
   liveTimer: ReturnType<typeof setTimeout> | null;
   INIT: ViewStateLike;

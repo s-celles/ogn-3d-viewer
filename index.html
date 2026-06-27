@@ -72,6 +72,10 @@
       <label class="lbl" style="margin:0" data-i18n="sound">Son du vario</label>
       <button id="soundBtn" class="on">Activé</button>
     </div>
+    <div class="row spread">
+      <label class="lbl" style="margin:0" data-i18n="graphs">Graphes</label>
+      <select id="graphMode" style="width:auto;flex:0 0 auto"></select>
+    </div>
 
     <div class="row">
       <label class="lbl" style="margin:0" data-i18n="trace">Trace</label>
@@ -164,6 +168,12 @@
     <button id="cNear" data-i18n-title="camNear" title="">+</button>
   </div>
   <div class="cap" data-i18n="chaseNavCap">…</div>
+</div>
+
+<div id="graphs" class="card">
+  <div id="graphTabs" class="seg"></div>
+  <button id="graphClose" title="">✕</button>
+  <canvas id="graphCanvas"></canvas>
 </div>
 
 <div id="hud" class="card">

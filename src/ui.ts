@@ -4,7 +4,7 @@ import { t, I18N } from './i18n';
 import { API_BASE, REPO_URL, MINZ, MAXZ, PMIN, PMAX, CHASE, clampv } from './config';
 import { APP_VERSION, GIT_HASH } from './version';
 import {
-  subjEl, viewsEl, cammodeEl, traceEl, smoothBtn, compBtn, bankBtn, soundBtn, winEl, winval, playBtn, segEl,
+  subjEl, viewsEl, cammodeEl, traceEl, smoothBtn, compBtn, bankBtn, soundBtn, graphModeEl, graphClose, winEl, winval, playBtn, segEl,
   exoEl, exval, pitchEl, pitchval, scrub, clkEl, lglist, rose, altsl, icaoEl, fblink, acEl,
   dateEl, loadBtn, langEl, discEl, infoBtn, collapseBtn, liveBtn,
 } from './dom';
@@ -13,7 +13,8 @@ import { makeTerrain } from './terrain';
 import { render, updateHUD } from './render';
 import { loadFlights, refreshLive, statusMsg, setStatus, rebuild } from './data';
 import { varioAudio } from './vario-audio';
-import type { Mode, Trace, Lang } from './types';
+import { refreshGraphTabs } from './graphs';
+import type { Mode, Trace, GraphMode, Lang } from './types';
 
 const asEl = (c: Element) => c as HTMLElement;
 
@@ -55,7 +56,7 @@ subjEl.addEventListener('change', e => {
 });
 
 // ---- trace mode ----
-([['hist', 'traceHist'], ['histfut', 'traceHistFut'], ['window', 'traceWindow']] as [string, string][]).forEach(([v, key]) => {
+([['off', 'traceOff'], ['hist', 'traceHist'], ['histfut', 'traceHistFut'], ['window', 'traceWindow']] as [string, string][]).forEach(([v, key]) => {
   const o = document.createElement('option'); o.value = v; o.dataset.k = key; traceEl.appendChild(o);
 });
 traceEl.value = S.trace;
@@ -94,6 +95,13 @@ soundBtn.onclick = () => {
   if (S.sound) varioAudio.resume(); // this click is the user gesture that unlocks audio
   render();
 };
+// ---- graphs drawer (off / history / history+future / rolling) ----
+([['off', 'graphsOff'], ['hist', 'traceHist'], ['histfut', 'traceHistFut'], ['rolling', 'traceWindow']] as [string, string][])
+  .forEach(([v, k]) => { const o = document.createElement('option'); o.value = v; o.dataset.k = k; graphModeEl.appendChild(o); });
+graphModeEl.value = S.graphMode;
+const applyGraphMode = () => { document.body.classList.toggle('graphs', S.graphMode !== 'off'); render(); };
+graphModeEl.addEventListener('change', e => { S.graphMode = (e.target as HTMLSelectElement).value as GraphMode; applyGraphMode(); });
+graphClose.onclick = () => { S.graphMode = 'off'; graphModeEl.value = 'off'; applyGraphMode(); };
 // Browsers block audio until a user gesture; unlock on the first interaction.
 const unlockAudio = () => { if (S.sound) varioAudio.resume(); window.removeEventListener('pointerdown', unlockAudio); };
 window.addEventListener('pointerdown', unlockAudio);
@@ -255,6 +263,8 @@ export function applyI18n(): void {
   compBtn.textContent = S.compensated ? t('on') : t('off'); compBtn.classList.toggle('on', S.compensated);
   bankBtn.textContent = S.bank ? t('on') : t('off'); bankBtn.classList.toggle('on', S.bank);
   soundBtn.textContent = S.sound ? t('on') : t('off'); soundBtn.classList.toggle('on', S.sound);
+  [...graphModeEl.options].forEach(o => o.textContent = t(o.dataset.k!));
+  refreshGraphTabs();
   playBtn.textContent = S.playing ? t('pause') : t('play');
   renderDisc();
   if (S.ready) buildLegend(); if (S.mode === 'fpv') updateHUD();
