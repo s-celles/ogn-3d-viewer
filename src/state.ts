@@ -12,7 +12,7 @@ export const S: AppState = {
   exo: 2.0, altOffset: 0, cur: 0, playing: false, speed: 30, solo: null,
   mode: 'over', subject: null, fpvPitch: 6, fpvFollow: true, bank: true, freeCam: { bearing: 0, pitch: 6 },
   chase: { az: 0, el: 17, dist: 400 },
-  trace: 'window', windowMin: 10, spline: true, compensated: true, sound: true, traffic: true, graphMode: 'off',
+  trace: 'window', windowMin: 10, spline: true, compensated: true, sound: true, trafficMode: 'radar', graphMode: 'off',
   live: false, liveTimer: null,
   INIT: { ...INIT },
   mapVS: { ...INIT },

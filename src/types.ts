@@ -10,6 +10,7 @@ export type RGB = [number, number, number];
 export type Mode = 'over' | 'fpv' | 'chase';
 export type Trace = 'off' | 'hist' | 'histfut' | 'window';
 export type GraphMode = 'off' | 'hist' | 'histfut' | 'rolling';
+export type TrafficMode = 'off' | 'radar' | 'directional';
 export type Lang = 'fr' | 'en' | 'de';
 
 /** A flight track as parsed from the API (before render prep). */
@@ -127,7 +128,7 @@ export interface AppState {
   spline: boolean;
   compensated: boolean;
   sound: boolean;
-  traffic: boolean;       // traffic-awareness radar (focus views)
+  trafficMode: TrafficMode;   // traffic-awareness display (focus views)
   graphMode: GraphMode;   // time-series graphs drawer mode (off = hidden)
   live: boolean;
   liveTimer: ReturnType<typeof setTimeout> | null;
