@@ -7,7 +7,7 @@ export type RelPoint = [number, number, number, number];
 export type Pos3 = [number, number, number];
 export type RGB = [number, number, number];
 
-export type Mode = 'over' | 'fpv';
+export type Mode = 'over' | 'fpv' | 'chase';
 export type Trace = 'hist' | 'histfut' | 'window';
 export type Lang = 'fr' | 'en';
 
@@ -112,6 +112,7 @@ export interface AppState {
   freeCam: { bearing: number; pitch: number };
   trace: Trace;
   windowMin: number;
+  spline: boolean;
   live: boolean;
   liveTimer: ReturnType<typeof setTimeout> | null;
   INIT: ViewStateLike;

@@ -7,11 +7,13 @@ import {
   LightingEffect, AmbientLight, DirectionalLight,
 } from './deck';
 import { makeTerrain } from './terrain';
-import { subjectTrack, shown, scaled, posAt, airborne, slice, headingAt, varioAt, clampCur } from './flight-math';
+import { subjectTrack, shown, scaled, posAt, airborne, slice, headingAt, varioAt, clampCur, gliderShape, attitudeAt } from './flight-math';
+import { CHASE } from './config';
 import type { RGB, Pos3 } from './types';
 
 interface PathDatum { color: RGB; pts: Pos3[]; }
 interface HeadDatum { pos: Pos3; c: RGB; }
+interface AttDatum { c: RGB; path: Pos3[]; }
 
 const lighting = new LightingEffect({
   amb: new AmbientLight({ color: [255, 255, 255], intensity: 1.1 }),
@@ -36,6 +38,13 @@ function dynamicLayers() {
     const p = posAt(tr, S.cur);
     return (p && airborne(tr, S.cur)) ? { pos: [p[0], p[1], p[2] * k] as Pos3, c: tr.color } : null;
   }).filter((d): d is HeadDatum => d !== null);
+  // Attitude glyphs: a wing + fuselage cross per airborne glider, banked/pitched.
+  const attitude: AttDatum[] = vis.flatMap(tr => {
+    if (!airborne(tr, S.cur) || (S.mode === 'fpv' && tr.reg === S.subject)) return [];
+    const s = gliderShape(tr, S.cur);
+    const lift = (p: Pos3): Pos3 => [p[0], p[1], p[2] * k];
+    return [{ c: tr.color, path: s.wing.map(lift) }, { c: tr.color, path: s.fuse.map(lift) }];
+  });
   const pastAlpha = (S.mode === 'fpv' || S.solo) ? 215 : 165, trail = S.trace === 'window' ? S.windowMin * 60 : 240;
   return [
     new PathLayer<PathDatum>({ id: 'future', data: futData, getPath: d => d.pts, getColor: d => [...d.color, 55],
@@ -47,16 +56,41 @@ function dynamicLayers() {
       parameters: { depthTest: true } as any, updateTriggers: { getPath: [S.exo] } }),
     new ScatterplotLayer<HeadDatum>({ id: 'heads', data: heads, getPosition: d => d.pos, getFillColor: d => d.c, getRadius: 5, radiusUnits: 'pixels',
       stroked: true, lineWidthMinPixels: 1.5, getLineColor: [255, 255, 255], parameters: { depthTest: true } as any }),
+    new PathLayer<AttDatum>({ id: 'attitude', data: attitude, getPath: d => d.path, getColor: d => [...d.c, 255],
+      getWidth: 2.5, widthUnits: 'pixels', widthMinPixels: 2, capRounded: true, jointRounded: true, parameters: { depthTest: true } as any }),
     new ScatterplotLayer({ id: 'airfield', data: S.AF ? [{ pos: [S.AF.lon, S.AF.lat, S.AF.elev * k] as Pos3 }] : [], getPosition: (d: any) => d.pos,
       getFillColor: [255, 60, 60], getRadius: 6, radiusUnits: 'pixels', stroked: true, lineWidthMinPixels: 1.5, getLineColor: [255, 255, 255] }),
   ];
 }
 
-// First-person view state pinned to the subject glider.
+// deck's FirstPersonViewport forward vector for a given bearing/pitch (matches
+// its SphericalCoordinates math: F = [cos(vp)·sin(b), cos(vp)·cos(b), -sin(vp)]).
+function forwardVec(bearingDeg: number, pitchDeg: number): Pos3 {
+  const b = bearingDeg * Math.PI / 180, vp = pitchDeg * Math.PI / 180, cvp = Math.cos(vp);
+  return [cvp * Math.sin(b), cvp * Math.cos(b), -Math.sin(vp)];
+}
+
+// World-up [0,0,1] rolled around the look axis F by `phi` (Rodrigues). Feeding
+// this as the FirstPersonView `up` banks the horizon. phi>0 = right bank.
+function rollUp(F: Pos3, phi: number): Pos3 {
+  const c = Math.cos(phi), s = Math.sin(phi), f = (1 - c) * F[2]; // F[2] = F·worldUp
+  return [F[1] * s + F[0] * f, -F[0] * s + F[1] * f, c + F[2] * f];
+}
+
+// First-person view state pinned to the subject glider. In follow mode the
+// horizon banks with the estimated roll; free look stays level.
 function computeFPV() {
   const tr = subjectTrack(), time = clampCur(tr), p = posAt(tr, time);
   const base = { longitude: p[0], latitude: p[1], position: [0, 0, p[2] * S.exo + 3] };
-  return S.fpvFollow ? { ...base, bearing: headingAt(tr, time), pitch: S.fpvPitch } : { ...base, bearing: S.freeCam.bearing, pitch: S.freeCam.pitch };
+  if (!S.fpvFollow) return { ...base, bearing: S.freeCam.bearing, pitch: S.freeCam.pitch };
+  const bearing = headingAt(tr, time), pitch = S.fpvPitch, roll = attitudeAt(tr, time).roll;
+  return { ...base, bearing, pitch, up: rollUp(forwardVec(bearing, pitch), roll) };
+}
+
+// Chase cam: MapView centred on the glider, looking forward from behind/above.
+function computeChase() {
+  const tr = subjectTrack(), time = clampCur(tr), p = posAt(tr, time);
+  return { longitude: p[0], latitude: p[1], zoom: CHASE.zoom, pitch: CHASE.pitch, bearing: headingAt(tr, time), maxPitch: 85 };
 }
 
 let deckgl: Deck;
@@ -83,6 +117,12 @@ export function render(): void {
       views: [new MapView({ id: 'main' })], viewState: { main: S.mapVS }, controller: { keyboard: false },
       layers: [S.terrainInst, ...dynamicLayers()],
     } as any);
+  } else if (S.mode === 'chase') {
+    deckgl.setProps({
+      views: [new MapView({ id: 'main' })], viewState: { main: computeChase() }, controller: false,
+      layers: [S.terrainInst, ...dynamicLayers()],
+    } as any);
+    updateHUD();
   } else {
     deckgl.setProps({
       views: [new FirstPersonView({ id: 'fpv', fovy: 64, near: 1, far: 200000 })], viewState: { fpv: computeFPV() },

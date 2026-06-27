@@ -3,14 +3,14 @@ import { S } from './state';
 import { t, I18N } from './i18n';
 import { API_BASE, REPO_URL, MINZ, MAXZ, PMIN, PMAX, clampv } from './config';
 import {
-  subjEl, viewsEl, cammodeEl, traceEl, winEl, winval, playBtn, segEl,
+  subjEl, viewsEl, cammodeEl, traceEl, smoothBtn, winEl, winval, playBtn, segEl,
   exoEl, exval, pitchEl, pitchval, scrub, clkEl, lglist, rose, icaoEl, acEl,
   dateEl, loadBtn, langEl, discEl, infoBtn, collapseBtn, liveBtn,
 } from './dom';
 import { subjectTrack, airborne, headingAt, clampCur, fmt } from './flight-math';
 import { makeTerrain } from './terrain';
 import { render, updateHUD } from './render';
-import { loadFlights, refreshLive, statusMsg, setStatus } from './data';
+import { loadFlights, refreshLive, statusMsg, setStatus, rebuild } from './data';
 import type { Mode, Trace, Lang } from './types';
 
 const asEl = (c: Element) => c as HTMLElement;
@@ -20,15 +20,17 @@ export function syncUI(): void { clkEl.textContent = S.ready ? fmt(S.cur) : '--:
 scrub.addEventListener('input', e => { if (!S.ready) return; S.cur = +(e.target as HTMLInputElement).value / 1000 * S.SPAN; render(); syncUI(); });
 
 // ---- view toggle ----
-(['over', 'fpv'] as Mode[]).forEach(m => {
+(['over', 'fpv', 'chase'] as Mode[]).forEach(m => {
   const b = document.createElement('button'); b.dataset.m = m; if (m === S.mode) b.classList.add('on');
   b.onclick = () => setMode(m); viewsEl.appendChild(b);
 });
 export function setMode(m: Mode): void {
-  if (m === 'fpv' && !S.ready) return; S.mode = m;
+  if ((m === 'fpv' || m === 'chase') && !S.ready) return; S.mode = m;
   [...viewsEl.children].forEach(c => asEl(c).classList.toggle('on', asEl(c).dataset.m === m));
-  document.body.classList.toggle('fpv', m === 'fpv'); applyFollowClass();
-  if (m === 'fpv') { const tr = subjectTrack(); if (!airborne(tr, S.cur)) S.cur = tr.rstart; } render(); syncUI();
+  document.body.classList.toggle('fpv', m === 'fpv');
+  document.body.classList.toggle('chase', m === 'chase');
+  applyFollowClass();
+  if (m === 'fpv' || m === 'chase') { const tr = subjectTrack(); if (!airborne(tr, S.cur)) S.cur = tr.rstart; } render(); syncUI();
 }
 export function applyFollowClass(): void {
   document.body.classList.toggle('follow', S.fpvFollow);
@@ -61,6 +63,13 @@ traceEl.addEventListener('change', e => {
   document.body.classList.toggle('win', S.trace === 'window'); render();
 });
 winEl.addEventListener('input', e => { S.windowMin = parseFloat((e.target as HTMLInputElement).value); winval.textContent = String(S.windowMin); render(); });
+
+// ---- spline smoothing (default on) ----
+smoothBtn.onclick = () => {
+  S.spline = !S.spline;
+  smoothBtn.textContent = S.spline ? t('on') : t('off'); smoothBtn.classList.toggle('on', S.spline);
+  if (S.ready) rebuild(null, null, true); // regenerate the densified tracks, keep view/subject
+};
 
 // ---- play / speed ----
 playBtn.onclick = () => { if (!S.ready) return; S.playing = !S.playing; playBtn.textContent = S.playing ? t('pause') : t('play'); playBtn.classList.toggle('on', S.playing); };
@@ -179,9 +188,12 @@ export function applyI18n(): void {
   document.querySelectorAll('[data-i18n]').forEach(el => { (el as HTMLElement).textContent = t((el as HTMLElement).dataset.i18n!); });
   document.querySelectorAll('[data-i18n-title]').forEach(el => { (el as HTMLElement).title = t((el as HTMLElement).dataset.i18nTitle!); });
   [...langEl.children].forEach(b => asEl(b).classList.toggle('on', asEl(b).dataset.l === S.lang));
-  [...viewsEl.children].forEach(b => { asEl(b).textContent = t(asEl(b).dataset.m === 'over' ? 'overview' : 'fpv'); });
+  [...viewsEl.children].forEach(b => {
+    const m = asEl(b).dataset.m; asEl(b).textContent = t(m === 'over' ? 'overview' : m === 'chase' ? 'chase' : 'fpv');
+  });
   [...cammodeEl.children].forEach(b => { asEl(b).textContent = t(asEl(b).dataset.f === '1' ? 'follow' : 'free'); });
   [...traceEl.options].forEach(o => { o.textContent = t(o.dataset.k!); });
+  smoothBtn.textContent = S.spline ? t('on') : t('off'); smoothBtn.classList.toggle('on', S.spline);
   playBtn.textContent = S.playing ? t('pause') : t('play');
   renderDisc();
   if (S.ready) buildLegend(); if (S.mode === 'fpv') updateHUD();
@@ -198,7 +210,7 @@ infoBtn.onclick = () => { const open = discEl.style.display !== 'none'; discEl.s
 window.addEventListener('keydown', e => {
   const tag = (e.target as HTMLElement).tagName;
   if (tag === 'INPUT' || tag === 'SELECT') return;
-  if (e.key === 'v' || e.key === 'V') { setMode(S.mode === 'over' ? 'fpv' : 'over'); }
+  if (e.key === 'v' || e.key === 'V') { const order: Mode[] = ['over', 'fpv', 'chase']; setMode(order[(order.indexOf(S.mode) + 1) % 3]); }
   else if ('123'.includes(e.key)) {
     const i = +e.key - 1; if (S.TRACKS[i]) {
       S.subject = S.TRACKS[i].reg; subjEl.value = S.subject;

@@ -18,9 +18,11 @@ and a head-up display showing heading, altitude and vario.
 - **3D terrain** with satellite imagery and adjustable vertical exaggeration.
 - **Time playback** with a time-of-day scrubber and 1× / 8× / 30× / 120× speeds.
 - **Live mode** — a real-time view pinned to the current time that auto-refreshes active gliders every 20 s.
-- **Two views:** top-down overview and cockpit (first-person) view.
+- **Three views:** top-down overview, cockpit (first-person — the horizon banks in turns) and a chase cam following the glider.
 - **Cockpit camera modes:** lock-to-heading or free look.
 - **Track display modes:** history, history + future, or a rolling time window.
+- **Track smoothing:** Catmull-Rom spline interpolation between beacons for fluid trajectories (on by default, toggle in the panel).
+- **Estimated attitude:** each glider is drawn as a wing/fuselage marker that banks in turns (from turn rate × ground speed) and pitches with the vario, capped at sane max angles.
 - **Head-up display (HUD):** heading, altitude and vario for the followed glider.
 - **Bilingual UI** (English / French), auto-detected from the browser.
 - **Keyboard shortcuts:** `V` switch view, `1/2/3` pick a glider, `Space` play/pause, arrows to orbit/tilt/zoom.

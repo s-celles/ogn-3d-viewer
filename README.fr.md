@@ -19,9 +19,11 @@ le vario.
 - **Relief 3D** avec imagerie satellite et exagération verticale réglable.
 - **Lecture temporelle** avec curseur d'heure de la journée et vitesses 1× / 8× / 30× / 120×.
 - **Mode direct** — vue temps réel épinglée à l'heure courante, qui rafraîchit les planeurs actifs toutes les 20 s.
-- **Deux vues :** vue d'ensemble (dessus) et vue subjective (cockpit).
+- **Trois vues :** vue d'ensemble (dessus), vue subjective (cockpit — l'horizon s'incline dans les virages) et caméra poursuite qui suit le planeur.
 - **Modes caméra cockpit :** suivi du cap ou regard libre.
 - **Modes d'affichage des traces :** historique, historique + futur, ou fenêtre glissante.
+- **Lissage des traces :** interpolation spline Catmull-Rom entre les balises pour des trajectoires fluides (activé par défaut, bouton dans le panneau).
+- **Attitude estimée :** chaque planeur est dessiné avec un repère aile/fuselage qui s'incline dans les virages (taux de virage × vitesse sol) et prend de l'assiette selon le vario, plafonné à des angles maximaux raisonnables.
 - **Affichage tête haute (HUD) :** cap, altitude et vario du planeur suivi.
 - **Interface bilingue** (français / anglais), détectée automatiquement selon le navigateur.
 - **Raccourcis clavier :** `V` changer de vue, `1/2/3` choisir un planeur, `Espace` lecture/pause, flèches pour pivoter/incliner/zoomer.

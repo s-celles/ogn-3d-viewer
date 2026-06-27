@@ -6,7 +6,8 @@ import { t } from './i18n';
 import { statusEl, loadBtn, subjEl, viewsEl, playBtn, icaoEl } from './dom';
 import { render } from './render';
 import { buildLegend, syncUI, applyFollowClass, setCollapsed } from './ui';
-import type { FBLogbook, FBDevice, FetchResult, FBAirfield, Track, RGB, RelPoint } from './types';
+import { buildRel } from './flight-math';
+import type { FBLogbook, FBDevice, FetchResult, FBAirfield, Track, RGB } from './types';
 
 interface Task { dev: FBDevice; t0: number; t1: number; maxalt: number; stop: number; }
 
@@ -86,7 +87,7 @@ export function rebuild(af: FBAirfield | null, tzoff: number | null, preserve: b
   S.G0 = g0; S.G1 = g1; S.SPAN = Math.max(1, S.G1 - S.G0);
   S.TRACKS = tracks.map(tr => ({
     ...tr, color: tr.color!,
-    rel: tr.path.map(p => [p[0], p[1], p[2], p[3] - S.G0] as RelPoint),
+    rel: buildRel(tr.path, S.G0, S.spline),
     rstart: tr.tstart - S.G0, rend: tr.tend - S.G0,
   }));
   if (!preserve) {
