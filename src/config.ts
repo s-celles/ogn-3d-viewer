@@ -35,11 +35,18 @@ export const GLIDER = {
   dt: 3,            // ± window (s) for speed / turn-rate estimation
 };
 
-// Chase cam: a FirstPersonView locked behind and above the subject aircraft,
-// looking forward along its heading. `dist`/`up` are the camera offset (metres)
-// behind and above the aircraft; chosen so the (scaled ~275 m) marker frames at
-// roughly a third of the screen. `fovy` is the vertical field of view.
-export const CHASE = { dist: 380, up: 115, fovy: 64 };
+// Chase cam: a FirstPersonView orbiting the subject aircraft. The viewpoint is
+// spherical relative to the aircraft — az0 (orbit, 0 = behind), el0 (elevation
+// above), dist0 (slant range, m) — chosen so the (scaled ~275 m) marker frames
+// at roughly a third of the screen. The *Step / *Min / *Max bound the on-screen
+// nudge controls. `fovy` is the vertical field of view.
+export const CHASE = {
+  fovy: 64,
+  az0: 0, el0: 17, dist0: 400,
+  azStep: 25,
+  elStep: 8, elMin: -10, elMax: 80,
+  distStep: 1.2, distMin: 150, distMax: 1600,
+};
 
 // Glider position marker: a heading-oriented triangle (metres). `len` is the
 // nose distance ahead of the position, `back` the base behind it, `halfW` the

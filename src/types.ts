@@ -112,6 +112,9 @@ export interface AppState {
   fpvFollow: boolean;
   bank: boolean;
   freeCam: { bearing: number; pitch: number };
+  // Chase-cam viewpoint relative to the aircraft: az = orbit angle around it
+  // (0 = directly behind), el = elevation above it (deg), dist = slant range (m).
+  chase: { az: number; el: number; dist: number };
   trace: Trace;
   windowMin: number;
   spline: boolean;

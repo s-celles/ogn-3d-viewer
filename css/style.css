@@ -90,9 +90,13 @@ body.fpv.loaded #hud, body.chase.loaded #hud{display:block}
 #nav{right:12px;bottom:12px;width:auto;padding:10px;display:flex;flex-direction:row;gap:8px;align-items:stretch}
 body.fpv #nav, body.chase #nav{display:none}
 .navcol{display:flex;flex-direction:column;gap:6px;align-items:center}
-#nav .nrow{display:flex;gap:6px;align-items:center;justify-content:center}
-#nav button{width:34px;height:34px;padding:0;font-size:16px;line-height:1;display:flex;align-items:center;justify-content:center;border-radius:9px}
-#nav .cap{font-size:9px;color:var(--mut);text-align:center;max-width:128px;line-height:1.3;margin-top:2px}
+#nav .nrow, #chasenav .nrow{display:flex;gap:6px;align-items:center;justify-content:center}
+#nav button, #chasenav button{width:34px;height:34px;padding:0;font-size:16px;line-height:1;display:flex;align-items:center;justify-content:center;border-radius:9px}
+#nav .cap, #chasenav .cap{font-size:9px;color:var(--mut);text-align:center;max-width:128px;line-height:1.3;margin-top:2px}
+/* Chase-cam controls: move the viewpoint relative to the aircraft (orbit /
+   elevation / range). Shown only in chase mode, just left of the HUD. */
+#chasenav{right:234px;bottom:12px;width:auto;padding:10px;display:none;flex-direction:column;gap:6px;align-items:center}
+body.chase.loaded #chasenav{display:flex}
 /* Viewpoint-altitude control: a native vertical range to the right of the
    compass column. The slider is absolutely positioned so it fills the column's
    height WITHOUT inflating the card. Drives the camera pitch (eye height around
@@ -122,4 +126,6 @@ body.collapsed #legend{display:none}
   #legend{left:8px;right:8px;width:auto;bottom:8px}
   #nav{right:8px;bottom:8px}
   #hud{right:8px;bottom:8px}
+  /* Stack the chase controls above the HUD on narrow screens. */
+  #chasenav{right:8px;bottom:auto;top:8px}
 }

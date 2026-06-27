@@ -1,7 +1,7 @@
 // ============ UI controllers ============
 import { S } from './state';
 import { t, I18N } from './i18n';
-import { API_BASE, REPO_URL, MINZ, MAXZ, PMIN, PMAX, clampv } from './config';
+import { API_BASE, REPO_URL, MINZ, MAXZ, PMIN, PMAX, CHASE, clampv } from './config';
 import {
   subjEl, viewsEl, cammodeEl, traceEl, smoothBtn, compBtn, bankBtn, soundBtn, winEl, winval, playBtn, segEl,
   exoEl, exval, pitchEl, pitchval, scrub, clkEl, lglist, rose, altsl, icaoEl, acEl,
@@ -163,6 +163,18 @@ const NAV: Record<string, () => void> = {
 };
 Object.entries(NAV).forEach(([id, fn]) => { const el = document.getElementById(id); if (el) el.onclick = fn; });
 (document.getElementById('compass') as HTMLElement).onclick = () => { S.mapTarget.bearing = 0; };
+
+// Chase-cam controls: move the viewpoint relative to the aircraft. The render
+// loop reads S.chase every frame, so changes show immediately.
+const CHASE_NAV: Record<string, () => void> = {
+  cOrbitL: () => S.chase.az -= CHASE.azStep, cOrbitR: () => S.chase.az += CHASE.azStep,
+  cElUp: () => S.chase.el = clampv(S.chase.el + CHASE.elStep, CHASE.elMin, CHASE.elMax),
+  cElDn: () => S.chase.el = clampv(S.chase.el - CHASE.elStep, CHASE.elMin, CHASE.elMax),
+  cNear: () => S.chase.dist = clampv(S.chase.dist / CHASE.distStep, CHASE.distMin, CHASE.distMax),
+  cFar: () => S.chase.dist = clampv(S.chase.dist * CHASE.distStep, CHASE.distMin, CHASE.distMax),
+  cReset: () => { S.chase = { az: CHASE.az0, el: CHASE.el0, dist: CHASE.dist0 }; },
+};
+Object.entries(CHASE_NAV).forEach(([id, fn]) => { const el = document.getElementById(id); if (el) el.onclick = fn; });
 
 // ---- airfield autocomplete ----
 let acTimer: ReturnType<typeof setTimeout> | null = null;

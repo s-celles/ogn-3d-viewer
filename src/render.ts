@@ -173,20 +173,23 @@ function computeFPV() {
   return { ...base, bearing, pitch, up: rollUp(forwardVec(bearing, pitch), roll) };
 }
 
-// Chase cam: a FirstPersonView locked behind and above the aircraft, looking
-// forward along its heading and tilted down to keep the aircraft centred. The
-// camera is anchored at the aircraft's lng/lat with a metric offset (behind by
-// CHASE.dist along -heading, up by CHASE.up above the aircraft's altitude), so
-// the framing is independent of altitude / terrain / vertical exaggeration.
+// Chase cam: a FirstPersonView orbiting the aircraft, always looking AT it. The
+// viewpoint is spherical relative to the aircraft (S.chase): az orbits around it
+// (0 = directly behind), el is the elevation above it, dist is the slant range.
+// The camera is anchored at the aircraft's lng/lat with a metric offset, so the
+// framing is independent of altitude / terrain / vertical exaggeration, and the
+// aircraft stays centred at any az/el/dist (look bearing/pitch point back at it).
 function computeChase() {
   const tr = subjectTrack(), time = clampCur(tr), p = posAt(tr, time);
-  const bearing = headingAt(tr, time), br = bearing * Math.PI / 180;
-  const z = p[2] * S.exo;                                           // aircraft height (common space)
-  const pitch = Math.atan2(CHASE.up, CHASE.dist) * 180 / Math.PI;   // look down at the aircraft
+  const heading = headingAt(tr, time), z = p[2] * S.exo;           // aircraft height (common space)
+  const { az, el, dist } = S.chase;
+  const camBearing = (heading + 180 + az) * Math.PI / 180;         // direction aircraft → camera
+  const elR = el * Math.PI / 180, horiz = dist * Math.cos(elR), vert = dist * Math.sin(elR);
   return {
     longitude: p[0], latitude: p[1],
-    position: [-CHASE.dist * Math.sin(br), -CHASE.dist * Math.cos(br), z + CHASE.up],
-    bearing, pitch,
+    position: [horiz * Math.sin(camBearing), horiz * Math.cos(camBearing), z + vert],
+    bearing: heading + az,                                         // look back toward the aircraft
+    pitch: el,                                                     // look down by the elevation angle
   };
 }
 
