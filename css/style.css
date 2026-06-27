@@ -1,9 +1,17 @@
 :root{ --bg:#0c1015; --card:rgba(18,24,33,.88); --line:rgba(255,255,255,.12);
-       --txt:#e7edf3; --mut:#9fb0c0; --accent:#ff8c00; }
+       --txt:#e7edf3; --mut:#9fb0c0; --accent:#ff8c00;
+       /* Sky colour shown above the terrain (the deck.gl canvas is transparent
+          there). Change this single value to recolour the sky. */
+       --sky:#7fb2e6; }
 *{box-sizing:border-box}
 html,body{margin:0;height:100%;background:var(--bg);color:var(--txt);
           font-family:ui-sans-serif,system-ui,"Segoe UI",Roboto,Helvetica,Arial}
-#map{position:fixed;inset:0}
+/* The map fills the viewport; its background is the sky (deck draws over it,
+   leaving the area above the horizon transparent → sky shows through). A subtle
+   gradient lightens it toward the horizon. */
+#map{position:fixed;inset:0;
+     background:var(--sky); /* solid fallback if color-mix is unsupported */
+     background:linear-gradient(to bottom, var(--sky), color-mix(in srgb, var(--sky) 60%, white))}
 .card{position:fixed;background:var(--card);backdrop-filter:blur(8px);
       border:1px solid var(--line);border-radius:12px;padding:12px 14px;
       box-shadow:0 8px 30px rgba(0,0,0,.45)}
