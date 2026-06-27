@@ -3,7 +3,7 @@ import { S } from './state';
 import { t, I18N } from './i18n';
 import { API_BASE, REPO_URL, MINZ, MAXZ, PMIN, PMAX, clampv } from './config';
 import {
-  subjEl, viewsEl, cammodeEl, traceEl, smoothBtn, winEl, winval, playBtn, segEl,
+  subjEl, viewsEl, cammodeEl, traceEl, smoothBtn, compBtn, winEl, winval, playBtn, segEl,
   exoEl, exval, pitchEl, pitchval, scrub, clkEl, lglist, rose, icaoEl, acEl,
   dateEl, loadBtn, langEl, discEl, infoBtn, collapseBtn, liveBtn,
 } from './dom';
@@ -69,6 +69,13 @@ smoothBtn.onclick = () => {
   S.spline = !S.spline;
   smoothBtn.textContent = S.spline ? t('on') : t('off'); smoothBtn.classList.toggle('on', S.spline);
   if (S.ready) rebuild(null, null, true); // regenerate the densified tracks, keep view/subject
+};
+
+// ---- compensated (total-energy) vario, default on ----
+compBtn.onclick = () => {
+  S.compensated = !S.compensated;
+  compBtn.textContent = S.compensated ? t('on') : t('off'); compBtn.classList.toggle('on', S.compensated);
+  render(); // HUD vario refreshes (cockpit / chase)
 };
 
 // ---- play / speed ----
@@ -194,6 +201,7 @@ export function applyI18n(): void {
   [...cammodeEl.children].forEach(b => { asEl(b).textContent = t(asEl(b).dataset.f === '1' ? 'follow' : 'free'); });
   [...traceEl.options].forEach(o => { o.textContent = t(o.dataset.k!); });
   smoothBtn.textContent = S.spline ? t('on') : t('off'); smoothBtn.classList.toggle('on', S.spline);
+  compBtn.textContent = S.compensated ? t('on') : t('off'); compBtn.classList.toggle('on', S.compensated);
   playBtn.textContent = S.playing ? t('pause') : t('play');
   renderDisc();
   if (S.ready) buildLegend(); if (S.mode === 'fpv') updateHUD();

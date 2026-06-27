@@ -23,6 +23,7 @@ and a head-up display showing heading, altitude and vario.
 - **Track display modes:** history, history + future, or a rolling time window.
 - **Track smoothing:** Catmull-Rom spline interpolation between beacons for fluid trajectories (on by default, toggle in the panel).
 - **Estimated attitude:** each glider is drawn as a wing/fuselage marker that banks in turns (from turn rate × ground speed) and pitches with the vario, capped at sane max angles.
+- **Compensated vario:** the HUD shows a total-energy vario by default (toggle off for the raw climb rate). True airspeed isn't available from GPS, so ground speed is used as a proxy — exact only in still air.
 - **Head-up display (HUD):** heading, altitude and vario for the followed glider.
 - **Bilingual UI** (English / French), auto-detected from the browser.
 - **Keyboard shortcuts:** `V` switch view, `1/2/3` pick a glider, `Space` play/pause, arrows to orbit/tilt/zoom.

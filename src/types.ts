@@ -113,6 +113,7 @@ export interface AppState {
   trace: Trace;
   windowMin: number;
   spline: boolean;
+  compensated: boolean;
   live: boolean;
   liveTimer: ReturnType<typeof setTimeout> | null;
   INIT: ViewStateLike;

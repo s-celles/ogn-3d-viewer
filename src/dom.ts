@@ -12,6 +12,7 @@ export const viewsEl    = $('views');
 export const cammodeEl  = $('cammode');
 export const traceEl    = $<HTMLSelectElement>('trace');
 export const smoothBtn  = $<HTMLButtonElement>('smoothBtn');
+export const compBtn    = $<HTMLButtonElement>('compBtn');
 export const winEl      = $<HTMLInputElement>('win');
 export const winval     = $('winval');
 export const playBtn    = $<HTMLButtonElement>('play');

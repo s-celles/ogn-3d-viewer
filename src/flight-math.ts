@@ -87,9 +87,36 @@ export function headingAt(tr: RenderTrack, time: number): number {
   return brg(posAt(tr, Math.max(tr.rstart, time - 3)), posAt(tr, Math.min(tr.rend, time + 3))) ?? 0;
 }
 
+// Raw (geometric) vario: rate of altitude change. Used for the flight-path angle.
 export function varioAt(tr: RenderTrack, time: number): number {
   const t0 = Math.max(tr.rstart, time - 4), t1 = Math.min(tr.rend, time + 4), a = posAt(tr, t0), b = posAt(tr, t1), dt = t1 - t0;
   return dt > 0 ? (b[2] - a[2]) / dt : 0;
+}
+
+// Horizontal ground speed (m/s) estimated over a ±dt window.
+export function groundSpeedAt(tr: RenderTrack, time: number): number {
+  const dt = GLIDER.dt;
+  const t0 = Math.max(tr.rstart, time - dt), t1 = Math.min(tr.rend, time + dt), span = (t1 - t0) || 1;
+  const a = posAt(tr, t0), b = posAt(tr, t1);
+  const latMid = (a[1] + b[1]) / 2 * Math.PI / 180;
+  const dE = (b[0] - a[0]) * 111320 * Math.cos(latMid), dN = (b[1] - a[1]) * 111320;
+  return Math.hypot(dE, dN) / span;
+}
+
+// Total-energy (compensated) vario: raw vario plus the kinetic-energy term
+// (V/g)·dV/dt, so a pull-up that trades speed for height no longer reads as lift.
+//
+// Physically V must be the TRUE AIRSPEED (the glider's energy is relative to the
+// air mass), NOT ground speed. OGN/GPS gives us no airspeed and no wind, so we
+// substitute GPS ground speed. This is exact only in still air; a steady wind
+// biases the result (most on downwind/upwind transitions). It is a deliberate
+// GPS approximation, not a true TE vario — see groundSpeedAt, never call it
+// airspeed.
+export function compVarioAt(tr: RenderTrack, time: number): number {
+  const dt = GLIDER.dt;
+  const t0 = Math.max(tr.rstart, time - dt), t1 = Math.min(tr.rend, time + dt), span = (t1 - t0) || 1;
+  const dVdt = (groundSpeedAt(tr, t1) - groundSpeedAt(tr, t0)) / span;
+  return varioAt(tr, time) + groundSpeedAt(tr, time) * dVdt / GLIDER.g;
 }
 
 export const clampCur = (tr: RenderTrack): number => Math.max(tr.rstart, Math.min(tr.rend, S.cur));
@@ -104,10 +131,7 @@ export function attitudeAt(tr: RenderTrack, time: number): Attitude {
   const { dt, g } = GLIDER;
   const maxBank = GLIDER.maxBankDeg * Math.PI / 180, maxPitch = GLIDER.maxPitchDeg * Math.PI / 180;
   const t0 = Math.max(tr.rstart, time - dt), t1 = Math.min(tr.rend, time + dt), span = (t1 - t0) || 1;
-  const a = posAt(tr, t0), b = posAt(tr, t1);
-  const latMid = (a[1] + b[1]) / 2 * Math.PI / 180;
-  const dEast = (b[0] - a[0]) * 111320 * Math.cos(latMid), dNorth = (b[1] - a[1]) * 111320;
-  const speed = Math.hypot(dEast, dNorth) / span;                  // ground speed (m/s)
+  const speed = groundSpeedAt(tr, time);                            // ground speed (m/s)
   let dh = ((headingAt(tr, t1) - headingAt(tr, t0) + 540) % 360) - 180; // signed heading change (deg), right +
   const omega = (dh * Math.PI / 180) / span;                        // turn rate (rad/s)
   const roll = clampv(Math.atan(speed * omega / g), -maxBank, maxBank);

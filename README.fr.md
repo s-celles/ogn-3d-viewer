@@ -24,6 +24,7 @@ le vario.
 - **Modes d'affichage des traces :** historique, historique + futur, ou fenêtre glissante.
 - **Lissage des traces :** interpolation spline Catmull-Rom entre les balises pour des trajectoires fluides (activé par défaut, bouton dans le panneau).
 - **Attitude estimée :** chaque planeur est dessiné avec un repère aile/fuselage qui s'incline dans les virages (taux de virage × vitesse sol) et prend de l'assiette selon le vario, plafonné à des angles maximaux raisonnables.
+- **Vario compensé :** le HUD affiche un vario à énergie totale par défaut (désactivable pour le vario brut). La vitesse air n'étant pas disponible via GPS, la vitesse sol sert d'approximation — exact seulement par vent nul.
 - **Affichage tête haute (HUD) :** cap, altitude et vario du planeur suivi.
 - **Interface bilingue** (français / anglais), détectée automatiquement selon le navigateur.
 - **Raccourcis clavier :** `V` changer de vue, `1/2/3` choisir un planeur, `Espace` lecture/pause, flèches pour pivoter/incliner/zoomer.

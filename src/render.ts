@@ -7,7 +7,7 @@ import {
   LightingEffect, AmbientLight, DirectionalLight,
 } from './deck';
 import { makeTerrain } from './terrain';
-import { subjectTrack, shown, scaled, posAt, airborne, slice, headingAt, varioAt, clampCur, gliderShape, attitudeAt } from './flight-math';
+import { subjectTrack, shown, scaled, posAt, airborne, slice, headingAt, varioAt, compVarioAt, clampCur, gliderShape, attitudeAt } from './flight-math';
 import { CHASE } from './config';
 import type { RGB, Pos3 } from './types';
 
@@ -140,7 +140,7 @@ export function updateHUD(): void {
     hudhdg.textContent = '—'; hudalt.textContent = '—';
     hudvar.textContent = S.cur < tr.rstart ? t('beforeTk') : t('landed'); hudvar.className = 'vario'; return;
   }
-  const p = posAt(tr, S.cur), h = headingAt(tr, S.cur), v = varioAt(tr, S.cur);
+  const p = posAt(tr, S.cur), h = headingAt(tr, S.cur), v = S.compensated ? compVarioAt(tr, S.cur) : varioAt(tr, S.cur);
   hudhdg.textContent = Math.round(h).toString().padStart(3, '0') + '°'; hudalt.textContent = Math.round(p[2]) + ' m';
-  hudvar.textContent = (v >= 0 ? '+' : '') + v.toFixed(1) + ' m/s'; hudvar.className = 'vario ' + (v >= 0.1 ? 'pos' : (v <= -0.1 ? 'neg' : ''));
+  hudvar.textContent = (v >= 0 ? '+' : '') + v.toFixed(1) + ' m/s' + (S.compensated ? ' TE' : ''); hudvar.className = 'vario ' + (v >= 0.1 ? 'pos' : (v <= -0.1 ? 'neg' : ''));
 }

@@ -1,5 +1,5 @@
 import { test, expect } from 'bun:test';
-import { posAt, airborne, slice, brg, varioAt, headingAt, buildRel, attitudeAt } from './flight-math';
+import { posAt, airborne, slice, brg, varioAt, headingAt, buildRel, attitudeAt, compVarioAt, groundSpeedAt } from './flight-math';
 import { GLIDER } from './config';
 import type { RenderTrack, TrackPoint, RelPoint } from './types';
 
@@ -103,6 +103,36 @@ test('attitudeAt: right turn banks right, left turn banks left, capped at max', 
   // mirror in longitude → heading sweeps north toward west → left turn
   const left = mkTrack([[0, 45, 1000, 0], [0, 45.001, 1000, 3], [-0.0003, 45.0014, 1000, 6], [-0.0009, 45.0016, 1000, 9], [-0.0016, 45.0016, 1000, 12]]);
   expect(attitudeAt(left, 6).roll).toBeLessThan(0);
+});
+
+test('compVarioAt: equals raw vario at constant speed (no compensation term)', () => {
+  // uniform ground speed, steady descent → dV/dt ≈ 0
+  const tr = mkTrack([
+    [0, 45, 1500, 0], [0.0004, 45, 1400, 3], [0.0008, 45, 1300, 6], [0.0012, 45, 1200, 9],
+    [0.0016, 45, 1100, 12], [0.0020, 45, 1000, 15], [0.0024, 45, 900, 18],
+  ]);
+  expect(compVarioAt(tr, 9)).toBeCloseTo(varioAt(tr, 9), 2);
+});
+
+test('compVarioAt: level acceleration reads as positive energy (raw vario ≈ 0)', () => {
+  // constant altitude, increasing ground speed
+  const tr = mkTrack([
+    [0, 45, 1000, 0], [0.0002, 45, 1000, 3], [0.0006, 45, 1000, 6], [0.0012, 45, 1000, 9],
+    [0.0020, 45, 1000, 12], [0.0030, 45, 1000, 15], [0.0042, 45, 1000, 18],
+  ]);
+  expect(Math.abs(varioAt(tr, 9))).toBeLessThan(0.01);
+  expect(compVarioAt(tr, 9)).toBeGreaterThan(0.1);
+});
+
+test('compVarioAt: pull-up (climb while decelerating) compensates below raw vario', () => {
+  // altitude rising, ground speed falling → energy roughly traded, comp < raw
+  const tr = mkTrack([
+    [0, 45, 1000, 0], [0.0012, 45, 1050, 3], [0.0022, 45, 1090, 6], [0.0030, 45, 1120, 9],
+    [0.0036, 45, 1140, 12], [0.0040, 45, 1150, 15], [0.0042, 45, 1155, 18],
+  ]);
+  expect(varioAt(tr, 9)).toBeGreaterThan(0);
+  expect(compVarioAt(tr, 9)).toBeLessThan(varioAt(tr, 9));
+  expect(groundSpeedAt(tr, 9)).toBeGreaterThan(0);
 });
 
 test('slice clamps to span and includes endpoints', () => {
