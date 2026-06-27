@@ -34,8 +34,11 @@ export async function fetchData(icao: string, date: string, onlyActive: boolean)
     if (!dev || f.start_tsp == null || f.stop_tsp == null || dev.address[0] === '~' || dev.address[0] === '_') return null;
     return { dev, t0: f.start_tsp - 30, t1: f.stop_tsp + 30, maxalt: f.max_alt, stop: f.stop_tsp };
   }).filter((x): x is Task => x !== null);
-  // Live refresh only re-fetches flights seen in the last ~20 min (the growing ones).
+  // Live refresh only re-fetches flights seen in the last ~20 min (the growing
+  // ones). Otherwise skip flights whose IGC is surely gone (OGN keeps it ~24 h):
+  // those return a 204 with no CORS header, flooding the console for old dates.
   if (onlyActive) tasks = tasks.filter(task => task.stop >= nowTsp - 1200);
+  else tasks = tasks.filter(task => task.stop >= nowTsp - 26 * 3600);
   const tracks: Track[] = [];
   await pool(tasks, 4, async (task) => {
     try {
@@ -70,7 +73,13 @@ export async function loadFlights(icao: string, date: string): Promise<void> {
     const res = await fetchData(icao, date, false);
     if (!res) { setStatus(t('noFlights')); loadBtn.disabled = false; return; }
     S.RAW = res.tracks;
-    if (!S.RAW.length) { setStatus(t('noFlights')); loadBtn.disabled = false; return; }
+    if (!S.RAW.length) {
+      setStatus(t('noFlights'));
+      // Still fly to the airfield so the user lands on the zone (e.g. old dates
+      // whose IGC tracks have expired).
+      if (res.af.latlng) S.mapTarget = { longitude: res.af.latlng[1], latitude: res.af.latlng[0], zoom: 11, pitch: 55, bearing: 0, maxPitch: 85 };
+      loadBtn.disabled = false; return;
+    }
     rebuild(res.af, res.tzoff, false);
     statusMsgInner(date, S.RAW.length);
   } catch (e) { setStatus(t('errLoad'), 'err'); }
