@@ -1,0 +1,22 @@
+# Allowlist mode: ignore everything by default, then explicitly un-ignore the
+# sources we want tracked. Anything not listed below stays out of the repo.
+*
+
+# Allow git to descend into directories so the allowlisted files are reachable.
+!*/
+
+# Allowlisted source / config / docs (by extension or exact name).
+!*.html
+!*.css
+!*.ts
+!*.json
+!*.md
+!*.yml
+!*.yaml
+!LICENSE
+!.gitignore
+!/bun.lock
+
+# Re-ignore generated and vendored trees (these override the allows above).
+node_modules/
+dist/

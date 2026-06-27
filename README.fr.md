@@ -11,7 +11,7 @@ traces des planeurs de la journée sur un relief 3D — avec lecture animée, vu
 subjective (cockpit) et un affichage tête haute indiquant le cap, l'altitude et
 le vario.
 
-![OGN 3D Viewer](https://img.shields.io/badge/statut-en%20ligne-brightgreen) ![Sans build](https://img.shields.io/badge/build-aucun-blue)
+![OGN 3D Viewer](https://img.shields.io/badge/statut-en%20ligne-brightgreen) ![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6) ![Bun](https://img.shields.io/badge/bundler-Bun-f9f1e1)
 
 ## Fonctionnalités
 
@@ -28,14 +28,55 @@ le vario.
 
 ## Fonctionnement
 
-Il s'agit d'un **unique fichier HTML statique** ([`index.html`](index.html)) — pas
-de backend, pas d'étape de build. Il utilise :
+Une **application monopage côté client**, écrite en **TypeScript** et empaquetée
+avec **[Bun](https://bun.sh/)** — sans backend. Le code source se trouve dans
+[`src/`](src/) sous forme de petits modules ES ([`igc.ts`](src/igc.ts) pour
+l'analyse, [`flight-math.ts`](src/flight-math.ts) pour la géométrie,
+[`terrain.ts`](src/terrain.ts), [`render.ts`](src/render.ts), [`ui.ts`](src/ui.ts),
+un état partagé [`state.ts`](src/state.ts), etc.). Il utilise :
 
-- [deck.gl](https://deck.gl/) pour le rendu du relief 3D et des traces ;
+- [deck.gl](https://deck.gl/) (les paquets npm `@deck.gl/*`, tree-shakés) pour le
+  rendu du relief 3D et des traces ;
 - l'API publique [OGN FlightBook](https://flightbook.glidernet.org/) pour le
   carnet de vol et les traces IGC (appelée directement depuis le navigateur —
   l'API expose un CORS ouvert) ;
 - les tuiles d'élévation AWS Terrarium et l'imagerie Esri World Imagery pour le relief.
+
+## Pile technique
+
+- **TypeScript** (strict) — types métier pour les traces, l'API FlightBook et
+  l'état partagé de l'application.
+- **Bun** — bundler, serveur de développement et lanceur de tests, sans outillage
+  séparé.
+- **deck.gl 9** via les paquets scoped tree-shakés, et `upng-js` pour le décodage
+  des tuiles de relief en pur JS.
+
+## Développement
+
+Nécessite [Bun](https://bun.sh/). Installez les dépendances une fois, puis :
+
+```bash
+git clone https://github.com/s-celles/ogn-3d-viewer.git
+cd ogn-3d-viewer
+bun install
+
+bun run serve      # build + sert dist/ sur http://localhost:3000
+bun run dev        # reconstruit dist/ à chaque modif (watch ; à coupler avec un serveur statique)
+bun run build      # build de production (minifié) → dist/
+bun test           # tests unitaires des modules purs (igc, flight-math)
+bun run typecheck  # tsc --noEmit
+```
+
+`bun run serve` est le moyen rapide de voir l'application. Pour une boucle
+d'édition à chaud, lancez `bun run dev` (reconstruit `dist/` à la sauvegarde)
+dans un terminal et servez `dist/` dans un autre (ex. `python3 -m http.server -d dist 3000`).
+
+> Note : on empaquette avec [`bun build`](https://bun.sh/docs/bundler) plutôt qu'avec
+> le serveur de dev HTML intégré de Bun (`bun ./index.html`) — le découpage de
+> modules à la volée de ce dernier résout mal le graphe deck.gl/luma et casse le
+> maillage du relief. deck.gl et luma.gl sont épinglés en 9.1.0 (voir `overrides`
+> dans [`package.json`](package.json)) car luma 9.3 a changé l'API de maillage dont
+> dépend notre relief construit à la main.
 
 ## Limites des données
 
@@ -52,23 +93,14 @@ Les données OGN sont issues de la communauté et présentent quelques limites �
 Merci de consulter et de respecter la
 [politique d'usage des données OGN](https://www.glidernet.org/ogn-data-usage/).
 
-## Lancer en local
-
-Comme tout s'exécute côté client, vous pouvez simplement ouvrir le fichier — mais
-un petit serveur web local évite les restrictions file:// du navigateur :
-
-```bash
-git clone https://github.com/s-celles/ogn-3d-viewer.git
-cd ogn-3d-viewer
-python -m http.server 8000
-# puis ouvrez http://localhost:8000/
-```
-
 ## Déploiement
 
 Le site est publié sur **GitHub Pages** automatiquement par le workflow GitHub
 Actions [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) à chaque
-push sur `main`.
+push sur `main` : il installe Bun, vérifie les types, lance les tests, construit
+le dossier `dist/` et le publie. Les URL des ressources sont émises en relatif
+(`--public-path=./`) afin que le build fonctionne sous le sous-chemin
+`/ogn-3d-viewer/` du projet.
 
 Pour l'activer sur un fork : allez dans **Settings → Pages → Build and deployment
 → Source** et choisissez **GitHub Actions**.

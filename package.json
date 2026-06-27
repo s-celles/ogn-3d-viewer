@@ -1,0 +1,39 @@
+{
+  "name": "ogn-3d-viewer",
+  "version": "0.1.0",
+  "description": "3D replay of glider flights from the Open Glider Network (OGN), in your browser.",
+  "license": "AGPL-3.0",
+  "type": "module",
+  "homepage": "https://s-celles.github.io/ogn-3d-viewer/",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/s-celles/ogn-3d-viewer.git"
+  },
+  "scripts": {
+    "dev": "bun build ./index.html --outdir=dist --sourcemap=linked --public-path=./ --watch",
+    "serve": "bun build ./index.html --outdir=dist --sourcemap=linked --public-path=./ && python3 -m http.server -d dist 3000",
+    "build": "bun build ./index.html --outdir=dist --minify --sourcemap=linked --public-path=./",
+    "test": "bun test",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@deck.gl/core": "9.1.0",
+    "@deck.gl/geo-layers": "9.1.0",
+    "@deck.gl/layers": "9.1.0",
+    "@deck.gl/mesh-layers": "9.1.0",
+    "upng-js": "^2.1.0"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "typescript": "^5.6.0"
+  },
+  "comment:overrides": "Pin luma.gl to 9.1.x to match deck.gl 9.1.0 — luma 9.3 changed the SimpleMeshLayer mesh/Geometry API and breaks our hand-built terrain mesh.",
+  "overrides": {
+    "@luma.gl/constants": "9.1.0",
+    "@luma.gl/core": "9.1.0",
+    "@luma.gl/engine": "9.1.0",
+    "@luma.gl/gltf": "9.1.0",
+    "@luma.gl/shadertools": "9.1.0",
+    "@luma.gl/webgl": "9.1.0"
+  }
+}

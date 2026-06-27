@@ -4,14 +4,11 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>OGN 3D Replay</title>
-<script src="https://unpkg.com/deck.gl@9.1.0/dist.min.js"></script>
-<!-- Pure-JS PNG decode for terrain tiles. deck.gl's TerrainLayer decodes terrarium
-     tiles in a Web Worker whose createImageBitmap mangles the RGB-encoded elevation
-     (visible as random spikes) when the page is *served over http*; file:// is spared
-     only because it can't spawn the worker. We bypass that pipeline entirely. -->
-<script src="https://cdn.jsdelivr.net/npm/pako@2.1.0/dist/pako.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/upng-js@2.1.0/UPNG.js"></script>
 <link rel="stylesheet" href="css/style.css">
+<!-- deck.gl, UPNG and pako are bundled from npm by Bun; terrain tiles are decoded
+     with UPNG on the main thread (deck.gl's worker path mangles the RGB-encoded
+     elevation when served over http). See src/terrain.ts. -->
+<script type="module" src="./src/main.ts"></script>
 </head>
 <body>
 <div id="map"></div>
@@ -134,6 +131,5 @@
   </div>
 </div>
 
-<script type="module" src="js/main.js"></script>
 </body>
 </html>

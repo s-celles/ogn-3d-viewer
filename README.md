@@ -10,7 +10,7 @@ Pick an airfield (ICAO code) and a date, and the viewer reconstructs the day's
 glider tracks over 3D terrain — with playback, a cockpit (first-person) view,
 and a head-up display showing heading, altitude and vario.
 
-![OGN 3D Viewer](https://img.shields.io/badge/status-live-brightgreen) ![No build step](https://img.shields.io/badge/build-none-blue)
+![OGN 3D Viewer](https://img.shields.io/badge/status-live-brightgreen) ![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6) ![Bun](https://img.shields.io/badge/bundler-Bun-f9f1e1)
 
 ## Features
 
@@ -27,14 +27,53 @@ and a head-up display showing heading, altitude and vario.
 
 ## How it works
 
-This is a **single static HTML file** ([`index.html`](index.html)) — no backend,
-no build step. It uses:
+A **client-side single-page app** written in **TypeScript** and bundled with
+**[Bun](https://bun.sh/)** — no backend. The source lives in [`src/`](src/) as
+small ES modules ([`igc.ts`](src/igc.ts) parsing, [`flight-math.ts`](src/flight-math.ts)
+geometry, [`terrain.ts`](src/terrain.ts), [`render.ts`](src/render.ts),
+[`ui.ts`](src/ui.ts), a shared [`state.ts`](src/state.ts), etc.). It uses:
 
-- [deck.gl](https://deck.gl/) for the 3D terrain and track rendering;
+- [deck.gl](https://deck.gl/) (the scoped `@deck.gl/*` npm packages, tree-shaken)
+  for the 3D terrain and track rendering;
 - the public [OGN FlightBook API](https://flightbook.glidernet.org/) for the
   logbook and IGC tracks (called directly from the browser — the API exposes
   open CORS);
 - AWS Terrarium elevation tiles and Esri World Imagery for the terrain.
+
+## Tech stack
+
+- **TypeScript** (strict) — domain types for tracks, the FlightBook API and the
+  shared app state.
+- **Bun** — bundler, dev server and test runner, no separate toolchain.
+- **deck.gl 9** via tree-shaken scoped packages, plus `upng-js` for pure-JS
+  terrain-tile decoding.
+
+## Development
+
+Requires [Bun](https://bun.sh/). Install dependencies once, then:
+
+```bash
+git clone https://github.com/s-celles/ogn-3d-viewer.git
+cd ogn-3d-viewer
+bun install
+
+bun run serve      # build once + serve dist/ on http://localhost:3000
+bun run dev        # rebuild dist/ on every change (watch; pair with a static server)
+bun run build      # production build (minified) → dist/
+bun test           # unit tests for the pure modules (igc, flight-math)
+bun run typecheck  # tsc --noEmit
+```
+
+`bun run serve` is the quick way to look at the app. For a live edit loop, run
+`bun run dev` (rebuilds `dist/` on save) in one terminal and serve `dist/` in
+another (e.g. `python3 -m http.server -d dist 3000`).
+
+> Note: we bundle with [`bun build`](https://bun.sh/docs/bundler) rather than
+> Bun's built-in HTML dev server (`bun ./index.html`) — the latter's on-the-fly
+> module splitting mis-resolves the deck.gl/luma graph and breaks the terrain
+> mesh. deck.gl and luma.gl are pinned to 9.1.0 (see the `overrides` in
+> [`package.json`](package.json)) because luma 9.3 changed the mesh API our
+> hand-built terrain relies on.
 
 ## Data limitations
 
@@ -51,23 +90,14 @@ the app via the ⓘ button:
 Please review and respect the official
 [OGN data usage policy](https://www.glidernet.org/ogn-data-usage/).
 
-## Running locally
-
-Because everything runs client-side, you can just open the file — but a tiny
-local web server avoids any browser file:// restrictions:
-
-```bash
-git clone https://github.com/s-celles/ogn-3d-viewer.git
-cd ogn-3d-viewer
-python -m http.server 8000
-# then open http://localhost:8000/
-```
-
 ## Deployment
 
 The site is published to **GitHub Pages** automatically by the
 [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) GitHub Actions
-workflow on every push to `main`.
+workflow on every push to `main`: it sets up Bun, type-checks, runs the tests,
+builds to `dist/`, and publishes that folder. Asset URLs are emitted relative
+(`--public-path=./`) so the build works under the project's `/ogn-3d-viewer/`
+sub-path.
 
 To enable it on a fork: go to **Settings → Pages → Build and deployment → Source**
 and select **GitHub Actions**.
