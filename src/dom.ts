@@ -6,6 +6,7 @@ const $ = <T extends Element = HTMLElement>(id: string) =>
   document.getElementById(id) as unknown as T;
 
 export const mapDiv     = $('map');
+export const sunEl      = $('sun');
 export const statusEl   = $('status');
 export const subjEl     = $<HTMLSelectElement>('subject');
 export const viewsEl    = $('views');

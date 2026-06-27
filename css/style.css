@@ -13,6 +13,9 @@ html,body{margin:0;height:100%;background:var(--bg);color:var(--txt);
 #map{position:fixed;inset:0;
      background:var(--sky-zenith); /* solid fallback */
      background:linear-gradient(to bottom, var(--sky-zenith), var(--sky-horizon))}
+/* Sun disc, positioned by src/render.ts (above the map, below the UI cards). */
+#sun{position:fixed;width:104px;height:104px;margin:-52px 0 0 -52px;border-radius:50%;
+     pointer-events:none;display:none;z-index:1}
 .card{position:fixed;background:var(--card);backdrop-filter:blur(8px);
       border:1px solid var(--line);border-radius:12px;padding:12px 14px;
       box-shadow:0 8px 30px rgba(0,0,0,.45)}

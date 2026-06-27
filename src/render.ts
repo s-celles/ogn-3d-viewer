@@ -1,7 +1,7 @@
 // ============ viewer: deck.gl instance, dynamic layers, HUD ============
 import { S } from './state';
 import { t } from './i18n';
-import { mapDiv, hudreg, hudhdg, hudalt, hudvar } from './dom';
+import { mapDiv, sunEl, hudreg, hudhdg, hudalt, hudvar } from './dom';
 import {
   Deck, MapView, FirstPersonView, PathLayer, TripsLayer, ScatterplotLayer, SimpleMeshLayer,
   LightingEffect, AmbientLight, DirectionalLight,
@@ -75,26 +75,40 @@ function dynamicLayers() {
       sizeScale: MODEL_SCALE, material: aircraftMaterial as any, parameters: { depthTest: true } as any }),
     new ScatterplotLayer({ id: 'airfield', data: S.AF ? [{ pos: [S.AF.lon, S.AF.lat, S.AF.elev * k] as Pos3 }] : [], getPosition: (d: any) => d.pos,
       getFillColor: [255, 60, 60], getRadius: 6, radiusUnits: 'pixels', stroked: true, lineWidthMinPixels: 1.5, getLineColor: [255, 255, 255] }),
-    ...sunLayers(),
   ];
 }
 
-// The sun disc + glow, drawn on top (depthTest off) at a far point in the sun's
-// direction so it sits in the sky. Distance is kept inside the views' far plane.
-function sunLayers() {
+// Position the sun disc (a small fixed element) at the projected screen position.
+// Updating a tiny element is cheap (unlike repainting the full-viewport sky bg,
+// which janked pan/zoom). Hidden when the sun is behind the camera or off-screen.
+let sunShown = false;
+function updateSunSky(): void {
   const s = getSun();
-  if (!s.up || !S.AF) return [];
-  const [tx, ty, tz] = s.toward, D = 60000; // 60 km along the 3D sun direction (inside the far plane)
-  const lon = S.AF.lon + (D * tx) / (111320 * Math.cos(S.AF.lat * Math.PI / 180));
-  const lat = S.AF.lat + (D * ty) / 111320;
-  const pos = [lon, lat, (S.AF.elev || 0) + D * tz] as Pos3;
-  const data = [{ pos }], c = s.disc;
-  return [
-    new ScatterplotLayer({ id: 'sun-glow', data, getPosition: (d: any) => d.pos, getFillColor: [...c, 45] as any,
-      getRadius: 46, radiusUnits: 'pixels' }),
-    new ScatterplotLayer({ id: 'sun', data, getPosition: (d: any) => d.pos, getFillColor: [...c, 255] as any,
-      getRadius: 15, radiusUnits: 'pixels' }),
-  ];
+  const hide = () => { if (sunShown) { sunEl.style.display = 'none'; sunShown = false; } };
+  if (!s.up) return hide();
+  const width = mapDiv.clientWidth, height = mapDiv.clientHeight;
+  if (!width || !height) return hide();
+  // Build the viewport from the current view state (not deckgl.getViewports(),
+  // which interfered with the pan/zoom controller).
+  let vp: any;
+  try {
+    vp = S.mode === 'fpv'
+      ? new FirstPersonView({ id: 'fpv', fovy: 64, near: 1, far: 200000 }).makeViewport({ width, height, viewState: computeFPV() as any })
+      : new MapView({ id: 'main' }).makeViewport({ width, height, viewState: (S.mode === 'chase' ? computeChase() : S.mapVS) as any });
+  } catch (e) { return hide(); }
+  if (!vp || !vp.viewProjectionMatrix) return hide();
+  const u = (vp.distanceScales && vp.distanceScales.unitsPerMeter) || [1, 1, 1];
+  const [tx, ty, tz] = s.toward;
+  const dx = tx * u[0], dy = ty * u[1], dz = tz * u[2], m = vp.viewProjectionMatrix; // column-major
+  const cw = m[3] * dx + m[7] * dy + m[11] * dz;
+  if (cw <= 1e-6) return hide();                                          // behind the camera
+  const nx = (m[0] * dx + m[4] * dy + m[8] * dz) / cw, ny = (m[1] * dx + m[5] * dy + m[9] * dz) / cw;
+  if (Math.abs(nx) > 1.4 || Math.abs(ny) > 1.4) return hide();
+  const px = ((nx * 0.5 + 0.5) * vp.width).toFixed(0), py = ((0.5 - ny * 0.5) * vp.height).toFixed(0);
+  const c = s.disc.join(',');
+  sunEl.style.left = px + 'px'; sunEl.style.top = py + 'px';
+  sunEl.style.background = `radial-gradient(circle, rgb(${c}) 0%, rgb(${c}) 17%, rgba(${c},0.5) 32%, rgba(${c},0) 64%)`;
+  sunEl.style.display = 'block'; sunShown = true;
 }
 
 // deck's FirstPersonViewport forward vector for a given bearing/pitch (matches
@@ -169,6 +183,7 @@ export function render(): void {
     updateHUD();
   }
   feedVarioSound();
+  updateSunSky();
 }
 
 // Drive the audio variometer from the followed glider's Vz (cockpit & chase only,
