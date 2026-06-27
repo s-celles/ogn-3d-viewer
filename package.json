@@ -11,8 +11,8 @@
   },
   "scripts": {
     "dev": "bun build ./index.html --outdir=dist --sourcemap=linked --public-path=./ --watch",
-    "serve": "bun build ./index.html --outdir=dist --sourcemap=linked --public-path=./ && python3 -m http.server -d dist 3000",
-    "build": "bun build ./index.html --outdir=dist --minify --sourcemap=linked --public-path=./",
+    "serve": "bun run scripts/build.ts && python3 -m http.server -d dist 3000",
+    "build": "bun run scripts/build.ts",
     "test": "bun test",
     "typecheck": "tsc --noEmit"
   },

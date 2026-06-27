@@ -10,6 +10,12 @@ import './data';
 const todayStr = new Date().toISOString().slice(0, 10);
 dateEl.value = todayStr; dateEl.max = todayStr;
 
+// PWA: register the network-first service worker (production builds only — dev
+// has no sw.js). Relative path so the scope is the GitHub Pages subpath.
+if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+  window.addEventListener('load', () => { navigator.serviceWorker.register('./sw.js').catch(() => {}); });
+}
+
 initDeck();
 applyI18n(); applyFollowClass(); syncUI();
 
