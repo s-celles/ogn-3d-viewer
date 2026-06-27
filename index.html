@@ -29,7 +29,10 @@
   <div id="disclaimer" class="disc" style="display:none"></div>
 
   <div class="row" style="flex-direction:column;align-items:stretch">
-    <label class="lbl" data-i18n="airfieldLabel">Aérodrome (OACI)</label>
+    <div class="row spread" style="margin:0 0 3px;align-items:baseline">
+      <label class="lbl" style="margin:0" data-i18n="airfieldLabel">Aérodrome (OACI)</label>
+      <a id="fblink" class="fblink" target="_blank" rel="noopener" data-i18n-title="flightbook" title="">FlightBook ↗</a>
+    </div>
     <div class="ac">
       <input id="icao" type="text" autocomplete="off" placeholder="LFMX" value="LFMX">
       <div id="aclist" class="aclist"></div>

@@ -5,7 +5,7 @@ import { API_BASE, REPO_URL, MINZ, MAXZ, PMIN, PMAX, CHASE, clampv } from './con
 import { APP_VERSION, GIT_HASH } from './version';
 import {
   subjEl, viewsEl, cammodeEl, traceEl, smoothBtn, compBtn, bankBtn, soundBtn, winEl, winval, playBtn, segEl,
-  exoEl, exval, pitchEl, pitchval, scrub, clkEl, lglist, rose, altsl, icaoEl, acEl,
+  exoEl, exval, pitchEl, pitchval, scrub, clkEl, lglist, rose, altsl, icaoEl, fblink, acEl,
   dateEl, loadBtn, langEl, discEl, infoBtn, collapseBtn, liveBtn,
 } from './dom';
 import { subjectTrack, airborne, headingAt, clampCur, fmt } from './flight-math';
@@ -18,7 +18,7 @@ import type { Mode, Trace, Lang } from './types';
 const asEl = (c: Element) => c as HTMLElement;
 
 // ---- clock / scrubber ----
-export function syncUI(): void { clkEl.textContent = S.ready ? fmt(S.cur) : '--:--'; scrub.value = String(Math.round(S.cur / S.SPAN * 1000)); }
+export function syncUI(): void { clkEl.textContent = S.ready ? fmt(S.cur) : '--:--'; scrub.value = String(Math.round(S.cur / S.SPAN * 1000)); updateFbLink(); }
 scrub.addEventListener('input', e => { if (!S.ready) return; S.cur = +(e.target as HTMLInputElement).value / 1000 * S.SPAN; render(); syncUI(); });
 
 // ---- view toggle ----
@@ -180,6 +180,7 @@ Object.entries(CHASE_NAV).forEach(([id, fn]) => { const el = document.getElement
 // ---- airfield autocomplete ----
 let acTimer: ReturnType<typeof setTimeout> | null = null;
 icaoEl.addEventListener('input', () => {
+  updateFbLink();
   const q = icaoEl.value.trim(); if (acTimer) clearTimeout(acTimer);
   if (q.length < 2) { acEl.classList.remove('open'); return; }
   acTimer = setTimeout(async () => {
@@ -188,7 +189,7 @@ icaoEl.addEventListener('input', () => {
       acEl.innerHTML = ''; (list || []).slice(0, 8).forEach(a => {
         const it = document.createElement('div'); it.className = 'it';
         it.innerHTML = `<b>${a.code}</b><span>${a.name || ''}</span>`;
-        it.onclick = () => { icaoEl.value = a.code; acEl.classList.remove('open'); };
+        it.onclick = () => { icaoEl.value = a.code; acEl.classList.remove('open'); updateFbLink(); };
         acEl.appendChild(it);
       });
       acEl.classList.toggle('open', acEl.children.length > 0);
@@ -197,6 +198,7 @@ icaoEl.addEventListener('input', () => {
 });
 document.addEventListener('click', e => { if (!(e.target as Element).closest('.ac')) acEl.classList.remove('open'); });
 icaoEl.addEventListener('keydown', e => { if (e.key === 'Enter') { acEl.classList.remove('open'); loadBtn.click(); } });
+dateEl.addEventListener('input', updateFbLink);
 loadBtn.onclick = () => { stopLive(); loadFlights(icaoEl.value.trim().toUpperCase(), dateEl.value); };
 
 // ---- quick date (today / yesterday) ----
@@ -262,24 +264,26 @@ function renderDisc(): void {
   const commit = GIT_HASH === 'dev'
     ? GIT_HASH
     : `<a href="${REPO_URL}/commit/${GIT_HASH}" target="_blank" rel="noopener" style="color:var(--accent)">${GIT_HASH}</a>`;
-  const code = (S.AF && S.AF.code) || icaoEl.value.trim().toUpperCase();
-  const fbDate = S.date || dateEl.value;
-  const fbUrl = `${API_BASE}/logbook/${code}/` + (/^\d{4}-\d{2}-\d{2}$/.test(fbDate) ? fbDate : '');
-  const fbLink = code && code.length >= 3
-    ? `<div style="margin-top:4px">${t('flightbook')} : ` +
-      `<a href="${fbUrl}" target="_blank" rel="noopener" style="color:var(--accent)">${code} ↗</a></div>`
-    : '';
   discEl.innerHTML = '<b>' + t('disclaimerTitle') + '</b><ul>' + arr.map(x => '<li>' + x + '</li>').join('') + '</ul>' +
     `<div style="margin-top:6px">${t('sourceCode')} : ` +
     `<a href="${REPO_URL}" target="_blank" rel="noopener" style="color:var(--accent)">github.com/s-celles/ogn-3d-viewer</a></div>` +
-    fbLink +
     `<div style="margin-top:4px;color:var(--mut)">${t('version')} ${APP_VERSION} · ${commit}</div>`;
 }
-infoBtn.onclick = () => {
-  const open = discEl.style.display !== 'none';
-  if (!open) renderDisc();   // refresh with the current airfield/date (e.g. the FlightBook link)
-  discEl.style.display = open ? 'none' : 'block'; infoBtn.classList.toggle('on', !open);
-};
+
+// The FlightBook link next to the airfield label — points at the OGN FlightBook
+// page for the currently typed/loaded airfield + date (round-trip with the
+// ?icao=…&date=… deep link). Updated live as the inputs change.
+export function updateFbLink(): void {
+  const code = icaoEl.value.trim().toUpperCase() || (S.AF && S.AF.code) || '';
+  const date = dateEl.value || S.date;
+  if (code.length >= 3) {
+    fblink.href = `${API_BASE}/logbook/${code}/` + (/^\d{4}-\d{2}-\d{2}$/.test(date) ? date : '');
+    fblink.style.display = '';
+  } else {
+    fblink.style.display = 'none';
+  }
+}
+infoBtn.onclick = () => { const open = discEl.style.display !== 'none'; discEl.style.display = open ? 'none' : 'block'; infoBtn.classList.toggle('on', !open); };
 
 // ---- keyboard ----
 window.addEventListener('keydown', e => {

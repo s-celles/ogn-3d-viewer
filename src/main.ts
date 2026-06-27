@@ -2,7 +2,7 @@
 import { S } from './state';
 import { dateEl, icaoEl } from './dom';
 import { initDeck, render } from './render';
-import { applyI18n, applyFollowClass, syncUI, easeCamera, updateCompass } from './ui';
+import { applyI18n, applyFollowClass, syncUI, easeCamera, updateCompass, updateFbLink } from './ui';
 import { loadFlights } from './data';
 
 const todayStr = new Date().toISOString().slice(0, 10);
@@ -26,6 +26,7 @@ if (qIcao) {
   icaoEl.value = qIcao;
   const qDate = (qp.get('date') || '').trim();
   if (/^\d{4}-\d{2}-\d{2}$/.test(qDate) && qDate <= todayStr) dateEl.value = qDate;
+  updateFbLink();   // inputs were set programmatically (no input event)
   loadFlights(qIcao, dateEl.value);
 }
 
