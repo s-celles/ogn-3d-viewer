@@ -173,10 +173,21 @@ function computeFPV() {
   return { ...base, bearing, pitch, up: rollUp(forwardVec(bearing, pitch), roll) };
 }
 
-// Chase cam: MapView centred on the glider, looking forward from behind/above.
+// Chase cam: MapView following the glider from behind/above. A MapView always
+// looks at the ground (z=0) under its centre, but the glider is drawn at altitude
+// p[2]*exo above that plane — so centring on its ground position leaves it far
+// above the top of the screen (worse with vertical exaggeration). We shift the
+// look-at point FORWARD along the bearing by h/tan(depression) = h*tan(pitch),
+// so the camera's centre ray passes through the glider's actual 3D position.
 function computeChase() {
   const tr = subjectTrack(), time = clampCur(tr), p = posAt(tr, time);
-  return { longitude: p[0], latitude: p[1], zoom: CHASE.zoom, pitch: CHASE.pitch, bearing: headingAt(tr, time), maxPitch: 85 };
+  const bearing = headingAt(tr, time);
+  const h = p[2] * S.exo;                                           // height above the z=0 look-at plane
+  const ahead = h * Math.tan(CHASE.pitch * Math.PI / 180) * CHASE.lead;
+  const br = bearing * Math.PI / 180;
+  const dLat = (ahead * Math.cos(br)) / 111320;
+  const dLng = (ahead * Math.sin(br)) / (111320 * Math.cos(p[1] * Math.PI / 180));
+  return { longitude: p[0] + dLng, latitude: p[1] + dLat, zoom: CHASE.zoom, pitch: CHASE.pitch, bearing, maxPitch: 85 };
 }
 
 let deckgl: Deck;

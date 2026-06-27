@@ -36,7 +36,9 @@ export const GLIDER = {
 };
 
 // Chase cam: a MapView that follows the subject glider from behind and above.
-export const CHASE = { zoom: 13.6, pitch: 58 };
+// `lead` >1 shifts the framing so the glider sits slightly below screen centre
+// (looking ahead), <1 raises it; 1 centres it exactly.
+export const CHASE = { zoom: 13.6, pitch: 58, lead: 1.12 };
 
 // Glider position marker: a heading-oriented triangle (metres). `len` is the
 // nose distance ahead of the position, `back` the base behind it, `halfW` the
