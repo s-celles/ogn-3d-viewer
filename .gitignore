@@ -13,6 +13,8 @@
 !*.md
 !*.yml
 !*.yaml
+!*.png
+!*.ico
 !LICENSE
 !.gitignore
 !/bun.lock

@@ -1,3 +1,5 @@
+<p align="center"><img src="assets/banner.png" alt="OGN 3D Viewer" width="100%"></p>
+
 # OGN 3D Viewer
 
 *Read this in [French / Français](README.fr.md).*
