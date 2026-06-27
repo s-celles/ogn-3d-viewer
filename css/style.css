@@ -122,6 +122,8 @@ body.live .liveHide{display:none!important}
 body.collapsed #panel > :not(.hdr){display:none}
 body.collapsed #legend{display:none}
 @media (max-width:640px){
+  /* Hide the app title on phones to save vertical space in the panel header. */
+  #panel h1{display:none}
   #panel{width:auto;left:8px;right:8px;top:8px;max-height:calc(100vh - 16px)}
   #legend{left:8px;right:8px;width:auto;bottom:8px}
   #nav{right:8px;bottom:8px}
