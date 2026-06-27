@@ -98,7 +98,10 @@ body.fpv #nav, body.chase #nav{display:none}
    height WITHOUT inflating the card. Drives the camera pitch (eye height around
    the centred look-at point), not the zoom. */
 #nav .altctl{position:relative;width:26px;align-self:stretch;border-left:1px solid var(--line)}
-.vslider{-webkit-appearance:slider-vertical;appearance:slider-vertical;writing-mode:vertical-lr;
+/* writing-mode + direction:rtl makes the range vertical with min at the BOTTOM
+   and max at the top, so the accent-colour fill grows from the bottom up to the
+   thumb (a level-gauge look) instead of always sitting at the top. */
+.vslider{writing-mode:vertical-lr;direction:rtl;
          position:absolute;top:0;bottom:0;left:50%;transform:translateX(-50%);
          width:22px;height:100%;margin:0;accent-color:var(--accent);cursor:ns-resize}
 .compass{width:42px;height:42px;cursor:pointer;flex:0 0 auto}

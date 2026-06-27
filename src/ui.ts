@@ -141,19 +141,20 @@ export function easeCamera(): void {
 }
 // Viewpoint-altitude slider ⇄ camera pitch. At fixed zoom (distance) and a fixed
 // look-at point, raising the eye = orbiting toward overhead = a SMALLER pitch
-// (pitch 0 is straight-down). The native vertical range runs min→max top→bottom,
-// so binding pitch = value puts the top (pitch 0) = highest viewpoint: dragging
-// up raises the eye. Only the height changes; the centred point you observe does
-// not (this is independent of zoom).
+// (pitch 0 is straight-down). The slider runs max→min top→bottom (CSS direction
+// rtl), so the fill grows from the bottom; we map pitch = max−value so the TOP
+// (max value) = overhead (pitch 0) and the bottom = ground-level view. Only the
+// height changes; the observed point and the zoom do not.
+const PALT = (p: number): number => (PMIN + PMAX) - p;    // self-inverse: PALT(PALT(p)) === p
 if (altsl) {
   altsl.min = String(PMIN); altsl.max = String(PMAX);
-  altsl.addEventListener('input', () => { S.mapTarget.pitch = clampv(+altsl.value, PMIN, PMAX); });
+  altsl.addEventListener('input', () => { S.mapTarget.pitch = clampv(PALT(+altsl.value), PMIN, PMAX); });
 }
 
 export function updateCompass(): void {
   if (rose) rose.setAttribute('transform', 'rotate(' + (-(S.mapVS.bearing || 0)) + ' 20 20)');
   // Keep the altitude slider in sync with drag/tilt-button pitch, unless dragged.
-  if (altsl && document.activeElement !== altsl) altsl.value = String(S.mapVS.pitch);
+  if (altsl && document.activeElement !== altsl) altsl.value = String(PALT(S.mapVS.pitch));
 }
 const NAV: Record<string, () => void> = {
   rotL: () => S.mapTarget.bearing -= 30, rotR: () => S.mapTarget.bearing += 30,
