@@ -262,9 +262,15 @@ function renderDisc(): void {
   const commit = GIT_HASH === 'dev'
     ? GIT_HASH
     : `<a href="${REPO_URL}/commit/${GIT_HASH}" target="_blank" rel="noopener" style="color:var(--accent)">${GIT_HASH}</a>`;
+  const code = (S.AF && S.AF.code) || icaoEl.value.trim().toUpperCase();
+  const fbLink = code && code.length >= 3
+    ? `<div style="margin-top:4px">${t('flightbook')} : ` +
+      `<a href="${API_BASE}/logbook/${code}/" target="_blank" rel="noopener" style="color:var(--accent)">${code} ↗</a></div>`
+    : '';
   discEl.innerHTML = '<b>' + t('disclaimerTitle') + '</b><ul>' + arr.map(x => '<li>' + x + '</li>').join('') + '</ul>' +
     `<div style="margin-top:6px">${t('sourceCode')} : ` +
     `<a href="${REPO_URL}" target="_blank" rel="noopener" style="color:var(--accent)">github.com/s-celles/ogn-3d-viewer</a></div>` +
+    fbLink +
     `<div style="margin-top:4px;color:var(--mut)">${t('version')} ${APP_VERSION} · ${commit}</div>`;
 }
 infoBtn.onclick = () => { const open = discEl.style.display !== 'none'; discEl.style.display = open ? 'none' : 'block'; infoBtn.classList.toggle('on', !open); };

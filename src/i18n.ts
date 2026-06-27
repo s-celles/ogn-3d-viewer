@@ -42,7 +42,7 @@ export const I18N: Record<Lang, Strings> = {
     tiltTop: 'Redresser (vue du dessus)', tiltGround: 'Incliner (vue rasante)',
     zoomOut: 'Reculer (dézoomer)', zoomIn: 'Avancer (zoomer)',
     hdg: 'Cap', alt: 'Altitude', vario: 'Vario', landed: 'posé', beforeTk: 'décollage à venir', min: 'min',
-    info: 'Limites / à propos', disclaimerTitle: "Limites d'affichage", sourceCode: 'Code source', version: 'Version',
+    info: 'Limites / à propos', disclaimerTitle: "Limites d'affichage", sourceCode: 'Code source', version: 'Version', flightbook: 'Carnet FlightBook',
     disc: [
       'Données OGN : la trace dépend de la réception par les stations au sol — trous, décrochages ou montées tronquées possibles.',
       'Seuls les aéronefs enregistrés et « suivis » dans la base OGN apparaissent ; les appareils anonymes ou non équipés sont absents.',
@@ -87,7 +87,7 @@ export const I18N: Record<Lang, Strings> = {
     tiltTop: 'Level out (top-down)', tiltGround: 'Tilt (oblique)',
     zoomOut: 'Zoom out', zoomIn: 'Zoom in',
     hdg: 'Heading', alt: 'Altitude', vario: 'Vario', landed: 'landed', beforeTk: 'before takeoff', min: 'min',
-    info: 'Limitations / about', disclaimerTitle: 'Display limitations', sourceCode: 'Source code', version: 'Version',
+    info: 'Limitations / about', disclaimerTitle: 'Display limitations', sourceCode: 'Source code', version: 'Version', flightbook: 'OGN FlightBook',
     disc: [
       'OGN data: the track depends on ground-station reception — gaps, dropouts or truncated climbs are possible.',
       'Only aircraft registered and “tracked” in the OGN database appear; anonymous or non-equipped aircraft are missing.',
@@ -132,7 +132,7 @@ export const I18N: Record<Lang, Strings> = {
     tiltTop: 'Aufrichten (Draufsicht)', tiltGround: 'Neigen (flache Sicht)',
     zoomOut: 'Herauszoomen', zoomIn: 'Hineinzoomen',
     hdg: 'Kurs', alt: 'Höhe', vario: 'Vario', landed: 'gelandet', beforeTk: 'vor dem Start', min: 'Min.',
-    info: 'Grenzen / Über', disclaimerTitle: 'Anzeigegrenzen', sourceCode: 'Quellcode', version: 'Version',
+    info: 'Grenzen / Über', disclaimerTitle: 'Anzeigegrenzen', sourceCode: 'Quellcode', version: 'Version', flightbook: 'OGN FlightBook',
     disc: [
       'OGN-Daten: die Spur hängt vom Empfang der Bodenstationen ab — Lücken, Aussetzer oder abgeschnittene Steigflüge sind möglich.',
       'Nur in der OGN-Datenbank registrierte und „verfolgte“ Luftfahrzeuge erscheinen; anonyme oder nicht ausgerüstete Luftfahrzeuge fehlen.',

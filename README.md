@@ -12,6 +12,12 @@ Pick an airfield (ICAO code) and a date, and the viewer reconstructs the day's
 glider tracks over 3D terrain — with playback, a cockpit (first-person) view,
 and a head-up display showing heading, altitude and vario.
 
+**Deep linking:** the airfield and date can be passed as URL parameters, e.g.
+`…/ogn-3d-viewer/?icao=LFBI&date=2024-06-01`, so you can link straight to a day
+(for instance from the [OGN FlightBook](https://flightbook.glidernet.org/)). The
+URL stays in sync as you load airfields, and the info panel links back to the
+matching FlightBook page.
+
 ![OGN 3D Viewer](https://img.shields.io/badge/status-live-brightgreen) ![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6) ![Bun](https://img.shields.io/badge/bundler-Bun-f9f1e1)
 
 ## Features

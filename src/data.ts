@@ -65,9 +65,22 @@ function statusMsgInner(date: string | null, n: number): void {
 }
 export { statusMsgInner as statusMsg };
 
+// Reflect the current airfield/date in the URL (?icao=…&date=…) without adding a
+// history entry, so the page can be shared or linked back from the FlightBook.
+function syncUrl(icao: string, date: string): void {
+  try {
+    const u = new URL(location.href);
+    u.searchParams.set('icao', icao);
+    if (date) u.searchParams.set('date', date); else u.searchParams.delete('date');
+    u.searchParams.delete('oaci');
+    history.replaceState(null, '', u);
+  } catch { /* non-browser / opaque origin */ }
+}
+
 export async function loadFlights(icao: string, date: string): Promise<void> {
   if (!icao || icao.length < 3) { setStatus(t('errLoad'), 'err'); return; }
   S.date = date; // for the sun/sky computation
+  syncUrl(icao, date);
   loadBtn.disabled = true; setStatus(t('loading'));
   try {
     const res = await fetchData(icao, date, false);

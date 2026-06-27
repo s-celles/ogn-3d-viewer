@@ -1,11 +1,9 @@
 // ============ entry point: init + animation loop ============
 import { S } from './state';
-import { dateEl } from './dom';
+import { dateEl, icaoEl } from './dom';
 import { initDeck, render } from './render';
 import { applyI18n, applyFollowClass, syncUI, easeCamera, updateCompass } from './ui';
-// Imported for its side effects; ui.ts already pulls it in, but importing here
-// keeps the dependency explicit.
-import './data';
+import { loadFlights } from './data';
 
 const todayStr = new Date().toISOString().slice(0, 10);
 dateEl.value = todayStr; dateEl.max = todayStr;
@@ -18,6 +16,18 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
 
 initDeck();
 applyI18n(); applyFollowClass(); syncUI();
+
+// Deep link: ?icao=LFBI (optionally &date=YYYY-MM-DD) preselects and loads an
+// airfield, so links to/from the OGN FlightBook work (and the URL stays
+// shareable — loadFlights keeps it in sync). `oaci` is accepted as an alias.
+const qp = new URLSearchParams(location.search);
+const qIcao = (qp.get('icao') || qp.get('oaci') || '').trim().toUpperCase();
+if (qIcao) {
+  icaoEl.value = qIcao;
+  const qDate = (qp.get('date') || '').trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(qDate) && qDate <= todayStr) dateEl.value = qDate;
+  loadFlights(qIcao, dateEl.value);
+}
 
 const nowSod = () => (Date.now() / 1000) % 86400; // current UTC seconds-of-day
 let last = performance.now();

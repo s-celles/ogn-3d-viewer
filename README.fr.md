@@ -13,6 +13,12 @@ traces des planeurs de la journée sur un relief 3D — avec lecture animée, vu
 subjective (cockpit) et un affichage tête haute indiquant le cap, l'altitude et
 le vario.
 
+**Liens profonds :** l'aérodrome et la date peuvent être passés en paramètres
+d'URL, par ex. `…/ogn-3d-viewer/?icao=LFBI&date=2024-06-01`, pour pointer
+directement vers une journée (depuis le [carnet OGN FlightBook](https://flightbook.glidernet.org/)
+par exemple). L'URL reste synchronisée au fil des chargements, et le panneau
+d'info renvoie vers la page FlightBook correspondante.
+
 ![OGN 3D Viewer](https://img.shields.io/badge/statut-en%20ligne-brightgreen) ![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6) ![Bun](https://img.shields.io/badge/bundler-Bun-f9f1e1)
 
 ## Fonctionnalités
