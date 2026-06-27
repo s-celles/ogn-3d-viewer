@@ -7,6 +7,7 @@ const $ = <T extends Element = HTMLElement>(id: string) =>
 
 export const mapDiv     = $('map');
 export const sunEl      = $('sun');
+export const moonEl     = $('moon');
 export const statusEl   = $('status');
 export const subjEl     = $<HTMLSelectElement>('subject');
 export const viewsEl    = $('views');

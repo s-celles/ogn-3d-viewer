@@ -1,14 +1,14 @@
 // ============ viewer: deck.gl instance, dynamic layers, HUD ============
 import { S } from './state';
 import { t } from './i18n';
-import { mapDiv, sunEl, hudreg, hudhdg, hudalt, hudvar } from './dom';
+import { mapDiv, sunEl, moonEl, hudreg, hudhdg, hudalt, hudvar } from './dom';
 import {
   Deck, MapView, FirstPersonView, PathLayer, TripsLayer, ScatterplotLayer, SimpleMeshLayer,
   LightingEffect, AmbientLight, DirectionalLight,
 } from './deck';
 import { makeTerrain } from './terrain';
 import { varioAudio } from './vario-audio';
-import { updateSky, getSun } from './sky';
+import { updateSky, getSun, getMoon } from './sky';
 import { subjectTrack, shown, scaled, posAt, airborne, slice, headingAt, varioAt, compVarioAt, clampCur, attitudeAt } from './flight-math';
 import { GLIDER_MESH, PLANE_MESH, isPowered } from './aircraft-mesh';
 import { CHASE, MODEL_SCALE } from './config';
@@ -78,16 +78,33 @@ function dynamicLayers() {
   ];
 }
 
-// Position the sun disc (a small fixed element) at the projected screen position.
-// Updating a tiny element is cheap (unlike repainting the full-viewport sky bg,
-// which janked pan/zoom). Hidden when the sun is behind the camera or off-screen.
-let sunShown = false;
-function updateSunSky(): void {
-  const s = getSun();
-  const hide = () => { if (sunShown) { sunEl.style.display = 'none'; sunShown = false; } };
-  if (!s.up) return hide();
+// SVG for the moon's lit phase. viewBox is centred at the origin (R=50). The lit
+// region is drawn for a waxing moon (limb on the right): the right outer limb
+// plus the terminator, a half-ellipse whose width shrinks to a line at quarter
+// (fraction 0.5) and bulges to the far limb at full. Waning mirrors it (lit on
+// the left). A faint full disc hints the orb (earthshine) for thin crescents.
+function moonSvg(fraction: number, waxing: boolean, disc: [number, number, number]): string {
+  const R = 50, rx = R * (1 - 2 * fraction), sweep = rx > 0 ? 0 : 1;       // crescent vs gibbous curvature
+  const lit = `M0 ${-R} A${R} ${R} 0 0 1 0 ${R} A${Math.abs(rx).toFixed(2)} ${R} 0 0 ${sweep} 0 ${-R} Z`;
+  const c = disc.join(',');
+  const g = waxing ? '' : ' transform="scale(-1 1)"';
+  return `<svg viewBox="-50 -50 100 100"><circle r="49" fill="rgba(150,162,205,0.10)"/>`
+    + `<g${g}><path d="${lit}" fill="rgb(${c})"/></g></svg>`;
+}
+
+// Position the sun + moon discs (small fixed elements) at their projected screen
+// positions. Updating tiny elements is cheap (unlike repainting the full-viewport
+// sky bg, which janked pan/zoom). Hidden when behind the camera or off-screen.
+let sunShown = false, moonShown = false, moonKey = '';
+function updateCelestial(): void {
+  const sun = getSun(), moon = getMoon();
+  const hideSun = () => { if (sunShown) { sunEl.style.display = 'none'; sunShown = false; } };
+  const hideMoon = () => { if (moonShown) { moonEl.style.display = 'none'; moonShown = false; } };
+  if (!sun.up) hideSun();
+  if (!moon.up) hideMoon();
+  if (!sun.up && !moon.up) return;
   const width = mapDiv.clientWidth, height = mapDiv.clientHeight;
-  if (!width || !height) return hide();
+  if (!width || !height) { hideSun(); hideMoon(); return; }
   // Build the viewport from the current view state (not deckgl.getViewports(),
   // which interfered with the pan/zoom controller).
   let vp: any;
@@ -95,20 +112,39 @@ function updateSunSky(): void {
     vp = S.mode === 'fpv'
       ? new FirstPersonView({ id: 'fpv', fovy: 64, near: 1, far: 200000 }).makeViewport({ width, height, viewState: computeFPV() as any })
       : new MapView({ id: 'main' }).makeViewport({ width, height, viewState: (S.mode === 'chase' ? computeChase() : S.mapVS) as any });
-  } catch (e) { return hide(); }
-  if (!vp || !vp.viewProjectionMatrix) return hide();
+  } catch (e) { hideSun(); hideMoon(); return; }
+  if (!vp || !vp.viewProjectionMatrix) { hideSun(); hideMoon(); return; }
   const u = (vp.distanceScales && vp.distanceScales.unitsPerMeter) || [1, 1, 1];
-  const [tx, ty, tz] = s.toward;
-  const dx = tx * u[0], dy = ty * u[1], dz = tz * u[2], m = vp.viewProjectionMatrix; // column-major
-  const cw = m[3] * dx + m[7] * dy + m[11] * dz;
-  if (cw <= 1e-6) return hide();                                          // behind the camera
-  const nx = (m[0] * dx + m[4] * dy + m[8] * dz) / cw, ny = (m[1] * dx + m[5] * dy + m[9] * dz) / cw;
-  if (Math.abs(nx) > 1.4 || Math.abs(ny) > 1.4) return hide();
-  const px = ((nx * 0.5 + 0.5) * vp.width).toFixed(0), py = ((0.5 - ny * 0.5) * vp.height).toFixed(0);
-  const c = s.disc.join(',');
-  sunEl.style.left = px + 'px'; sunEl.style.top = py + 'px';
-  sunEl.style.background = `radial-gradient(circle, rgb(${c}) 0%, rgb(${c}) 17%, rgba(${c},0.5) 32%, rgba(${c},0) 64%)`;
-  sunEl.style.display = 'block'; sunShown = true;
+  const m = vp.viewProjectionMatrix;                                       // column-major
+  // Project a direction at infinity (w = 0) to screen px; null if behind/off-screen.
+  const project = (toward: [number, number, number]): [string, string] | null => {
+    const dx = toward[0] * u[0], dy = toward[1] * u[1], dz = toward[2] * u[2];
+    const cw = m[3] * dx + m[7] * dy + m[11] * dz;
+    if (cw <= 1e-6) return null;
+    const nx = (m[0] * dx + m[4] * dy + m[8] * dz) / cw, ny = (m[1] * dx + m[5] * dy + m[9] * dz) / cw;
+    if (Math.abs(nx) > 1.4 || Math.abs(ny) > 1.4) return null;
+    return [((nx * 0.5 + 0.5) * vp.width).toFixed(0), ((0.5 - ny * 0.5) * vp.height).toFixed(0)];
+  };
+  if (sun.up) {
+    const p = project(sun.toward);
+    if (!p) hideSun();
+    else {
+      const c = sun.disc.join(',');
+      sunEl.style.left = p[0] + 'px'; sunEl.style.top = p[1] + 'px';
+      sunEl.style.background = `radial-gradient(circle, rgb(${c}) 0%, rgb(${c}) 17%, rgba(${c},0.5) 32%, rgba(${c},0) 64%)`;
+      sunEl.style.display = 'block'; sunShown = true;
+    }
+  }
+  if (moon.up && moon.fraction > 0.04) {                                   // hide a ~new (invisible) moon
+    const p = project(moon.toward);
+    if (!p) hideMoon();
+    else {
+      const key = Math.round(moon.fraction * 100) + (moon.waxing ? 'w' : 'n') + moon.disc.join(',');
+      if (key !== moonKey) { moonEl.innerHTML = moonSvg(moon.fraction, moon.waxing, moon.disc); moonKey = key; }
+      moonEl.style.left = p[0] + 'px'; moonEl.style.top = p[1] + 'px';
+      moonEl.style.display = 'block'; moonShown = true;
+    }
+  } else hideMoon();
 }
 
 // deck's FirstPersonViewport forward vector for a given bearing/pitch (matches
@@ -183,7 +219,7 @@ export function render(): void {
     updateHUD();
   }
   feedVarioSound();
-  updateSunSky();
+  updateCelestial();
 }
 
 // Drive the audio variometer from the followed glider's Vz (cockpit & chase only,

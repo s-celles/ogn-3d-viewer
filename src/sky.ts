@@ -31,6 +31,60 @@ export function sunAltitudeDeg(ms: number, lat: number, lon: number): number {
   return solar(ms, lat, lon).alt / RAD;
 }
 
+const E = RAD * 23.4397;                                   // obliquity of the ecliptic
+
+// Days since J2000.0 for a UTC instant (same epoch as solar()).
+function days(ms: number): number {
+  return ms / 86400000 - 0.5 + 2440588 - 2451545;
+}
+
+// Sun geocentric equatorial coords (right ascension, declination), for the moon
+// phase computation. Mirrors solar()'s ecliptic-longitude steps with b = 0.
+function sunRaDec(d: number): { ra: number; dec: number } {
+  const M = RAD * (357.5291 + 0.98560028 * d);
+  const C = RAD * (1.9148 * Math.sin(M) + 0.02 * Math.sin(2 * M) + 0.0003 * Math.sin(3 * M));
+  const L = M + C + RAD * 102.9372 + Math.PI;
+  return { ra: Math.atan2(Math.sin(L) * Math.cos(E), Math.cos(L)), dec: Math.asin(Math.sin(E) * Math.sin(L)) };
+}
+
+// Moon geocentric ecliptic → equatorial coords + distance (km). SunCalc's
+// low-precision lunar series — good to ~a few arcminutes, plenty for a sky disc.
+function moonRaDec(d: number): { ra: number; dec: number; dist: number } {
+  const L = RAD * (218.316 + 13.176396 * d);              // mean longitude
+  const M = RAD * (134.963 + 13.064993 * d);              // mean anomaly
+  const F = RAD * (93.272 + 13.229350 * d);               // argument of latitude
+  const l = L + RAD * 6.289 * Math.sin(M);                // ecliptic longitude
+  const b = RAD * 5.128 * Math.sin(F);                    // ecliptic latitude
+  const dist = 385001 - 20905 * Math.cos(M);             // distance to Earth, km
+  return {
+    ra: Math.atan2(Math.sin(l) * Math.cos(E) - Math.tan(b) * Math.sin(E), Math.cos(l)),
+    dec: Math.asin(Math.sin(b) * Math.cos(E) + Math.cos(b) * Math.sin(E) * Math.sin(l)),
+    dist,
+  };
+}
+
+// Equatorial coords → local horizon (altitude, azimuth-from-south). Same
+// sidereal-time convention as solar().
+function horizonCoords(ra: number, dec: number, d: number, lat: number, lon: number): { alt: number; az: number } {
+  const th = RAD * (280.16 + 360.9856235 * d) + RAD * lon;
+  const H = th - ra, phi = RAD * lat;
+  return {
+    alt: Math.asin(Math.sin(phi) * Math.sin(dec) + Math.cos(phi) * Math.cos(dec) * Math.cos(H)),
+    az: Math.atan2(Math.sin(H), Math.cos(H) * Math.sin(phi) - Math.tan(dec) * Math.cos(phi)),
+  };
+}
+
+// Moon illuminated fraction (0..1) and phase (0 new → 0.5 full → 1 new; <0.5 is
+// waxing, so the lit limb is on the right in the northern hemisphere).
+function moonIllumination(d: number): { fraction: number; phase: number } {
+  const s = sunRaDec(d), m = moonRaDec(d), sdist = 149598000;
+  const elong = Math.acos(Math.sin(s.dec) * Math.sin(m.dec) + Math.cos(s.dec) * Math.cos(m.dec) * Math.cos(s.ra - m.ra));
+  const inc = Math.atan2(sdist * Math.sin(elong), m.dist - sdist * Math.cos(elong));
+  const angle = Math.atan2(Math.cos(s.dec) * Math.sin(s.ra - m.ra),
+    Math.sin(s.dec) * Math.cos(m.dec) - Math.cos(s.dec) * Math.sin(m.dec) * Math.cos(s.ra - m.ra));
+  return { fraction: (1 + Math.cos(inc)) / 2, phase: 0.5 + 0.5 * inc * (angle < 0 ? -1 : 1) / Math.PI };
+}
+
 // deck.gl DirectionalLight `direction` (the way light travels: from the sun to
 // the scene) in LNGLAT common space (x=east, y=north, z=up). Unit vector.
 export function sunLightDir(ms: number, lat: number, lon: number): [number, number, number] {
@@ -83,6 +137,16 @@ let sun: SunLight = {
 };
 export const getSun = (): SunLight => sun;
 
+// Moon disc info: direction toward the moon (ENU), whether it's up, the
+// illuminated fraction + waxing flag (for the phase shape), and the disc colour.
+export interface MoonLight {
+  toward: [number, number, number]; up: boolean; fraction: number; waxing: boolean; disc: RGB;
+}
+let moon: MoonLight = {
+  toward: [0.6, 1, 0.5], up: false, fraction: 1, waxing: false, disc: [232, 234, 244],
+};
+export const getMoon = (): MoonLight => moon;
+
 let lastKey = '';
 // Recompute the sky colours AND the sun light from the current position / date /
 // time, so the terrain shading matches the time of day. Throttled to once per
@@ -121,5 +185,18 @@ export function updateSky(): void {
     toward: [-ca * Math.sin(az), -ca * Math.cos(az), sa],
     up: altDeg > -0.5,
     disc: mix([255, 130, 62], [255, 250, 235], clamp((altDeg + 2) / 14, 0, 1)),
+  };
+
+  // Moon: position toward the moon, illuminated fraction + waxing for the phase
+  // shape, disc colour warming toward the horizon.
+  const d = days(ms), mp = moonRaDec(d), mh = horizonCoords(mp.ra, mp.dec, d, S.AF.lat, S.AF.lon);
+  const il = moonIllumination(d), mAltDeg = mh.alt / RAD;
+  const mca = Math.cos(mh.alt), msa = Math.sin(mh.alt);
+  moon = {
+    toward: [-mca * Math.sin(mh.az), -mca * Math.cos(mh.az), msa],
+    up: mAltDeg > -0.5,
+    fraction: il.fraction,
+    waxing: il.phase < 0.5,
+    disc: mix([224, 188, 150], [232, 234, 244], clamp((mAltDeg + 2) / 14, 0, 1)),
   };
 }
