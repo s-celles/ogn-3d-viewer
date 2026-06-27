@@ -80,10 +80,46 @@ export const I18N: Record<Lang, Strings> = {
       "Data usage: see the <a href='https://www.glidernet.org/ogn-data-usage/' target='_blank' rel='noopener' style='color:var(--accent)'>OGN data usage policy</a>.",
     ],
   },
+  de: {
+    h1: 'OGN — 3D-Wiedergabe',
+    sub: 'Wählen Sie einen Flugplatz (ICAO) und ein Datum, dann „Laden“.',
+    airfieldLabel: 'Flugplatz (ICAO)', dateLabel: 'Datum', loadBtn: 'Laden',
+    today: 'Heute', yesterday: 'Gestern', collapse: 'Panel einklappen', expand: 'Panel anzeigen',
+    live: '🔴 Live', liveExit: 'Live beenden', liveLabel: 'LIVE',
+    loading: 'Laden…', searching: 'Suche…',
+    noFlights: 'Keine verwertbare Spur an diesem Tag.', errLoad: 'Ladefehler.',
+    flights: 'Spur(en)', tracksNote: '⚠ OGN-Spuren werden nur ~24 h gespeichert.',
+    localTz: 'lokal', view: 'Ansicht', overview: 'Übersicht', fpv: 'Cockpit-Ansicht', chase: 'Verfolgerkamera',
+    camera: 'Kamera', follow: 'Kurs folgen', free: 'Freie Sicht', subject: 'Verfolgtes Segelflugzeug', bank: 'Horizontneigung', sound: 'Vario-Ton',
+    pause: '⏸ Pause', play: '▶ Wiedergabe', timeOfDay: 'Tageszeit',
+    exo: 'Vertikale Geländeüberhöhung:', gaze: 'Blick (Kameraneigung):',
+    freeHint: 'Ziehen zum Umsehen · die Kamera bleibt am Segelflugzeug.',
+    defaultView: '↺ Standardansicht',
+    shortcuts: 'Tasten: V = Ansicht wechseln · 1/2/3 = Segelflugzeug wählen',
+    trace: 'Spur', traceHist: 'Verlauf (Vergangenheit)', traceHistFut: 'Verlauf + Zukunft',
+    traceWindow: 'Gleitendes Fenster', windowLabel: 'Fenster (Min.):',
+    smooth: 'Glättung (Spline)', varioComp: 'Kompensiertes Vario (Gesamtenergie)', on: 'Ein', off: 'Aus',
+    legendTitle: 'Segelflugzeuge (Klick = isolieren / auswählen)',
+    navCap: 'Ziehen: verschieben · Strg oder Rechtsziehen: drehen / neigen · Rad: Zoom',
+    northUp: 'Norden oben', rotL: 'Nach links drehen', rotR: 'Nach rechts drehen',
+    tiltTop: 'Aufrichten (Draufsicht)', tiltGround: 'Neigen (flache Sicht)',
+    zoomOut: 'Herauszoomen', zoomIn: 'Hineinzoomen',
+    hdg: 'Kurs', alt: 'Höhe', vario: 'Vario', landed: 'gelandet', beforeTk: 'vor dem Start', min: 'Min.',
+    info: 'Grenzen / Über', disclaimerTitle: 'Anzeigegrenzen', sourceCode: 'Quellcode',
+    disc: [
+      'OGN-Daten: die Spur hängt vom Empfang der Bodenstationen ab — Lücken, Aussetzer oder abgeschnittene Steigflüge sind möglich.',
+      'Nur in der OGN-Datenbank registrierte und „verfolgte“ Luftfahrzeuge erscheinen; anonyme oder nicht ausgerüstete Luftfahrzeuge fehlen.',
+      'Die Position wird zwischen den empfangenen Funkbaken interpoliert: es ist nicht exakt der tatsächlich geflogene Weg.',
+      'GNSS-Höhe über MSL-Gelände: leichtes Schweben nahe dem Boden möglich (Geoid-Abweichung von einigen zehn Metern).',
+      'Die Fluglage der Segelflugzeuge (Quer-/Längsneigung) wird aus Drehrate, Geschwindigkeit und Vario geschätzt — keine echte Messung. IGC-Spuren werden ~24 h von OGN gespeichert.',
+      'Das kompensierte Vario (Gesamtenergie) nutzt mangels Eigengeschwindigkeit die GPS-Bodengeschwindigkeit: nur bei Windstille exakt, durch Wind verfälscht.',
+      "Datennutzung: siehe die <a href='https://www.glidernet.org/ogn-data-usage/' target='_blank' rel='noopener' style='color:var(--accent)'>OGN-Datennutzungsrichtlinie</a>.",
+    ],
+  },
 };
 
-// Translate a key using the current language, falling back to French then the key.
+// Translate a key using the current language, falling back to English then the key.
 export const t = (k: string): string => {
-  const v = (I18N[S.lang] && I18N[S.lang][k]) ?? I18N.fr[k] ?? k;
+  const v = (I18N[S.lang] && I18N[S.lang][k]) ?? I18N.en[k] ?? k;
   return Array.isArray(v) ? v.join(' ') : v;
 };

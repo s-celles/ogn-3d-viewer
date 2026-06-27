@@ -20,7 +20,7 @@ button:hover{background:#243040}
 button.on{background:var(--accent);color:#101010;border-color:var(--accent);font-weight:600}
 button:disabled{opacity:.5;cursor:default}
 .seg{display:flex;gap:4px}
-.lang button{padding:4px 8px;font-size:11px;font-weight:600}
+#lang.langsel{width:auto;flex:0 0 auto;padding:4px 6px;font-size:11px;font-weight:600;cursor:pointer}
 #infoBtn{padding:4px 8px;font-size:12px;font-weight:600}
 .disc{font-size:10.5px;color:var(--mut);line-height:1.4;border-top:1px solid var(--line);margin-top:8px;padding-top:8px}
 .disc b{color:var(--txt);font-size:11px}

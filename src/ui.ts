@@ -204,16 +204,17 @@ export function setCollapsed(c: boolean): void {
 }
 collapseBtn.onclick = () => setCollapsed(!document.body.classList.contains('collapsed'));
 
-// ---- language ----
-(['fr', 'en'] as Lang[]).forEach(L => {
-  const b = document.createElement('button'); b.textContent = L.toUpperCase(); b.dataset.l = L;
-  b.onclick = () => { S.lang = L; applyI18n(); }; langEl.appendChild(b);
+// ---- language (dropdown) ----
+(['fr', 'en', 'de'] as Lang[]).forEach(L => {
+  const o = document.createElement('option'); o.value = L; o.textContent = L.toUpperCase(); langEl.appendChild(o);
 });
+langEl.value = S.lang;
+langEl.addEventListener('change', e => { S.lang = (e.target as HTMLSelectElement).value as Lang; applyI18n(); });
 export function applyI18n(): void {
   document.documentElement.lang = S.lang;
   document.querySelectorAll('[data-i18n]').forEach(el => { (el as HTMLElement).textContent = t((el as HTMLElement).dataset.i18n!); });
   document.querySelectorAll('[data-i18n-title]').forEach(el => { (el as HTMLElement).title = t((el as HTMLElement).dataset.i18nTitle!); });
-  [...langEl.children].forEach(b => asEl(b).classList.toggle('on', asEl(b).dataset.l === S.lang));
+  langEl.value = S.lang;
   [...viewsEl.children].forEach(b => {
     const m = asEl(b).dataset.m; asEl(b).textContent = t(m === 'over' ? 'overview' : m === 'chase' ? 'chase' : 'fpv');
   });
@@ -228,7 +229,7 @@ export function applyI18n(): void {
   if (S.ready) buildLegend(); if (S.mode === 'fpv') updateHUD();
 }
 function renderDisc(): void {
-  const arr = (I18N[S.lang] && I18N[S.lang].disc) || I18N.fr.disc;
+  const arr = (I18N[S.lang] && I18N[S.lang].disc) || I18N.en.disc;
   discEl.innerHTML = '<b>' + t('disclaimerTitle') + '</b><ul>' + arr.map(x => '<li>' + x + '</li>').join('') + '</ul>' +
     `<div style="margin-top:6px">${t('sourceCode')} : ` +
     `<a href="${REPO_URL}" target="_blank" rel="noopener" style="color:var(--accent)">github.com/s-celles/ogn-3d-viewer</a></div>`;

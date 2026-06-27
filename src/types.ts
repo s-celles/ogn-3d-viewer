@@ -9,7 +9,7 @@ export type RGB = [number, number, number];
 
 export type Mode = 'over' | 'fpv' | 'chase';
 export type Trace = 'hist' | 'histfut' | 'window';
-export type Lang = 'fr' | 'en';
+export type Lang = 'fr' | 'en' | 'de';
 
 /** A flight track as parsed from the API (before render prep). */
 export interface Track {

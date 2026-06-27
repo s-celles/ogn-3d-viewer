@@ -20,8 +20,9 @@ export const S: AppState = {
   // live refreshes; rebuild() turns it into the render-ready TRACKS.
   RAW: [], CURAF: null, CURTZ: 0,
   COLOR: {}, colorN: 0,
-  // current UI language (fr/en), auto-detected from the browser
-  lang: ((navigator.language || '').toLowerCase().startsWith('fr') ? 'fr' : 'en') as Lang,
+  // current UI language (fr/en/de), auto-detected from the browser
+  lang: ((): Lang => { const l = (navigator.language || '').toLowerCase();
+    return l.startsWith('fr') ? 'fr' : l.startsWith('de') ? 'de' : 'en'; })(),
   // current terrain TileLayer instance (rebuilt when exaggeration changes)
   terrainInst: null,
 };
