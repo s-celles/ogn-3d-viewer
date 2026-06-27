@@ -263,9 +263,11 @@ function renderDisc(): void {
     ? GIT_HASH
     : `<a href="${REPO_URL}/commit/${GIT_HASH}" target="_blank" rel="noopener" style="color:var(--accent)">${GIT_HASH}</a>`;
   const code = (S.AF && S.AF.code) || icaoEl.value.trim().toUpperCase();
+  const fbDate = S.date || dateEl.value;
+  const fbUrl = `${API_BASE}/logbook/${code}/` + (/^\d{4}-\d{2}-\d{2}$/.test(fbDate) ? fbDate : '');
   const fbLink = code && code.length >= 3
     ? `<div style="margin-top:4px">${t('flightbook')} : ` +
-      `<a href="${API_BASE}/logbook/${code}/" target="_blank" rel="noopener" style="color:var(--accent)">${code} ↗</a></div>`
+      `<a href="${fbUrl}" target="_blank" rel="noopener" style="color:var(--accent)">${code} ↗</a></div>`
     : '';
   discEl.innerHTML = '<b>' + t('disclaimerTitle') + '</b><ul>' + arr.map(x => '<li>' + x + '</li>').join('') + '</ul>' +
     `<div style="margin-top:6px">${t('sourceCode')} : ` +
@@ -273,7 +275,11 @@ function renderDisc(): void {
     fbLink +
     `<div style="margin-top:4px;color:var(--mut)">${t('version')} ${APP_VERSION} · ${commit}</div>`;
 }
-infoBtn.onclick = () => { const open = discEl.style.display !== 'none'; discEl.style.display = open ? 'none' : 'block'; infoBtn.classList.toggle('on', !open); };
+infoBtn.onclick = () => {
+  const open = discEl.style.display !== 'none';
+  if (!open) renderDisc();   // refresh with the current airfield/date (e.g. the FlightBook link)
+  discEl.style.display = open ? 'none' : 'block'; infoBtn.classList.toggle('on', !open);
+};
 
 // ---- keyboard ----
 window.addEventListener('keydown', e => {
