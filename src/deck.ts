@@ -4,6 +4,6 @@
 export {
   Deck, MapView, FirstPersonView, LightingEffect, AmbientLight, DirectionalLight, COORDINATE_SYSTEM,
 } from '@deck.gl/core';
-export { PathLayer, ScatterplotLayer } from '@deck.gl/layers';
+export { PathLayer, ScatterplotLayer, PolygonLayer } from '@deck.gl/layers';
 export { SimpleMeshLayer } from '@deck.gl/mesh-layers';
 export { TileLayer, TripsLayer } from '@deck.gl/geo-layers';

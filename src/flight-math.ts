@@ -1,6 +1,6 @@
 // ============ track geometry & time helpers ============
 import { S } from './state';
-import { GLIDER, clampv } from './config';
+import { GLIDER, ARROW, clampv } from './config';
 import type { RenderTrack, Pos3, RelPoint, TrackPoint } from './types';
 
 // Subdivisions inserted per beacon segment when spline smoothing is on.
@@ -150,13 +150,35 @@ export function gliderShape(tr: RenderTrack, time: number): { wing: [Pos3, Pos3]
   const mPerLng = 111320 * Math.cos(c[1] * Math.PI / 180), mPerLat = 111320;
   const fE = Math.sin(h), fN = Math.cos(h);   // forward (heading) unit, east/north
   const rE = Math.cos(h), rN = -Math.sin(h);  // right wing unit, east/north
-  const { halfSpan: HS, halfLen: HL } = GLIDER;
+  const { halfSpan: HS, halfLen: HL, wingPos } = GLIDER;
   const pt = (eOff: number, nOff: number, altOff: number): Pos3 => [c[0] + eOff / mPerLng, c[1] + nOff / mPerLat, c[2] + altOff];
-  const right = pt(rE * HS, rN * HS, -HS * Math.sin(roll));
-  const left = pt(-rE * HS, -rN * HS, HS * Math.sin(roll));
+  // Wings cross the fuselage `wingPos·halfLen` ahead of the position; the crossing
+  // sits on the pitched fuselage, so its altitude follows the pitch at that point.
+  const fwd = wingPos * HL, wingAlt = fwd * Math.sin(pitch);
+  const right = pt(fE * fwd + rE * HS, fN * fwd + rN * HS, wingAlt - HS * Math.sin(roll));
+  const left = pt(fE * fwd - rE * HS, fN * fwd - rN * HS, wingAlt + HS * Math.sin(roll));
   const nose = pt(fE * HL, fN * HL, HL * Math.sin(pitch));
   const tail = pt(-fE * HL, -fN * HL, -HL * Math.sin(pitch));
   return { wing: [left, right], fuse: [tail, nose] };
+}
+
+// A triangle marking the glider position, pointing along the heading (nose
+// ahead, base behind) and tilted to the glider's attitude (banks in turns,
+// pitches with climb). Endpoints are [lon, lat, realAlt]; the caller applies
+// vertical exaggeration. A point at body offset (forward, right) sits at
+// altitude forward·sin(pitch) − right·sin(roll), like the wing/fuselage glyph.
+export function gliderArrow(tr: RenderTrack, time: number): [Pos3, Pos3, Pos3] {
+  const c = posAt(tr, time);
+  const { heading, roll, pitch } = attitudeAt(tr, time);
+  const h = heading * Math.PI / 180;
+  const mPerLng = 111320 * Math.cos(c[1] * Math.PI / 180), mPerLat = 111320;
+  const fE = Math.sin(h), fN = Math.cos(h);   // forward (heading) unit
+  const rE = Math.cos(h), rN = -Math.sin(h);  // right unit
+  const { len: L, back: B, halfW: W } = ARROW;
+  const sp = Math.sin(pitch), sr = Math.sin(roll);
+  const pt = (fwd: number, rgt: number): Pos3 =>
+    [c[0] + (fE * fwd + rE * rgt) / mPerLng, c[1] + (fN * fwd + rN * rgt) / mPerLat, c[2] + fwd * sp - rgt * sr];
+  return [pt(L, 0), pt(-B, -W), pt(-B, W)];
 }
 
 /** Format a relative time as a local HH:MM:SS clock string. */

@@ -3,18 +3,18 @@ import { S } from './state';
 import { t } from './i18n';
 import { mapDiv, hudreg, hudhdg, hudalt, hudvar } from './dom';
 import {
-  Deck, MapView, FirstPersonView, PathLayer, TripsLayer, ScatterplotLayer,
+  Deck, MapView, FirstPersonView, PathLayer, TripsLayer, ScatterplotLayer, SimpleMeshLayer,
   LightingEffect, AmbientLight, DirectionalLight,
 } from './deck';
 import { makeTerrain } from './terrain';
 import { varioAudio } from './vario-audio';
-import { subjectTrack, shown, scaled, posAt, airborne, slice, headingAt, varioAt, compVarioAt, clampCur, gliderShape, attitudeAt } from './flight-math';
-import { CHASE } from './config';
+import { subjectTrack, shown, scaled, posAt, airborne, slice, headingAt, varioAt, compVarioAt, clampCur, attitudeAt } from './flight-math';
+import { GLIDER_MESH, PLANE_MESH, isPowered } from './aircraft-mesh';
+import { CHASE, MODEL_SCALE } from './config';
 import type { RGB, Pos3 } from './types';
 
 interface PathDatum { color: RGB; pts: Pos3[]; }
-interface HeadDatum { pos: Pos3; c: RGB; }
-interface AttDatum { c: RGB; path: Pos3[]; }
+interface AircraftDatum { pos: Pos3; orient: [number, number, number]; c: RGB; }
 
 const lighting = new LightingEffect({
   amb: new AmbientLight({ color: [255, 255, 255], intensity: 1.1 }),
@@ -34,18 +34,23 @@ function dynamicLayers() {
     const pts = slice(tr, S.cur, tr.rend).map(p => [p[0], p[1], p[2] * k] as Pos3);
     return pts.length >= 2 ? { color: tr.color, pts } : null;
   }).filter((d): d is PathDatum => d !== null) : [];
-  const heads = vis.map(tr => {
+  // 3D aircraft models, oriented to the estimated attitude. deck orientation is
+  // [pitch, yaw, roll] with the mesh frame +X=nose, +Y=left, +Z=up, so our
+  // attitude maps to [-pitch, 90-heading, roll] (degrees).
+  const aircraft = vis.map(tr => {
     if (S.mode === 'fpv' && tr.reg === S.subject) return null;
-    const p = posAt(tr, S.cur);
-    return (p && airborne(tr, S.cur)) ? { pos: [p[0], p[1], p[2] * k] as Pos3, c: tr.color } : null;
-  }).filter((d): d is HeadDatum => d !== null);
-  // Attitude glyphs: a wing + fuselage cross per airborne glider, banked/pitched.
-  const attitude: AttDatum[] = vis.flatMap(tr => {
-    if (!airborne(tr, S.cur) || (S.mode === 'fpv' && tr.reg === S.subject)) return [];
-    const s = gliderShape(tr, S.cur);
-    const lift = (p: Pos3): Pos3 => [p[0], p[1], p[2] * k];
-    return [{ c: tr.color, path: s.wing.map(lift) }, { c: tr.color, path: s.fuse.map(lift) }];
-  });
+    if (!airborne(tr, S.cur)) return null;
+    const p = posAt(tr, S.cur), a = attitudeAt(tr, S.cur), D = 180 / Math.PI;
+    return {
+      type: tr.type,
+      pos: [p[0], p[1], p[2] * k] as Pos3,
+      orient: [-a.pitch * D, 90 - a.heading, a.roll * D] as [number, number, number],
+      c: tr.color,
+    };
+  }).filter((d): d is AircraftDatum & { type: number } => d !== null);
+  const gliders = aircraft.filter(d => !isPowered(d.type));
+  const planes = aircraft.filter(d => isPowered(d.type));
+  const aircraftMaterial = { ambient: 0.5, diffuse: 0.8, shininess: 24, specularColor: [40, 40, 40] };
   const pastAlpha = (S.mode === 'fpv' || S.solo) ? 215 : 165, trail = S.trace === 'window' ? S.windowMin * 60 : 240;
   return [
     new PathLayer<PathDatum>({ id: 'future', data: futData, getPath: d => d.pts, getColor: d => [...d.color, 55],
@@ -55,10 +60,12 @@ function dynamicLayers() {
     new TripsLayer({ id: 'trips', data: vis, getPath: (tr: any) => scaled(tr), getTimestamps: (tr: any) => tr.rel.map((p: number[]) => p[3]), getColor: (tr: any) => tr.color,
       currentTime: S.cur, trailLength: trail, fadeTrail: true, widthMinPixels: 3, capRounded: true, jointRounded: true,
       parameters: { depthTest: true } as any, updateTriggers: { getPath: [S.exo] } }),
-    new ScatterplotLayer<HeadDatum>({ id: 'heads', data: heads, getPosition: d => d.pos, getFillColor: d => d.c, getRadius: 5, radiusUnits: 'pixels',
-      stroked: true, lineWidthMinPixels: 1.5, getLineColor: [255, 255, 255], parameters: { depthTest: true } as any }),
-    new PathLayer<AttDatum>({ id: 'attitude', data: attitude, getPath: d => d.path, getColor: d => [...d.c, 255],
-      getWidth: 2.5, widthUnits: 'pixels', widthMinPixels: 2, capRounded: true, jointRounded: true, parameters: { depthTest: true } as any }),
+    new SimpleMeshLayer<AircraftDatum>({ id: 'gliders', data: gliders, mesh: GLIDER_MESH as any,
+      getPosition: d => d.pos, getOrientation: d => d.orient, getColor: d => [...d.c, 255],
+      sizeScale: MODEL_SCALE, material: aircraftMaterial as any, parameters: { depthTest: true } as any }),
+    new SimpleMeshLayer<AircraftDatum>({ id: 'planes', data: planes, mesh: PLANE_MESH as any,
+      getPosition: d => d.pos, getOrientation: d => d.orient, getColor: d => [...d.c, 255],
+      sizeScale: MODEL_SCALE, material: aircraftMaterial as any, parameters: { depthTest: true } as any }),
     new ScatterplotLayer({ id: 'airfield', data: S.AF ? [{ pos: [S.AF.lon, S.AF.lat, S.AF.elev * k] as Pos3 }] : [], getPosition: (d: any) => d.pos,
       getFillColor: [255, 60, 60], getRadius: 6, radiusUnits: 'pixels', stroked: true, lineWidthMinPixels: 1.5, getLineColor: [255, 255, 255] }),
   ];

@@ -30,8 +30,19 @@ export const GLIDER = {
   g: 9.81,          // gravity (m/s²)
   halfSpan: 150,    // wing marker half-span (m)
   halfLen: 110,     // fuselage marker half-length (m)
+  wingPos: 0.35,    // where the wings cross the fuselage, as a fraction of halfLen
+                    // ahead of the position (0 = centre, 1 = at the nose)
   dt: 3,            // ± window (s) for speed / turn-rate estimation
 };
 
 // Chase cam: a MapView that follows the subject glider from behind and above.
 export const CHASE = { zoom: 13.6, pitch: 58 };
+
+// Glider position marker: a heading-oriented triangle (metres). `len` is the
+// nose distance ahead of the position, `back` the base behind it, `halfW` the
+// half-width of the base.
+export const ARROW = { len: 150, back: 65, halfW: 80 };
+
+// Scale factor applied to the (metre-sized) 3D aircraft meshes so they read as a
+// marker rather than their true ~15 m span.
+export const MODEL_SCALE = 16;

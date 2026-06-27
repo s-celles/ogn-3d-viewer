@@ -42,8 +42,9 @@ export async function fetchData(icao: string, date: string, onlyActive: boolean)
       const txt = await fetch(`${API_BASE}/api/live/igc/${task.dev.address}/${task.t0}/${task.t1}?date=${date}`).then(r => r.text());
       const pts = parseIGC(txt);
       if (pts.length >= 2) tracks.push({
-        label: task.dev.aircraft || task.dev.aircraft_type || '?',
+        label: task.dev.aircraft || '?',
         reg: task.dev.registration || task.dev.competition || task.dev.address.slice(-5),
+        type: task.dev.aircraft_type ?? 0,
         path: pts, tstart: pts[0][3], tend: pts[pts.length - 1][3],
         maxalt: task.maxalt || Math.max(...pts.map(p => p[2])),
       });

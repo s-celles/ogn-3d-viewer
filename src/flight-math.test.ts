@@ -5,12 +5,12 @@ import type { RenderTrack, TrackPoint, RelPoint } from './types';
 
 // Build a synthetic RenderTrack from [lon,lat,alt,relTime] points.
 function mkTrack(rel: RelPoint[]): RenderTrack {
-  return { label: 'x', reg: 'R', maxalt: 0, color: [0, 0, 0], path: [], tstart: rel[0][3], tend: rel[rel.length - 1][3], rel, rstart: rel[0][3], rend: rel[rel.length - 1][3] };
+  return { label: 'x', reg: 'R', type: 1, maxalt: 0, color: [0, 0, 0], path: [], tstart: rel[0][3], tend: rel[rel.length - 1][3], rel, rstart: rel[0][3], rend: rel[rel.length - 1][3] };
 }
 
 // A simple synthetic track: climbs 0→200 m while moving east, rel time 0→20 s.
 const tr: RenderTrack = {
-  label: 'ASK21', reg: 'F-TEST', maxalt: 200, color: [255, 0, 0],
+  label: 'ASK21', reg: 'F-TEST', type: 1, maxalt: 200, color: [255, 0, 0],
   path: [], tstart: 0, tend: 20,
   rel: [
     [0.000, 0, 0, 0],

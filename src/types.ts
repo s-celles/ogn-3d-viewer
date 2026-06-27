@@ -15,6 +15,7 @@ export type Lang = 'fr' | 'en';
 export interface Track {
   label: string;
   reg: string;
+  type: number;       // OGN aircraft_type code (1 = glider, 2 = tow plane, …)
   path: TrackPoint[];
   tstart: number;
   tend: number;
@@ -55,7 +56,7 @@ export interface ViewStateLike {
 export interface FBDevice {
   address: string;
   aircraft?: string;
-  aircraft_type?: string;
+  aircraft_type?: number;   // OGN category code (0 unknown, 1 glider, 2 tow plane, …)
   registration?: string;
   competition?: string;
 }
