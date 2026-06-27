@@ -30,6 +30,9 @@ export interface RenderTrack extends Track {
   rel: RelPoint[];
   rstart: number;
   rend: number;
+  // OGN reception-loss intervals (day-relative seconds): consecutive beacons
+  // farther apart than the gap threshold — the track is interpolated across them.
+  gaps: [number, number][];
 }
 
 /** Airfield in the form the renderer consumes. */

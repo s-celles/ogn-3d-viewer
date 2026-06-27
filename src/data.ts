@@ -1,14 +1,14 @@
 // ============ data fetching & render-state assembly ============
 import UPNG from 'upng-js';
 import { S } from './state';
-import { API_BASE, PALETTE, TERRAIN } from './config';
+import { API_BASE, PALETTE, TERRAIN, GAP_MIN, GAP_FACTOR } from './config';
 import { parseTz, parseIGC, pool } from './igc';
 import { t } from './i18n';
 import { statusEl, loadBtn, subjEl, viewsEl, playBtn, icaoEl } from './dom';
 import { render } from './render';
 import { buildLegend, syncUI, applyFollowClass, setCollapsed } from './ui';
 import { buildRel } from './flight-math';
-import type { FBLogbook, FBDevice, FetchResult, FBAirfield, Track, RGB } from './types';
+import type { FBLogbook, FBDevice, FetchResult, FBAirfield, Track, TrackPoint, RGB } from './types';
 
 interface Task { dev: FBDevice; t0: number; t1: number; maxalt: number; stop: number; }
 
@@ -147,6 +147,21 @@ function geoidOffset(tracks: Track[], af: { lat: number; lon: number; elev: numb
   return Math.abs(off) <= 200 ? off : 0;
 }
 
+// Detect OGN reception losses: day-relative intervals between consecutive
+// beacons longer than max(GAP_MIN, GAP_FACTOR × median interval) for the track.
+function receptionGaps(path: TrackPoint[], g0: number): [number, number][] {
+  if (path.length < 3) return [];
+  const dts: number[] = [];
+  for (let i = 1; i < path.length; i++) dts.push(path[i][3] - path[i - 1][3]);
+  const med = dts.slice().sort((a, b) => a - b)[dts.length >> 1] || 1;
+  const thr = Math.max(GAP_MIN, GAP_FACTOR * med);
+  const gaps: [number, number][] = [];
+  for (let i = 1; i < path.length; i++) {
+    if (path[i][3] - path[i - 1][3] > thr) gaps.push([path[i - 1][3] - g0, path[i][3] - g0]);
+  }
+  return gaps;
+}
+
 // Build render-ready state from RAW. preserve=true keeps the current view,
 // subject, camera and cursor (used by live refresh); false = fresh load.
 export function rebuild(af: FBAirfield | null, tzoff: number | null, preserve: boolean): void {
@@ -162,6 +177,7 @@ export function rebuild(af: FBAirfield | null, tzoff: number | null, preserve: b
     ...tr, color: tr.color!,
     rel: buildRel(tr.path, S.G0, S.spline),
     rstart: tr.tstart - S.G0, rend: tr.tend - S.G0,
+    gaps: receptionGaps(tr.path, S.G0),
   }));
   if (!preserve) {
     S.subject = S.TRACKS[0].reg; S.solo = null; S.cur = 0; S.playing = true; S.mode = 'over';

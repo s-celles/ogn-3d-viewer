@@ -7,3 +7,4 @@ export {
 export { PathLayer, ScatterplotLayer, PolygonLayer } from '@deck.gl/layers';
 export { SimpleMeshLayer } from '@deck.gl/mesh-layers';
 export { TileLayer, TripsLayer } from '@deck.gl/geo-layers';
+export { PathStyleExtension } from '@deck.gl/extensions';

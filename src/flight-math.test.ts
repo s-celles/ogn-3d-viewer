@@ -5,7 +5,7 @@ import type { RenderTrack, TrackPoint, RelPoint } from './types';
 
 // Build a synthetic RenderTrack from [lon,lat,alt,relTime] points.
 function mkTrack(rel: RelPoint[]): RenderTrack {
-  return { label: 'x', reg: 'R', type: 1, maxalt: 0, color: [0, 0, 0], path: [], tstart: rel[0][3], tend: rel[rel.length - 1][3], rel, rstart: rel[0][3], rend: rel[rel.length - 1][3] };
+  return { label: 'x', reg: 'R', type: 1, maxalt: 0, color: [0, 0, 0], path: [], tstart: rel[0][3], tend: rel[rel.length - 1][3], rel, rstart: rel[0][3], rend: rel[rel.length - 1][3], gaps: [] };
 }
 
 // A simple synthetic track: climbs 0→200 m while moving east, rel time 0→20 s.
@@ -17,7 +17,7 @@ const tr: RenderTrack = {
     [0.000, 0, 100, 10],
     [0.001, 0, 200, 20],
   ],
-  rstart: 0, rend: 20,
+  rstart: 0, rend: 20, gaps: [],
 };
 
 test('posAt interpolates linearly and clamps to ends', () => {

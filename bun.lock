@@ -6,6 +6,7 @@
       "name": "ogn-3d-viewer",
       "dependencies": {
         "@deck.gl/core": "9.1.0",
+        "@deck.gl/extensions": "9.1.0",
         "@deck.gl/geo-layers": "9.1.0",
         "@deck.gl/layers": "9.1.0",
         "@deck.gl/mesh-layers": "9.1.0",
@@ -28,7 +29,7 @@
   "packages": {
     "@deck.gl/core": ["@deck.gl/core@9.1.0", "", { "dependencies": { "@loaders.gl/core": "^4.2.0", "@loaders.gl/images": "^4.2.0", "@luma.gl/constants": "^9.1.0", "@luma.gl/core": "^9.1.0", "@luma.gl/engine": "^9.1.0", "@luma.gl/shadertools": "^9.1.0", "@luma.gl/webgl": "^9.1.0", "@math.gl/core": "^4.1.0", "@math.gl/sun": "^4.1.0", "@math.gl/types": "^4.1.0", "@math.gl/web-mercator": "^4.1.0", "@probe.gl/env": "^4.1.0", "@probe.gl/log": "^4.1.0", "@probe.gl/stats": "^4.1.0", "@types/offscreencanvas": "^2019.6.4", "gl-matrix": "^3.0.0", "mjolnir.js": "^3.0.0" } }, "sha512-leocNGky9jZ0HUk8xm+HH4f+EL86PKiG8O4REpw4l/K1UbMssekR/L2moYwt7Bx98jSIibcUbhDWOBatKAUaTA=="],
 
-    "@deck.gl/extensions": ["@deck.gl/extensions@9.3.5", "", { "dependencies": { "@luma.gl/shadertools": "^9.3.3", "@luma.gl/webgl": "^9.3.3", "@math.gl/core": "^4.1.0" }, "peerDependencies": { "@deck.gl/core": "~9.3.0", "@luma.gl/core": "~9.3.3", "@luma.gl/engine": "~9.3.3" } }, "sha512-mx5S0iIA/QC492u2h29pdpjfe1PuX65OBh2gJYhDlPA3y/PHTBE4KR+SwXiIIa26VbzUXe0FBV+MVnWM/dutEQ=="],
+    "@deck.gl/extensions": ["@deck.gl/extensions@9.1.0", "", { "dependencies": { "@luma.gl/constants": "^9.1.0", "@luma.gl/shadertools": "^9.1.0", "@math.gl/core": "^4.1.0" }, "peerDependencies": { "@deck.gl/core": "^9.1.0", "@luma.gl/core": "^9.1.0", "@luma.gl/engine": "^9.1.0" } }, "sha512-8AffAOdkZaqxGfQqjNT6oQJWnMmo1p51vLe7uGnGCsrGM6sap6TrRylcWyfbFpid3rQy54w9ze6rwYrMuKcDTw=="],
 
     "@deck.gl/geo-layers": ["@deck.gl/geo-layers@9.1.0", "", { "dependencies": { "@loaders.gl/3d-tiles": "^4.2.0", "@loaders.gl/gis": "^4.2.0", "@loaders.gl/loader-utils": "^4.2.0", "@loaders.gl/mvt": "^4.2.0", "@loaders.gl/schema": "^4.2.0", "@loaders.gl/terrain": "^4.2.0", "@loaders.gl/tiles": "^4.2.0", "@loaders.gl/wms": "^4.2.0", "@luma.gl/gltf": "^9.1.0", "@luma.gl/shadertools": "^9.1.0", "@math.gl/core": "^4.1.0", "@math.gl/culling": "^4.1.0", "@math.gl/web-mercator": "^4.1.0", "@types/geojson": "^7946.0.8", "h3-js": "^4.1.0", "long": "^3.2.0" }, "peerDependencies": { "@deck.gl/core": "^9.1.0", "@deck.gl/extensions": "^9.1.0", "@deck.gl/layers": "^9.1.0", "@deck.gl/mesh-layers": "^9.1.0", "@loaders.gl/core": "^4.2.0", "@luma.gl/core": "^9.1.0", "@luma.gl/engine": "^9.1.0" } }, "sha512-+iRRJsTZmsUDrYKDoFuoJO8U0PRSfZareL8Cb+fdggiKlfSWBB6YwE/zWLJndLRca3chQDyDwAWTnmEDJs9Ydg=="],
 

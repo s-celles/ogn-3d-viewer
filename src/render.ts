@@ -4,16 +4,16 @@ import { t } from './i18n';
 import { mapDiv, sunEl, moonEl, hudreg, hudhdg, hudalt, hudvar } from './dom';
 import {
   Deck, MapView, FirstPersonView, PathLayer, TripsLayer, ScatterplotLayer, SimpleMeshLayer,
-  LightingEffect, AmbientLight, DirectionalLight,
+  LightingEffect, AmbientLight, DirectionalLight, PathStyleExtension,
 } from './deck';
 import { makeTerrain, terrainElevAt } from './terrain';
 import { drawGraphs } from './graphs';
 import { varioAudio } from './vario-audio';
 import { updateSky, getSun, getMoon } from './sky';
-import { subjectTrack, shown, scaled, posAt, airborne, slice, headingAt, varioAt, compVarioAt, clampCur, attitudeAt } from './flight-math';
+import { subjectTrack, shown, scaled, posAt, airborne, headingAt, varioAt, compVarioAt, clampCur, attitudeAt } from './flight-math';
 import { GLIDER_MESH, PLANE_MESH, isPowered } from './aircraft-mesh';
 import { CHASE, MODEL_SCALE } from './config';
-import type { RGB, Pos3 } from './types';
+import type { RGB, Pos3, RenderTrack } from './types';
 
 interface PathDatum { color: RGB; pts: Pos3[]; }
 interface AircraftDatum { pos: Pos3; orient: [number, number, number]; c: RGB; }
@@ -37,19 +37,42 @@ function groundClamp(p: Pos3): number {
   return g != null && p[2] < g ? g : p[2];
 }
 
+const dashExt = new PathStyleExtension({ dash: true });
+
+// Split a track's [t0,t1] window into solid runs (real data) and dashed runs
+// (reception-loss gaps, interpolated), sharing boundary points so they connect.
+function splitPath(tr: RenderTrack, t0: number, t1: number, k: number): { solid: Pos3[][]; dashed: Pos3[][] } {
+  const gaps = tr.gaps, solid: Pos3[][] = [], dashed: Pos3[][] = [];
+  let cur: Pos3[] = [], gap = false, has = false, gi = 0;        // gaps & rel are time-sorted
+  for (const p of tr.rel) {
+    const tt = p[3];
+    while (gi < gaps.length && gaps[gi][1] <= tt) gi++;          // advance past finished gaps
+    if (tt < t0 || tt > t1) continue;
+    const g = gi < gaps.length && tt > gaps[gi][0], pos: Pos3 = [p[0], p[1], p[2] * k];
+    if (has && g !== gap) { cur.push(pos); (gap ? dashed : solid).push(cur); cur = [pos]; }
+    else cur.push(pos);
+    gap = g; has = true;
+  }
+  if (cur.length >= 2) (gap ? dashed : solid).push(cur);
+  return { solid, dashed };
+}
+const pushPaths = (solidArr: PathDatum[], dashArr: PathDatum[], color: RGB, r: { solid: Pos3[][]; dashed: Pos3[][] }) => {
+  for (const pts of r.solid) if (pts.length >= 2) solidArr.push({ color, pts });
+  for (const pts of r.dashed) if (pts.length >= 2) dashArr.push({ color, pts });
+};
+
 // The glider/airfield/terrain layers, rebuilt every frame from the cursor.
 function dynamicLayers() {
   if (!S.ready) return [];
   const k = S.exo, vis = S.TRACKS.filter(shown), off = S.trace === 'off';
   const histStart = (tr: typeof vis[number]) => S.trace === 'window' ? Math.max(tr.rstart, S.cur - S.windowMin * 60) : tr.rstart;
-  const pastData = off ? [] : vis.map(tr => {
-    const pts = slice(tr, histStart(tr), S.cur).map(p => [p[0], p[1], p[2] * k] as Pos3);
-    return pts.length >= 2 ? { color: tr.color, pts } : null;
-  }).filter((d): d is PathDatum => d !== null);
-  const futData = (!off && S.trace === 'histfut') ? vis.map(tr => {
-    const pts = slice(tr, S.cur, tr.rend).map(p => [p[0], p[1], p[2] * k] as Pos3);
-    return pts.length >= 2 ? { color: tr.color, pts } : null;
-  }).filter((d): d is PathDatum => d !== null) : [];
+  // Past/future trails split into solid (real data) and dashed (reception-loss
+  // gaps, interpolated) runs.
+  const pastData: PathDatum[] = [], pastGap: PathDatum[] = [], futData: PathDatum[] = [], futGap: PathDatum[] = [];
+  if (!off) for (const tr of vis) {
+    pushPaths(pastData, pastGap, tr.color, splitPath(tr, histStart(tr), S.cur, k));
+    if (S.trace === 'histfut') pushPaths(futData, futGap, tr.color, splitPath(tr, S.cur, tr.rend, k));
+  }
   // 3D aircraft models, oriented to the estimated attitude. deck orientation is
   // [pitch, yaw, roll] with the mesh frame +X=nose, +Y=left, +Z=up, so our
   // attitude maps to [-pitch, 90-heading, roll] (degrees).
@@ -71,8 +94,12 @@ function dynamicLayers() {
   return [
     new PathLayer<PathDatum>({ id: 'future', data: futData, getPath: d => d.pts, getColor: d => [...d.color, 55],
       getWidth: 2, widthUnits: 'pixels', jointRounded: true, capRounded: true, parameters: { depthTest: true } as any }),
+    new PathLayer<PathDatum>({ id: 'future-gap', data: futGap, getPath: (d: PathDatum) => d.pts, getColor: (d: PathDatum) => [...d.color, 45],
+      getWidth: 2, widthUnits: 'pixels', getDashArray: [5, 4], dashJustified: true, extensions: [dashExt], parameters: { depthTest: true } } as any),
     new PathLayer<PathDatum>({ id: 'past', data: pastData, getPath: d => d.pts, getColor: d => [...d.color, pastAlpha],
       getWidth: 2, widthUnits: 'pixels', jointRounded: true, capRounded: true, parameters: { depthTest: true } as any }),
+    new PathLayer<PathDatum>({ id: 'past-gap', data: pastGap, getPath: (d: PathDatum) => d.pts, getColor: (d: PathDatum) => [...d.color, pastAlpha],
+      getWidth: 2, widthUnits: 'pixels', getDashArray: [5, 4], dashJustified: true, extensions: [dashExt], parameters: { depthTest: true } } as any),
     new TripsLayer({ id: 'trips', data: off ? [] : vis, getPath: (tr: any) => scaled(tr), getTimestamps: (tr: any) => tr.rel.map((p: number[]) => p[3]), getColor: (tr: any) => tr.color,
       currentTime: S.cur, trailLength: trail, fadeTrail: true, widthMinPixels: 3, capRounded: true, jointRounded: true,
       parameters: { depthTest: true } as any, updateTriggers: { getPath: [S.exo] } }),

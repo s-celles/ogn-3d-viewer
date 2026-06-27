@@ -15,6 +15,11 @@ export const TEXTURE = 'https://server.arcgisonline.com/ArcGIS/rest/services/Wor
 
 export const TERRAIN_N = 96; // grid resolution per tile
 
+// OGN reception loss: a gap between consecutive beacons longer than
+// max(GAP_MIN, GAP_FACTOR × the track's median beacon interval) is treated as a
+// reception loss (the track is interpolated across it and drawn dashed).
+export const GAP_MIN = 20, GAP_FACTOR = 6;
+
 // navigation clamps
 export const MINZ = 8.5, MAXZ = 14.5, PMIN = 0, PMAX = 85;
 export const clampv = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
