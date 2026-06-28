@@ -11,7 +11,7 @@ export const S: AppState = {
   AF: null, G0: 0, G1: 0, SPAN: 1, TRACKS: [], ready: false,
   exo: 2.0, altOffset: 0, cur: 0, playing: false, speed: 30, solo: null,
   mode: 'over', subject: null, focus: null, fpvPitch: 6, fpvFollow: true, bank: true, freeCam: { bearing: 0, pitch: 6 },
-  chase: { az: 0, el: 17, dist: 400 },
+  chase: { az: 0, el: 17, dist: 25 },
   trace: 'window', windowMin: 10, spline: true, compensated: true, sound: true, trafficMode: 'directional', graphMode: 'off',
   live: false, liveTimer: null,
   INIT: { ...INIT },

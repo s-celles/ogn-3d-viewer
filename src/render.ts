@@ -90,6 +90,9 @@ function dynamicLayers() {
   }).filter((d): d is AircraftDatum & { type: number } => d !== null);
   const gliders = aircraft.filter(d => !isPowered(d.type));
   const planes = aircraft.filter(d => isPowered(d.type));
+  // Real (true metric) size in chase so the followed aircraft looks lifelike;
+  // the inflated marker size everywhere else keeps it readable on the map.
+  const meshScale = S.mode === 'chase' ? 1 : MODEL_SCALE;
   const aircraftMaterial = { ambient: 0.5, diffuse: 0.8, shininess: 24, specularColor: [40, 40, 40] };
   const pastAlpha = (S.mode === 'fpv' || S.solo) ? 215 : 165, trail = S.trace === 'window' ? S.windowMin * 60 : 240;
   // Day/night terminator overlay: darken the night side of the world so a
@@ -119,10 +122,10 @@ function dynamicLayers() {
       parameters: { depthTest: true } as any, updateTriggers: { getPath: [S.exo] } }),
     new SimpleMeshLayer<AircraftDatum>({ id: 'gliders', data: gliders, mesh: GLIDER_MESH as any,
       getPosition: d => d.pos, getOrientation: d => d.orient, getColor: d => [...d.c, 255],
-      sizeScale: MODEL_SCALE, material: aircraftMaterial as any, parameters: { depthTest: true } as any }),
+      sizeScale: meshScale, material: aircraftMaterial as any, parameters: { depthTest: true } as any }),
     new SimpleMeshLayer<AircraftDatum>({ id: 'planes', data: planes, mesh: PLANE_MESH as any,
       getPosition: d => d.pos, getOrientation: d => d.orient, getColor: d => [...d.c, 255],
-      sizeScale: MODEL_SCALE, material: aircraftMaterial as any, parameters: { depthTest: true } as any }),
+      sizeScale: meshScale, material: aircraftMaterial as any, parameters: { depthTest: true } as any }),
     new ScatterplotLayer({ id: 'airfield', data: S.AF ? [{ pos: [S.AF.lon, S.AF.lat, S.AF.elev * k] as Pos3 }] : [], getPosition: (d: any) => d.pos,
       getFillColor: [255, 60, 60], getRadius: 6, radiusUnits: 'pixels', stroked: true, lineWidthMinPixels: 1.5, getLineColor: [255, 255, 255] }),
     ...(focusTr && airborne(focusTr, S.cur) ? (() => {

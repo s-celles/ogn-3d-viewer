@@ -57,15 +57,16 @@ export const GLIDER = {
 
 // Chase cam: a FirstPersonView orbiting the subject aircraft. The viewpoint is
 // spherical relative to the aircraft — az0 (orbit, 0 = behind), el0 (elevation
-// above), dist0 (slant range, m) — chosen so the (scaled ~275 m) marker frames
-// at roughly a third of the screen. The *Step / *Min / *Max bound the on-screen
-// nudge controls. `fovy` is the vertical field of view.
+// above), dist0 (slant range, m) — chosen so the real (~15 m span) aircraft —
+// drawn at true size in chase, not the ×16 overview marker — frames at roughly a
+// third of the screen. The *Step / *Min / *Max bound the on-screen nudge
+// controls. `fovy` is the vertical field of view.
 export const CHASE = {
   fovy: 64,
-  az0: 0, el0: 17, dist0: 400,
+  az0: 0, el0: 17, dist0: 25,
   azStep: 25,
   elStep: 8, elMin: -10, elMax: 80,
-  distStep: 1.2, distMin: 150, distMax: 1600,
+  distStep: 1.2, distMin: 10, distMax: 200,
 };
 
 // Glider position marker: a heading-oriented triangle (metres). `len` is the
@@ -73,6 +74,7 @@ export const CHASE = {
 // half-width of the base.
 export const ARROW = { len: 150, back: 65, halfW: 80 };
 
-// Scale factor applied to the (metre-sized) 3D aircraft meshes so they read as a
-// marker rather than their true ~15 m span.
+// Scale factor applied to the (metre-sized) 3D aircraft meshes in overview /
+// cockpit so they read as a marker rather than their true ~15 m span. The chase
+// cam draws them at true size (scale 1) instead — see render.ts.
 export const MODEL_SCALE = 16;
