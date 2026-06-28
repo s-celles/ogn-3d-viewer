@@ -44,6 +44,17 @@ function groundClamp(p: Pos3): number {
   return g != null && p[2] < g ? g : p[2];
 }
 
+// World-space Z for an aircraft MARKER. The glyph's metric size is fixed
+// (MODEL_SCALE) while the aircraft↔terrain gap scales with the vertical
+// exaggeration k, so at low k an oversized marker on a low pass sinks into the
+// hill. Floor it a fraction of the marker size above the ground; high-flying
+// aircraft keep their real (k-scaled) altitude.
+function markerZ(p: Pos3, k: number, scale: number): number {
+  const g = terrainElevAt(p[0], p[1]);
+  const floor = g != null ? g * k + scale * 1.5 : -Infinity;
+  return Math.max(p[2] * k, floor);
+}
+
 const dashExt = new PathStyleExtension({ dash: true });
 
 // Split a track's [t0,t1] window into solid runs (real data) and dashed runs
@@ -80,6 +91,8 @@ function dynamicLayers() {
     pushPaths(pastData, pastGap, tr.color, splitPath(tr, histStart(tr), S.cur, k));
     if (S.trace === 'histfut') pushPaths(futData, futGap, tr.color, splitPath(tr, S.cur, tr.rend, k));
   }
+  // Per-view mesh scale (real size in chase, inflated marker elsewhere).
+  const meshScale = MODEL_SCALE[S.mode];
   // 3D aircraft models, oriented to the estimated attitude. deck orientation is
   // [pitch, yaw, roll] with the mesh frame +X=nose, +Y=left, +Z=up, so our
   // attitude maps to [-pitch, 90-heading, roll] (degrees).
@@ -90,15 +103,13 @@ function dynamicLayers() {
     const p = posAt(tr, pr.time), a = attitudeAt(tr, pr.time), D = 180 / Math.PI;
     return {
       type: tr.type,
-      pos: [p[0], p[1], groundClamp(p) * k] as Pos3,
+      pos: [p[0], p[1], markerZ(p, k, meshScale)] as Pos3,
       orient: [-a.pitch * D, 90 - a.heading, a.roll * D] as [number, number, number],
       c: tr.color, offline: pr.offline,
     };
   }).filter((d): d is AircraftDatum & { type: number } => d !== null);
   const gliders = aircraft.filter(d => !isPowered(d.type));
   const planes = aircraft.filter(d => isPowered(d.type));
-  // Per-view mesh scale (real size in chase, inflated marker elsewhere).
-  const meshScale = MODEL_SCALE[S.mode];
   const aircraftMaterial = { ambient: 0.5, diffuse: 0.8, shininess: 24, specularColor: [40, 40, 40] };
   const pastAlpha = (S.mode === 'fpv' || S.solo) ? 215 : 165, trail = S.trace === 'window' ? S.windowMin * 60 : 240;
   // Day/night terminator overlay: darken the night side of the world so a

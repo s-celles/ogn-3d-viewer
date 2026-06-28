@@ -22,33 +22,58 @@ export function tileBBox(x: number, y: number, z: number): BBox {
 /** Build a textured, lit mesh (positions/normals/texCoords) from a decoded tile. */
 export function buildTerrainMesh(t: DecodedTile, west: number, south: number, east: number, north: number) {
   const { rgba, w, h } = t, cols = TERRAIN_N, rows = TERRAIN_N, k = S.exo;
-  const positions = new Float32Array(cols * rows * 3), normals = new Float32Array(cols * rows * 3),
-        texCoords = new Float32Array(cols * rows * 2), heights = new Float32Array(cols * rows);
+  const positions: number[] = [], normals: number[] = [], texCoords: number[] = [], indices: number[] = [];
+  const heights = new Float32Array(cols * rows);
   const mPerLat = 111320, mPerLng = 111320 * Math.cos((south + north) / 2 * Math.PI / 180);
   const elevAt = (px: number, py: number) => { const i = (py * w + px) * 4; return rgba[i] * 256 + rgba[i + 1] + rgba[i + 2] / 256 - 32768; };
   for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
     const u = c / (cols - 1), v = r / (rows - 1);
     const e = elevAt(Math.min(w - 1, Math.round(u * (w - 1))), Math.min(h - 1, Math.round((1 - v) * (h - 1)))), idx = r * cols + c;
     heights[idx] = e;
-    positions[idx * 3] = west + (east - west) * u; positions[idx * 3 + 1] = south + (north - south) * v; positions[idx * 3 + 2] = e * k;
-    texCoords[idx * 2] = u; texCoords[idx * 2 + 1] = 1 - v;
+    positions.push(west + (east - west) * u, south + (north - south) * v, e * k);
+    texCoords.push(u, 1 - v);
   }
   const dx = (east - west) * mPerLng / (cols - 1), dy = (north - south) * mPerLat / (rows - 1);
   for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
-    const idx = r * cols + c;
     const hL = heights[r * cols + Math.max(0, c - 1)], hR = heights[r * cols + Math.min(cols - 1, c + 1)];
     const hD = heights[Math.max(0, r - 1) * cols + c], hU = heights[Math.min(rows - 1, r + 1) * cols + c];
     let nx = -(hR - hL) * k / (2 * dx), ny = -(hU - hD) * k / (2 * dy), nz = 1; const L = Math.hypot(nx, ny, nz) || 1;
-    normals[idx * 3] = nx / L; normals[idx * 3 + 1] = ny / L; normals[idx * 3 + 2] = nz / L;
+    normals.push(nx / L, ny / L, nz / L);
   }
-  const indices = new Uint32Array((cols - 1) * (rows - 1) * 6); let q = 0;
   for (let r = 0; r < rows - 1; r++) for (let c = 0; c < cols - 1; c++) {
     const a = r * cols + c, b = a + 1, d = a + cols, e = d + 1;
-    indices[q++] = a; indices[q++] = d; indices[q++] = b; indices[q++] = b; indices[q++] = d; indices[q++] = e;
+    indices.push(a, d, b, b, d, e);
   }
+  // Skirt: a short vertical wall hanging below each border edge. Adjacent tiles
+  // don't share exact edge elevations, which would show as hairline cracks; the
+  // higher tile's skirt drops past the lower neighbour's edge and fills the gap.
+  // Kept small (cracks between same-LOD tiles are only a few tens of metres) so
+  // it isn't a visible curtain in the oblique cockpit/chase views. Scales with k.
+  const SKIRT = 30 * k;
+  const drop = (gi: number): number => {
+    const ni = positions.length / 3;
+    positions.push(positions[gi * 3], positions[gi * 3 + 1], positions[gi * 3 + 2] - SKIRT);
+    normals.push(normals[gi * 3], normals[gi * 3 + 1], normals[gi * 3 + 2]);
+    texCoords.push(texCoords[gi * 2], texCoords[gi * 2 + 1]);
+    return ni;
+  };
+  const border = (seq: number[]) => {
+    for (let i = 0; i < seq.length - 1; i++) {
+      const a = seq[i], b = seq[i + 1], sa = drop(a), sb = drop(b);
+      indices.push(a, b, sb, a, sb, sa, a, sb, b, a, sa, sb);   // double-sided (cull-agnostic)
+    }
+  };
+  const top: number[] = [], bot: number[] = [], left: number[] = [], right: number[] = [];
+  for (let c = 0; c < cols; c++) { top.push(c); bot.push((rows - 1) * cols + c); }
+  for (let r = 0; r < rows; r++) { left.push(r * cols); right.push(r * cols + cols - 1); }
+  border(top); border(bot); border(left); border(right);
   return {
-    attributes: { POSITION: { value: positions, size: 3 }, NORMAL: { value: normals, size: 3 }, TEXCOORD_0: { value: texCoords, size: 2 } },
-    indices: { value: indices, size: 1 }, mode: 4,
+    attributes: {
+      POSITION: { value: new Float32Array(positions), size: 3 },
+      NORMAL: { value: new Float32Array(normals), size: 3 },
+      TEXCOORD_0: { value: new Float32Array(texCoords), size: 2 },
+    },
+    indices: { value: new Uint32Array(indices), size: 1 }, mode: 4,
   };
 }
 
@@ -85,6 +110,13 @@ const TERRAIN_ANCHOR = [{}];
 export function makeTerrain() {
   return new TileLayer({
     id: 'terrain', data: TERRAIN, minZoom: 0, maxZoom: 13, tileSize: 256, maxCacheSize: 300,
+    // Elevation band (metres, scaled by the exaggeration like the mesh z) used to
+    // build each tile's 3D bounding box for frustum culling. Without it deck
+    // assumes tiles sit at sea level (z=0); in first-person/chase the camera flies
+    // ABOVE the terrain, so the z=0 tile boxes fall below the view frustum and get
+    // culled → the foreground terrain never loads (holes). Bracketing the real
+    // terrain altitude keeps those tiles in view.
+    zRange: [0, 4500 * S.exo],
     getTileData: async (tile: any): Promise<DecodedTile | null> => {
       const { x, y, z } = tile.index || tile;
       const url = TERRAIN.replace('{z}', z).replace('{x}', x).replace('{y}', y);
