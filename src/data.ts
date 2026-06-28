@@ -66,13 +66,20 @@ function statusMsgInner(date: string | null, n: number): void {
 }
 export { statusMsgInner as statusMsg };
 
-// Reflect the current airfield/date in the URL (?icao=…&date=…) without adding a
-// history entry, so the page can be shared or linked back from the FlightBook.
-function syncUrl(icao: string, date: string): void {
+// Reflect the current airfield/date/mode in the URL (?icao=…&mode=…[&date=…])
+// without adding a history entry, so the page can be shared or linked back from
+// the FlightBook. Live links carry mode=live and drop the date (live is always
+// "now"); replay links carry mode=replay and the chosen date.
+export function syncUrl(icao: string, date: string): void {
   try {
     const u = new URL(location.href);
     u.searchParams.set('icao', icao);
-    if (date) u.searchParams.set('date', date); else u.searchParams.delete('date');
+    if (S.live) {
+      u.searchParams.set('mode', 'live'); u.searchParams.delete('date');
+    } else {
+      u.searchParams.set('mode', 'replay');
+      if (date) u.searchParams.set('date', date); else u.searchParams.delete('date');
+    }
     u.searchParams.delete('oaci');
     history.replaceState(null, '', u);
   } catch { /* non-browser / opaque origin */ }

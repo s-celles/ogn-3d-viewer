@@ -2,7 +2,7 @@
 import { S } from './state';
 import { dateEl, icaoEl } from './dom';
 import { initDeck, render } from './render';
-import { applyI18n, applyFollowClass, syncUI, easeCamera, updateCompass, updateFbLink } from './ui';
+import { applyI18n, applyFollowClass, syncUI, easeCamera, updateCompass, updateFbLink, setLive } from './ui';
 import { loadFlights } from './data';
 import { initGraphs } from './graphs';
 
@@ -19,17 +19,22 @@ initDeck();
 initGraphs();
 applyI18n(); applyFollowClass(); syncUI();
 
-// Deep link: ?icao=LFBI (optionally &date=YYYY-MM-DD) preselects and loads an
-// airfield, so links to/from the OGN FlightBook work (and the URL stays
-// shareable — loadFlights keeps it in sync). `oaci` is accepted as an alias.
+// Deep link: ?icao=LFBI preselects and loads an airfield, so links to/from the
+// OGN FlightBook work (and the URL stays shareable — loadFlights keeps it in
+// sync). `mode=live` opens the real-time view; `mode=replay` (the default)
+// replays &date=YYYY-MM-DD (today if omitted). `oaci` is accepted as an alias.
 const qp = new URLSearchParams(location.search);
 const qIcao = (qp.get('icao') || qp.get('oaci') || '').trim().toUpperCase();
 if (qIcao) {
   icaoEl.value = qIcao;
-  const qDate = (qp.get('date') || '').trim();
-  if (/^\d{4}-\d{2}-\d{2}$/.test(qDate) && qDate <= todayStr) dateEl.value = qDate;
   updateFbLink();   // inputs were set programmatically (no input event)
-  loadFlights(qIcao, dateEl.value);
+  if ((qp.get('mode') || '').trim().toLowerCase() === 'live') {
+    setLive();      // real-time mode (loads today and auto-refreshes)
+  } else {
+    const qDate = (qp.get('date') || '').trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(qDate) && qDate <= todayStr) dateEl.value = qDate;
+    loadFlights(qIcao, dateEl.value);
+  }
 }
 
 const nowSod = () => (Date.now() / 1000) % 86400; // current UTC seconds-of-day

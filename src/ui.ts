@@ -11,7 +11,7 @@ import {
 import { subjectTrack, airborne, headingAt, clampCur, fmt } from './flight-math';
 import { makeTerrain } from './terrain';
 import { render, updateHUD } from './render';
-import { loadFlights, refreshLive, statusMsg, setStatus, rebuild } from './data';
+import { loadFlights, refreshLive, statusMsg, setStatus, rebuild, syncUrl } from './data';
 import { varioAudio } from './vario-audio';
 import { refreshGraphTabs } from './graphs';
 import type { Mode, Trace, GraphMode, TrafficMode, Lang } from './types';
@@ -233,11 +233,14 @@ function quickDate(daysAgo: number): void {
 
 // ---- live mode (real-time, auto-refreshing) ----
 function stopLive(): void {
+  const wasLive = S.live;
   S.live = false; if (S.liveTimer) clearTimeout(S.liveTimer); S.liveTimer = null;
   document.body.classList.remove('live'); liveBtn.classList.remove('on'); liveBtn.title = t('live');
   if (S.ready) { S.playing = false; playBtn.textContent = t('play'); playBtn.classList.remove('on'); }
+  // Reflect the switch back to replay in the URL (keeps a shared link accurate).
+  if (wasLive && icaoEl.value.trim()) syncUrl(icaoEl.value.trim().toUpperCase(), dateEl.value);
 }
-async function setLive(): Promise<void> {
+export async function setLive(): Promise<void> {
   if (S.live) { stopLive(); return; }
   S.live = true; document.body.classList.add('live'); liveBtn.classList.add('on'); liveBtn.title = t('liveExit');
   dateEl.value = new Date().toISOString().slice(0, 10);
