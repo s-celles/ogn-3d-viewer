@@ -11,13 +11,19 @@ import { drawGraphs } from './graphs';
 import { drawTraffic } from './traffic';
 import { varioAudio } from './vario-audio';
 import { updateSky, getSun, getMoon, nightPolygon } from './sky';
-import { subjectTrack, shown, scaled, posAt, airborne, headingAt, varioAt, compVarioAt, groundSpeedAt, clampCur, attitudeAt, nearestToCenter } from './flight-math';
+import { subjectTrack, shown, scaled, posAt, presence, headingAt, varioAt, compVarioAt, groundSpeedAt, clampCur, attitudeAt, nearestToCenter } from './flight-math';
 import { GLIDER_MESH, PLANE_MESH, isPowered } from './aircraft-mesh';
 import { CHASE, MODEL_SCALE } from './config';
 import type { RGB, Pos3, RenderTrack } from './types';
 
 interface PathDatum { color: RGB; pts: Pos3[]; }
-interface AircraftDatum { pos: Pos3; orient: [number, number, number]; c: RGB; }
+interface AircraftDatum { pos: Pos3; orient: [number, number, number]; c: RGB; offline: boolean; }
+
+// Grey an offline (stale-fix) aircraft toward this tint so it reads as "not
+// currently transmitting", like the FlightBook live map.
+const OFFLINE_GREY: RGB = [120, 132, 150];
+const greyed = (c: RGB, f: number): RGB =>
+  [Math.round(c[0] + (OFFLINE_GREY[0] - c[0]) * f), Math.round(c[1] + (OFFLINE_GREY[1] - c[1]) * f), Math.round(c[2] + (OFFLINE_GREY[2] - c[2]) * f)];
 
 const ambLight = new AmbientLight({ color: [255, 255, 255], intensity: 1.1 });
 const sunLight = new DirectionalLight({ color: [255, 245, 225], intensity: 2.2, direction: [-0.6, -1, -0.5] });
@@ -79,13 +85,14 @@ function dynamicLayers() {
   // attitude maps to [-pitch, 90-heading, roll] (degrees).
   const aircraft = vis.map(tr => {
     if (S.mode === 'fpv' && tr.reg === S.subject) return null;
-    if (!airborne(tr, S.cur)) return null;
-    const p = posAt(tr, S.cur), a = attitudeAt(tr, S.cur), D = 180 / Math.PI;
+    const pr = presence(tr);
+    if (!pr) return null;
+    const p = posAt(tr, pr.time), a = attitudeAt(tr, pr.time), D = 180 / Math.PI;
     return {
       type: tr.type,
       pos: [p[0], p[1], groundClamp(p) * k] as Pos3,
       orient: [-a.pitch * D, 90 - a.heading, a.roll * D] as [number, number, number],
-      c: tr.color,
+      c: tr.color, offline: pr.offline,
     };
   }).filter((d): d is AircraftDatum & { type: number } => d !== null);
   const gliders = aircraft.filter(d => !isPowered(d.type));
@@ -120,18 +127,20 @@ function dynamicLayers() {
       currentTime: S.cur, trailLength: trail, fadeTrail: true, widthMinPixels: 3, capRounded: true, jointRounded: true,
       parameters: { depthTest: true } as any, updateTriggers: { getPath: [S.exo] } }),
     new SimpleMeshLayer<AircraftDatum>({ id: 'gliders', data: gliders, mesh: GLIDER_MESH as any,
-      getPosition: d => d.pos, getOrientation: d => d.orient, getColor: d => [...d.c, 255],
+      getPosition: d => d.pos, getOrientation: d => d.orient, getColor: d => d.offline ? [...greyed(d.c, 0.6), 170] : [...d.c, 255],
       sizeScale: meshScale, material: aircraftMaterial as any, parameters: { depthTest: true } as any }),
     new SimpleMeshLayer<AircraftDatum>({ id: 'planes', data: planes, mesh: PLANE_MESH as any,
-      getPosition: d => d.pos, getOrientation: d => d.orient, getColor: d => [...d.c, 255],
+      getPosition: d => d.pos, getOrientation: d => d.orient, getColor: d => d.offline ? [...greyed(d.c, 0.6), 170] : [...d.c, 255],
       sizeScale: meshScale, material: aircraftMaterial as any, parameters: { depthTest: true } as any }),
     new ScatterplotLayer({ id: 'airfield', data: S.AF ? [{ pos: [S.AF.lon, S.AF.lat, S.AF.elev * k] as Pos3 }] : [], getPosition: (d: any) => d.pos,
       getFillColor: [255, 60, 60], getRadius: 6, radiusUnits: 'pixels', stroked: true, lineWidthMinPixels: 1.5, getLineColor: [255, 255, 255] }),
-    ...(focusTr && airborne(focusTr, S.cur) ? (() => {
+    ...((() => {
+      const fp = focusTr ? presence(focusTr) : null;
+      if (!focusTr || !fp) return [];
       // Dashed halo around the focus glider. A pixel-radius circle isn't possible
       // with PathLayer, so build a geographic ring whose radius tracks the zoom's
       // metres-per-pixel — keeping it ~constant on screen.
-      const p = posAt(focusTr, S.cur), z = groundClamp(p) * k, lat = p[1] * Math.PI / 180;
+      const p = posAt(focusTr, fp.time), z = groundClamp(p) * k, lat = p[1] * Math.PI / 180;
       const R = 18 * 156543.03392 * Math.cos(lat) / Math.pow(2, S.mapVS.zoom);
       const mPerLng = 111320 * Math.cos(lat), mPerLat = 111320;
       const ring: Pos3[] = [];
@@ -141,7 +150,7 @@ function dynamicLayers() {
         getWidth: 2, widthUnits: 'pixels', getDashArray: [5, 4], dashJustified: true, extensions: [dashExt],
         parameters: { depthTest: false } as any,
       } as any)];
-    })() : []),
+    })()),
   ];
 }
 
@@ -330,25 +339,30 @@ function updateFocusUI(): void {
 }
 
 // Drive the audio variometer from the followed glider's Vz (cockpit & chase only,
-// when airborne and sound is on). Uses the same compensated/raw setting as the HUD.
+// when present & live/online and sound is on). Uses the same compensated/raw
+// setting as the HUD. A stale (offline) live fix is muted — its Vz is meaningless.
 function feedVarioSound(): void {
   const following = S.mode === 'fpv' || S.mode === 'chase';
   const tr = following && S.ready ? subjectTrack() : undefined;
-  const active = !!(S.sound && tr && airborne(tr, S.cur));
-  const vz = active ? (S.compensated ? compVarioAt(tr!, S.cur) : varioAt(tr!, S.cur)) : 0;
+  const pr = tr ? presence(tr) : null;
+  const active = !!(S.sound && pr && !pr.offline);
+  const vz = active ? (S.compensated ? compVarioAt(tr!, pr!.time) : varioAt(tr!, pr!.time)) : 0;
   varioAudio.update(vz, active);
 }
 
 // ---- HUD ----
 export function updateHUD(): void {
   if (!S.ready) return;
-  const tr = subjectTrack(); hudreg.textContent = tr.reg + ' · ' + tr.label;
-  if (!airborne(tr, S.cur)) {
+  const tr = subjectTrack();
+  const pr = presence(tr);
+  hudreg.textContent = tr.reg + ' · ' + tr.label + (pr && pr.offline ? ' · ' + t('offline') : '');
+  if (!pr) {
     hudhdg.textContent = '—'; hudspd.textContent = '—'; hudalt.textContent = '—';
     hudvar.textContent = S.cur < tr.rstart ? t('beforeTk') : t('landed'); hudvar.className = 'vario'; return;
   }
-  const p = posAt(tr, S.cur), h = headingAt(tr, S.cur), v = S.compensated ? compVarioAt(tr, S.cur) : varioAt(tr, S.cur);
+  const time = pr.time;
+  const p = posAt(tr, time), h = headingAt(tr, time), v = S.compensated ? compVarioAt(tr, time) : varioAt(tr, time);
   hudhdg.textContent = Math.round(h).toString().padStart(3, '0') + '°'; hudalt.textContent = Math.round(p[2]) + ' m';
-  hudspd.textContent = Math.round(groundSpeedAt(tr, S.cur) * 3.6) + ' km/h';
+  hudspd.textContent = Math.round(groundSpeedAt(tr, time) * 3.6) + ' km/h';
   hudvar.textContent = (v >= 0 ? '+' : '') + v.toFixed(1) + ' m/s' + (S.compensated ? ' TE' : ''); hudvar.className = 'vario ' + (v >= 0.1 ? 'pos' : (v <= -0.1 ? 'neg' : ''));
 }

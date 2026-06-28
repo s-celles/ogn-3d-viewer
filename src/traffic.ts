@@ -7,7 +7,7 @@
 //                  layout; generic, not tied to any onboard system).
 import { S } from './state';
 import { trafficCanvas } from './dom';
-import { subjectTrack, posAt, airborne, headingAt } from './flight-math';
+import { subjectTrack, posAt, presence, headingAt } from './flight-math';
 import { TRAFFIC } from './config';
 import { LED_STEP, LED_OFFSET, litLeds } from './traffic-led';
 import { t } from './i18n';
@@ -19,11 +19,13 @@ const col = (lvl: number) => (lvl === 2 ? ALERT : lvl === 1 ? WARN : OTHER);
 // Other airborne aircraft within range of the subject, with threat level.
 function compute(): { hdg: number; list: Tgt[] } | null {
   const sub = subjectTrack(); if (!sub) return null;
-  const s = posAt(sub, S.cur), hdg = headingAt(sub, S.cur) * Math.PI / 180;
+  const sp = presence(sub); if (!sp) return null;
+  const s = posAt(sub, sp.time), hdg = headingAt(sub, sp.time) * Math.PI / 180;
   const mLat = 111320, mLng = 111320 * Math.cos(s[1] * Math.PI / 180), list: Tgt[] = [];
   for (const tr of S.TRACKS) {
-    if (tr.reg === sub.reg || !airborne(tr, S.cur)) continue;
-    const p = posAt(tr, S.cur), dE = (p[0] - s[0]) * mLng, dN = (p[1] - s[1]) * mLat, dist = Math.hypot(dE, dN);
+    if (tr.reg === sub.reg) continue;
+    const pr = presence(tr); if (!pr) continue;
+    const p = posAt(tr, pr.time), dE = (p[0] - s[0]) * mLng, dN = (p[1] - s[1]) * mLat, dist = Math.hypot(dE, dN);
     if (dist > TRAFFIC.range) continue;
     const dAlt = p[2] - s[2], av = Math.abs(dAlt);
     const lvl = (dist < TRAFFIC.alert.h && av < TRAFFIC.alert.v) ? 2 : (dist < TRAFFIC.warn.h && av < TRAFFIC.warn.v) ? 1 : 0;

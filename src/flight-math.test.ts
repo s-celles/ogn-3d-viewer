@@ -1,6 +1,7 @@
 import { test, expect } from 'bun:test';
-import { posAt, airborne, slice, brg, varioAt, headingAt, buildRel, attitudeAt, compVarioAt, groundSpeedAt } from './flight-math';
-import { GLIDER } from './config';
+import { posAt, airborne, slice, brg, varioAt, headingAt, buildRel, attitudeAt, compVarioAt, groundSpeedAt, presence } from './flight-math';
+import { GLIDER, LIVE } from './config';
+import { S } from './state';
 import type { RenderTrack, TrackPoint, RelPoint } from './types';
 
 // Build a synthetic RenderTrack from [lon,lat,alt,relTime] points. type 1 = a
@@ -154,4 +155,29 @@ test('slice clamps to span and includes endpoints', () => {
   expect(s[0]).toEqual([0, 0, 0]);
   expect(s[s.length - 1]).toEqual([0.001, 0, 200]);
   expect(slice(tr, 15, 5)).toEqual([]); // inverted range
+});
+
+test('presence: replay shows airborne at the cursor, never offline', () => {
+  const tr = mkTrack([[0, 45, 0, 0], [0.001, 45, 100, 50], [0.002, 45, 200, 100]]);
+  S.live = false;
+  S.cur = 50;  expect(presence(tr)).toEqual({ time: 50, offline: false });
+  S.cur = 150; expect(presence(tr)).toBeNull();   // past the last beacon
+  S.cur = -10; expect(presence(tr)).toBeNull();   // before take-off
+});
+
+test('presence: live freezes at the last fix, online → offline → hidden by age', () => {
+  const tr = mkTrack([[0, 45, 0, 0], [0.001, 45, 100, 50], [0.002, 45, 200, 100]]); // rend = 100
+  S.live = true;
+  try {
+    S.cur = 50;                              // within the track
+    expect(presence(tr)).toEqual({ time: 50, offline: false });
+    S.cur = 100 + LIVE.onlineMaxAge - 1;     // just-stale fix → online, frozen at rend
+    expect(presence(tr)).toEqual({ time: 100, offline: false });
+    S.cur = 100 + LIVE.onlineMaxAge + 1;     // older fix → offline, still frozen at rend
+    expect(presence(tr)).toEqual({ time: 100, offline: true });
+    S.cur = 100 + LIVE.offlineMaxAge + 1;    // too old → hidden (landed / gone)
+    expect(presence(tr)).toBeNull();
+  } finally {
+    S.live = false; S.cur = 0;               // restore shared state for other tests
+  }
 });

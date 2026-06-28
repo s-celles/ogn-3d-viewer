@@ -1,6 +1,6 @@
 // ============ track geometry & time helpers ============
 import { S } from './state';
-import { GLIDER, ARROW, clampv } from './config';
+import { GLIDER, ARROW, LIVE, clampv } from './config';
 import { isPowered } from './aircraft-mesh';
 import type { RenderTrack, Pos3, RelPoint, TrackPoint } from './types';
 
@@ -52,17 +52,19 @@ export const subjectTrack = (): RenderTrack => S.TRACKS.find(tr => tr.reg === S.
 export function shown(tr: RenderTrack): boolean { if (S.mode === 'fpv') return true; return !S.solo || S.solo === tr.reg; }
 
 /**
- * The shown, currently-airborne track nearest the overview camera centre — the
+ * The shown, currently-present track nearest the overview camera centre — the
  * focus candidate that cockpit/chase will follow. Distance is a cheap planar
  * approximation (degrees, longitude scaled by cos(lat)); good enough for ranking.
- * Returns null when no glider is airborne at the current time.
+ * Uses presence() so it also works in live (last-known fix). Returns null when
+ * no aircraft is present at the current time.
  */
 export function nearestToCenter(): RenderTrack | null {
   const cx = S.mapVS.longitude, cy = S.mapVS.latitude, cosLat = Math.cos(cy * Math.PI / 180);
   let best: RenderTrack | null = null, bestD = Infinity;
   for (const tr of S.TRACKS) {
-    if (!shown(tr) || !airborne(tr, S.cur)) continue;
-    const p = posAt(tr, S.cur), dx = (p[0] - cx) * cosLat, dy = p[1] - cy, d = dx * dx + dy * dy;
+    const pr = shown(tr) ? presence(tr) : null;
+    if (!pr) continue;
+    const p = posAt(tr, pr.time), dx = (p[0] - cx) * cosLat, dy = p[1] - cy, d = dx * dx + dy * dy;
     if (d < bestD) { bestD = d; best = tr; }
   }
   return best;
@@ -86,6 +88,24 @@ export function posAt(tr: RenderTrack, time: number): Pos3 {
 }
 
 export const airborne = (tr: RenderTrack, time: number): boolean => time >= tr.rstart && time <= tr.rend;
+
+export interface Presence { time: number; offline: boolean; }
+
+/**
+ * Whether an aircraft should be drawn as a live marker now, and at what time.
+ * Replay: only while airborne, at the cursor (never "offline"). Live: the cursor
+ * (real time) runs a little ahead of the last beacon, so freeze the aircraft at
+ * its last-known fix; flag it "offline" once that fix goes stale, and drop it
+ * once it's too old (landed / gone). Mirrors the FlightBook live map's
+ * online/offline split.
+ */
+export function presence(tr: RenderTrack): Presence | null {
+  if (!S.live) return airborne(tr, S.cur) ? { time: S.cur, offline: false } : null;
+  if (S.cur < tr.rstart) return null;                       // not started today
+  const age = S.cur - tr.rend;                              // s since last beacon
+  if (age > LIVE.offlineMaxAge) return null;                // landed / gone
+  return { time: Math.min(S.cur, tr.rend), offline: age > LIVE.onlineMaxAge };
+}
 
 /** Path points between two relative times (clamped to the track span). */
 export function slice(tr: RenderTrack, t0: number, t1: number): Pos3[] {

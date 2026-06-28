@@ -32,8 +32,15 @@ export async function fetchData(icao: string, date: string, onlyActive: boolean)
   const nowTsp = Math.floor(Date.now() / 1000);
   let tasks: Task[] = flights.map(f => {
     const dev = devices[f.device];
-    if (!dev || f.start_tsp == null || f.stop_tsp == null || dev.address[0] === '~' || dev.address[0] === '_') return null;
-    return { dev, t0: f.start_tsp - 30, t1: f.stop_tsp + 30, maxalt: f.max_alt, stop: f.stop_tsp };
+    if (!dev || f.start_tsp == null || dev.address[0] === '_') return null;
+    // Anonymous OGN IDs ('~', random/stealth) have no stable identity: skip them
+    // in replay, but keep them in live so the view matches the FlightBook map.
+    if (!S.live && dev.address[0] === '~') return null;
+    // A flight still in progress has no stop yet — that's how the logbook marks
+    // currently-airborne aircraft. Fetch its IGC up to now so it actually shows
+    // (presence() then renders it at its latest beacon).
+    const stop = f.stop_tsp ?? nowTsp;
+    return { dev, t0: f.start_tsp - 30, t1: stop + 30, maxalt: f.max_alt, stop };
   }).filter((x): x is Task => x !== null);
   // Live refresh only re-fetches flights seen in the last ~20 min (the growing
   // ones). Otherwise skip flights whose IGC is surely gone (OGN keeps it ~24 h):

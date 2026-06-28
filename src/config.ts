@@ -80,3 +80,13 @@ export const ARROW = { len: 150, back: 65, halfW: 80 };
 // size (1) for a lifelike close follow. The chase camera distances (CHASE) are
 // tuned to this chase scale — keep them in step if it changes.
 export const MODEL_SCALE: Record<Mode, number> = { over: 16, fpv: 16, chase: 1 };
+
+// Live mode: the cursor is real time, always a little ahead of an aircraft's
+// latest OGN beacon, so aircraft are frozen at their last-known fix. A fix newer
+// than onlineMaxAge is "online" (full colour); an older one still shows as
+// "offline" (dimmed, like the FlightBook live map) until offlineMaxAge, after
+// which the aircraft is treated as landed / gone and hidden.
+export const LIVE = {
+  onlineMaxAge: 90,     // s since last beacon to still count as online
+  offlineMaxAge: 1800,  // s since last beacon still shown dimmed; older = hidden
+};
