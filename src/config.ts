@@ -74,12 +74,12 @@ export const CHASE = {
 // half-width of the base.
 export const ARROW = { len: 150, back: 65, halfW: 80 };
 
-// Scale factor applied to the (metre-sized) 3D aircraft meshes, per view. The
-// overview and cockpit inflate them into a readable marker (their true ~15 m
-// span would be near-invisible on the map); the chase cam draws them at true
-// size (1) for a lifelike close follow. The chase camera distances (CHASE) are
-// tuned to this chase scale — keep them in step if it changes.
-export const MODEL_SCALE: Record<Mode, number> = { over: 16, fpv: 16, chase: 1 };
+// Scale factor applied to the (metre-sized) 3D aircraft meshes, per view (user
+// adjustable at runtime via S.modelScale). The overview inflates them into a
+// readable marker (their true ~15 m span would be near-invisible on the map);
+// cockpit and chase draw nearby traffic at true size (1) for a lifelike view.
+// The chase camera distances (CHASE) are tuned to this chase scale.
+export const MODEL_SCALE: Record<Mode, number> = { over: 16, fpv: 1, chase: 1 };
 
 // Live mode: the cursor is real time, always a little ahead of an aircraft's
 // latest OGN beacon, so aircraft are frozen at their last-known fix. A fix newer
