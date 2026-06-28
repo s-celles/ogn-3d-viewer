@@ -3,8 +3,8 @@ import { S } from './state';
 import { t } from './i18n';
 import { mapDiv, sunEl, moonEl, hudreg, hudhdg, hudspd, hudalt, hudvar, lglist, focusBadge } from './dom';
 import {
-  Deck, MapView, FirstPersonView, PathLayer, PolygonLayer, TripsLayer, ScatterplotLayer, SimpleMeshLayer,
-  LightingEffect, AmbientLight, DirectionalLight, PathStyleExtension,
+  Deck, MapView, FirstPersonView, PathLayer, PolygonLayer, TripsLayer, ScatterplotLayer, SimpleMeshLayer, IconLayer,
+  LightingEffect, AmbientLight, DirectionalLight, PathStyleExtension, PostProcessEffect,
 } from './deck';
 import { makeTerrain, terrainElevAt } from './terrain';
 import { drawGraphs } from './graphs';
@@ -56,6 +56,42 @@ function markerZ(p: Pos3, k: number, scale: number): number {
 }
 
 const dashExt = new PathStyleExtension({ dash: true });
+
+// ---- trail visual effects (contrail sprite + bloom post-process) ----
+// Soft round sprite (white, alpha falloff) used as a smoke puff; tinted per
+// puff via IconLayer mask. Built once on first use.
+let puffSprite: string | null = null;
+function smokeSprite(): string {
+  if (puffSprite) return puffSprite;
+  const c = document.createElement('canvas'); c.width = c.height = 64;
+  const ctx = c.getContext('2d')!, g = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
+  g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(0.45, 'rgba(255,255,255,0.4)'); g.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, 64, 64);
+  puffSprite = c.toDataURL(); return puffSprite;
+}
+
+// Single-pass screen-space bloom: add a thresholded, slightly-blurred copy of
+// the bright pixels back over the image, so the sun and luminous trails glow.
+const BLOOM_FS = `
+vec4 bloom_sampleColor(sampler2D source, vec2 texSize, vec2 texCoord) {
+  vec4 c = texture(source, texCoord);
+  vec3 glow = vec3(0.0);
+  for (int i = -2; i <= 2; i++) {
+    for (int j = -2; j <= 2; j++) {
+      vec2 off = vec2(float(i), float(j)) * 1.6 / texSize;
+      glow += max(texture(source, texCoord + off).rgb - 0.62, 0.0);
+    }
+  }
+  return vec4(c.rgb + glow * 0.13, c.a);
+}
+`;
+let bloomFx: any = null;   // null = not yet built, undefined = build failed
+function getBloom(): any {
+  if (bloomFx !== null) return bloomFx;
+  try { bloomFx = new PostProcessEffect({ name: 'bloom', fs: BLOOM_FS, passes: [{ sampler: 'bloom_sampleColor' }] } as any, {}); }
+  catch { bloomFx = undefined; }
+  return bloomFx;
+}
 
 // Split a track's [t0,t1] window into solid runs (real data) and dashed runs
 // (reception-loss gaps, interpolated), sharing boundary points so they connect.
@@ -121,10 +157,55 @@ function dynamicLayers() {
   // Overview focus ring: a halo in the glider's trace colour around the focus
   // candidate (the glider cockpit/chase will follow), so it's unmistakable on the map.
   const focusTr = S.mode === 'over' && S.focus ? vis.find(tr => tr.reg === S.focus) : null;
+  // Soft additive "vapour" glow drawn under the crisp trail: a wide low-alpha
+  // pass + a tighter brighter pass build a haloed neon ribbon without losing the
+  // thin core line. Additive over the terrain so it reads as emitted light.
+  const glowParams = {
+    depthCompare: 'less-equal', depthWriteEnabled: false,   // occluded by terrain, but don't hide the crisp core
+    blend: true,
+    blendColorOperation: 'add', blendColorSrcFactor: 'src-alpha', blendColorDstFactor: 'one',
+    blendAlphaOperation: 'add', blendAlphaSrcFactor: 'src-alpha', blendAlphaDstFactor: 'one',
+  } as any;
+  const glow = (id: string, data: PathDatum[], width: number, alpha: number) =>
+    new PathLayer<PathDatum>({
+      id, data, getPath: (d: PathDatum) => d.pts, getColor: (d: PathDatum) => [...d.color, alpha],
+      getWidth: width, widthUnits: 'pixels', jointRounded: true, capRounded: true, parameters: glowParams,
+    } as any);
+  // Contrail puffs: soft sprites sampled along the last ~30 s of each trail,
+  // growing + fading with age, tinted by trace colour (normal alpha blend).
+  const contrailOn = S.trailFx === 'contrail' || S.trailFx === 'bloom';
+  const puffParams = {
+    depthCompare: 'less-equal', depthWriteEnabled: false, blend: true,
+    blendColorOperation: 'add', blendColorSrcFactor: 'src-alpha', blendColorDstFactor: 'one-minus-src-alpha',
+    blendAlphaOperation: 'add', blendAlphaSrcFactor: 'one', blendAlphaDstFactor: 'one-minus-src-alpha',
+  } as any;
+  const puffs: { pos: Pos3; size: number; color: RGB; alpha: number }[] = [];
+  if (contrailOn && !off) {
+    const span = 30;
+    for (const tr of vis) {
+      const pr = presence(tr); if (!pr) continue;
+      for (let age = 0; age <= span; age += 2) {
+        const time = pr.time - age; if (time < tr.rstart) break;
+        const p = posAt(tr, time);
+        puffs.push({ pos: [p[0], p[1], markerZ(p, k, meshScale)], size: 12 + age * 1.5, color: tr.color, alpha: Math.round(75 * (1 - age / span)) });
+      }
+    }
+  }
   return [
     ...(night ? [new PolygonLayer({
       id: 'night', data: [night], getPolygon: (d: any) => d, getFillColor: [4, 7, 22, 200],
       stroked: false, parameters: { depthTest: false } as any,
+    } as any)] : []),
+    // Vapour glow under the trails (wide soft halo + tighter inner glow). Skipped in the "basic" effect.
+    ...(off || S.trailFx === 'basic' ? [] : [
+      glow('future-glow', futData, 9, 12), glow('future-glow2', futData, 4, 16),
+      glow('past-glow', pastData, 11, 18), glow('past-glow2', pastData, 5, 30),
+    ]),
+    ...(puffs.length ? [new IconLayer({
+      id: 'contrail', data: puffs,
+      iconAtlas: smokeSprite(), iconMapping: { p: { x: 0, y: 0, width: 64, height: 64, mask: true } } as any,
+      getIcon: () => 'p', getPosition: (d: any) => d.pos, getSize: (d: any) => d.size,
+      getColor: (d: any) => [...d.color, d.alpha], sizeUnits: 'pixels', billboard: true, parameters: puffParams,
     } as any)] : []),
     new PathLayer<PathDatum>({ id: 'future', data: futData, getPath: d => d.pts, getColor: d => [...d.color, 55],
       getWidth: 2, widthUnits: 'pixels', jointRounded: true, capRounded: true, parameters: { depthTest: true } as any }),
@@ -301,23 +382,26 @@ export function initDeck(): void {
 export function render(): void {
   updateSky();        // recompute sky colours + sun (before building the layers)
   applySunLight();
+  // Scene-wide bloom only in the "bloom" effect (else just the scene lighting).
+  const bloom = S.trailFx === 'bloom' ? getBloom() : null;
+  const effects = bloom ? [lighting, bloom] : [lighting];
   if (S.mode === 'over') {
     // The glider nearest the scene centre (the one cockpit/chase will adopt).
     // Recomputed each frame so it tracks the camera and time.
     const f = nearestToCenter(); S.focus = f ? f.reg : null;
     deckgl.setProps({
-      views: [new MapView({ id: 'main' })], viewState: { main: S.mapVS }, controller: { keyboard: false },
+      views: [new MapView({ id: 'main' })], viewState: { main: S.mapVS }, controller: { keyboard: false }, effects,
       layers: [S.terrainInst, ...dynamicLayers()],
     } as any);
   } else if (S.mode === 'chase') {
     deckgl.setProps({
-      views: [new FirstPersonView({ id: 'fpv', fovy: CHASE.fovy, near: 1, far: 200000 })], viewState: { fpv: computeChase() },
+      views: [new FirstPersonView({ id: 'fpv', fovy: CHASE.fovy, near: 1, far: 200000 })], viewState: { fpv: computeChase() }, effects,
       controller: false, layers: [S.terrainInst, ...dynamicLayers()],
     } as any);
     updateHUD();
   } else {
     deckgl.setProps({
-      views: [new FirstPersonView({ id: 'fpv', fovy: 64, near: 1, far: 200000 })], viewState: { fpv: computeFPV() },
+      views: [new FirstPersonView({ id: 'fpv', fovy: 64, near: 1, far: 200000 })], viewState: { fpv: computeFPV() }, effects,
       controller: S.fpvFollow ? false : { keyboard: false, scrollZoom: false, inertia: 200 }, layers: [S.terrainInst, ...dynamicLayers()],
     } as any);
     updateHUD();

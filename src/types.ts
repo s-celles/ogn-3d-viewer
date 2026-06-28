@@ -9,6 +9,7 @@ export type RGB = [number, number, number];
 
 export type Mode = 'over' | 'fpv' | 'chase';
 export type Trace = 'off' | 'hist' | 'histfut' | 'window';
+export type TrailFx = 'basic' | 'glow' | 'contrail' | 'bloom';
 export type GraphMode = 'off' | 'hist' | 'histfut' | 'rolling';
 export type TrafficMode = 'off' | 'radar' | 'directional';
 export type Lang = 'fr' | 'en' | 'de';
@@ -141,6 +142,7 @@ export interface AppState {
   // (0 = directly behind), el = elevation above it (deg), dist = slant range (m).
   chase: { az: number; el: number; dist: number };
   trace: Trace;
+  trailFx: TrailFx;
   windowMin: number;
   spline: boolean;
   compensated: boolean;

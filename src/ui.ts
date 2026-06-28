@@ -4,7 +4,7 @@ import { t, I18N } from './i18n';
 import { API_BASE, REPO_URL, MINZ, MAXZ, PMIN, PMAX, CHASE, clampv } from './config';
 import { APP_VERSION, GIT_HASH } from './version';
 import {
-  subjEl, viewsEl, cammodeEl, traceEl, smoothBtn, compBtn, bankBtn, soundBtn, trafficModeEl, graphModeEl, graphClose, winEl, winval, playBtn, segEl,
+  subjEl, viewsEl, cammodeEl, traceEl, trailFxEl, smoothBtn, compBtn, bankBtn, soundBtn, trafficModeEl, graphModeEl, graphClose, winEl, winval, playBtn, segEl,
   exoEl, exval, pitchEl, pitchval, scrub, scrubMin, scrubMax, clkEl, lglist, rose, altsl, icaoEl, fblink, acEl,
   dateEl, loadBtn, langEl, discEl, infoBtn, copyBtn, collapseBtn, liveBtn, igcBtn, igcInput, mapDiv,
 } from './dom';
@@ -14,7 +14,7 @@ import { render, updateHUD } from './render';
 import { loadFlights, refreshLive, statusMsg, setStatus, rebuild, syncUrl, loadTrackFiles } from './data';
 import { varioAudio } from './vario-audio';
 import { refreshGraphTabs } from './graphs';
-import type { Mode, Trace, GraphMode, TrafficMode, Lang } from './types';
+import type { Mode, Trace, TrailFx, GraphMode, TrafficMode, Lang } from './types';
 
 const asEl = (c: Element) => c as HTMLElement;
 
@@ -79,6 +79,12 @@ traceEl.addEventListener('change', e => {
   document.body.classList.toggle('win', S.trace === 'window'); render();
 });
 winEl.addEventListener('input', e => { S.windowMin = parseFloat((e.target as HTMLInputElement).value); winval.textContent = String(S.windowMin); render(); });
+
+// ---- trail visual effect (basic → neon → contrail → bloom) ----
+([['basic', 'fxBasic'], ['glow', 'fxGlow'], ['contrail', 'fxContrail'], ['bloom', 'fxBloom']] as [string, string][])
+  .forEach(([v, k]) => { const o = document.createElement('option'); o.value = v; o.dataset.k = k; trailFxEl.appendChild(o); });
+trailFxEl.value = S.trailFx;
+trailFxEl.addEventListener('change', e => { S.trailFx = (e.target as HTMLSelectElement).value as TrailFx; render(); });
 
 // ---- spline smoothing (default on) ----
 smoothBtn.onclick = () => {
@@ -310,6 +316,7 @@ export function applyI18n(): void {
   });
   [...cammodeEl.children].forEach(b => { asEl(b).textContent = t(asEl(b).dataset.f === '1' ? 'follow' : 'free'); });
   [...traceEl.options].forEach(o => { o.textContent = t(o.dataset.k!); });
+  [...trailFxEl.options].forEach(o => { o.textContent = t(o.dataset.k!); });
   smoothBtn.textContent = S.spline ? t('on') : t('off'); smoothBtn.classList.toggle('on', S.spline);
   compBtn.textContent = S.compensated ? t('on') : t('off'); compBtn.classList.toggle('on', S.compensated);
   bankBtn.textContent = S.bank ? t('on') : t('off'); bankBtn.classList.toggle('on', S.bank);

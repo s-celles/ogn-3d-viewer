@@ -13,6 +13,7 @@ export const subjEl     = $<HTMLSelectElement>('subject');
 export const viewsEl    = $('views');
 export const cammodeEl  = $('cammode');
 export const traceEl    = $<HTMLSelectElement>('trace');
+export const trailFxEl  = $<HTMLSelectElement>('trailFx');
 export const smoothBtn  = $<HTMLButtonElement>('smoothBtn');
 export const compBtn    = $<HTMLButtonElement>('compBtn');
 export const bankBtn    = $<HTMLButtonElement>('bankBtn');
