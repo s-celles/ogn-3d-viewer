@@ -20,6 +20,19 @@ matching FlightBook page.
 
 ![OGN 3D Viewer](https://img.shields.io/badge/status-live-brightgreen) ![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6) ![Bun](https://img.shields.io/badge/bundler-Bun-f9f1e1)
 
+## Screenshots
+
+<table>
+  <tr>
+    <td width="50%"><img src="assets/screencaptures/overview.png" alt="Overview"><br><sub><b>Overview</b> — a day's tracks over 3D terrain.</sub></td>
+    <td width="50%"><img src="assets/screencaptures/cockpit.png" alt="Cockpit view"><br><sub><b>Cockpit</b> (first-person) view with the head-up display.</sub></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="assets/screencaptures/chase.png" alt="Chase camera"><br><sub><b>Chase camera</b> with the glider model and anti-collision indicator.</sub></td>
+    <td width="50%"><img src="assets/screencaptures/graphs.png" alt="Graphs"><br><sub><b>Graphs</b> drawer — altitude, speed and heading.</sub></td>
+  </tr>
+</table>
+
 ## Features
 
 - **Airfield search** by ICAO code with autocomplete.

@@ -21,6 +21,19 @@ d'info renvoie vers la page FlightBook correspondante.
 
 ![OGN 3D Viewer](https://img.shields.io/badge/statut-en%20ligne-brightgreen) ![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6) ![Bun](https://img.shields.io/badge/bundler-Bun-f9f1e1)
 
+## Captures d'écran
+
+<table>
+  <tr>
+    <td width="50%"><img src="assets/screencaptures/overview.png" alt="Vue d'ensemble"><br><sub><b>Vue d'ensemble</b> — les traces de la journée sur le relief 3D.</sub></td>
+    <td width="50%"><img src="assets/screencaptures/cockpit.png" alt="Vue subjective"><br><sub><b>Vue subjective</b> (cockpit) avec l'affichage tête haute.</sub></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="assets/screencaptures/chase.png" alt="Caméra poursuite"><br><sub><b>Caméra poursuite</b> avec le modèle du planeur et l'indicateur anti-collision.</sub></td>
+    <td width="50%"><img src="assets/screencaptures/graphs.png" alt="Graphes"><br><sub><b>Graphes</b> — altitude, vitesse et cap.</sub></td>
+  </tr>
+</table>
+
 ## Fonctionnalités
 
 - **Recherche d'aérodrome** par code OACI avec autocomplétion.
