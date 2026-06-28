@@ -112,8 +112,9 @@ function buildGlider() {
   const wr: Edge = { le: 0.6, te: -0.55, y: 0.3, z: 0.06 };
   m.panel(wr, { le: 0.2, te: -0.1, y: 8.6, z: 0.55 }, 0.05);
   m.panel(wr, { le: 0.2, te: -0.1, y: -8.6, z: 0.55 }, 0.05);
-  // T-tail
-  m.fin(-3.7, -4.5, 0.4, -3.95, -4.5, 1.7, 0.05);
+  // T-tail — fin root at the fuselage centreline (z 0) so its base meets the
+  // tapering rear fuselage (top ~0.04–0.12 there); it emerges through the top.
+  m.fin(-3.7, -4.5, 0.0, -3.95, -4.5, 1.7, 0.05);
   const tr: Edge = { le: -3.85, te: -4.45, y: 0, z: 1.72 };
   m.panel(tr, { le: -4.0, te: -4.45, y: 1.7, z: 1.72 }, 0.04);
   m.panel(tr, { le: -4.0, te: -4.45, y: -1.7, z: 1.72 }, 0.04);
