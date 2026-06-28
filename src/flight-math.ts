@@ -1,6 +1,7 @@
 // ============ track geometry & time helpers ============
 import { S } from './state';
 import { GLIDER, ARROW, clampv } from './config';
+import { isPowered } from './aircraft-mesh';
 import type { RenderTrack, Pos3, RelPoint, TrackPoint } from './types';
 
 // Subdivisions inserted per beacon segment when spline smoothing is on.
@@ -141,10 +142,17 @@ export const clampCur = (tr: RenderTrack): number => Math.max(tr.rstart, Math.mi
 
 export interface Attitude { heading: number; roll: number; pitch: number; speed: number; }
 
-// Estimate the glider's attitude at a time: ground speed and turn rate from a
-// ±dt window, bank from the coordinated-turn relation tan(roll)=V·ω/g, pitch
-// from the flight-path angle (vario / speed). Roll>0 = right bank, pitch>0 = nose up.
-// Both angles are clamped to the configured maxima. Angles in radians.
+// Estimate the aircraft's attitude at a time: ground speed and turn rate from a
+// ±dt window, bank from the coordinated-turn relation tan(roll)=V·ω/g. Roll>0 =
+// right bank, pitch>0 = nose up. Both angles are clamped to the configured
+// maxima. Angles in radians.
+//
+// Pitch depends on aircraft type. A GLIDER is always descending through the air,
+// so it never holds a nose-up attitude in normal flight: its body pitch is set
+// by airspeed (ground-speed proxy) — ~level near stall, increasingly nose-down
+// as it speeds up — independent of climb rate (thermals don't pitch the nose
+// up). A POWERED aircraft can climb under power, so it keeps the flight-path
+// angle (vario / speed) and pitches up when climbing.
 export function attitudeAt(tr: RenderTrack, time: number): Attitude {
   const { dt, g } = GLIDER;
   const maxBank = GLIDER.maxBankDeg * Math.PI / 180, maxPitch = GLIDER.maxPitchDeg * Math.PI / 180;
@@ -153,7 +161,9 @@ export function attitudeAt(tr: RenderTrack, time: number): Attitude {
   let dh = ((headingAt(tr, t1) - headingAt(tr, t0) + 540) % 360) - 180; // signed heading change (deg), right +
   const omega = (dh * Math.PI / 180) / span;                        // turn rate (rad/s)
   const roll = clampv(Math.atan(speed * omega / g), -maxBank, maxBank);
-  const pitch = clampv(Math.atan2(varioAt(tr, time), Math.max(1, speed)), -maxPitch, maxPitch);
+  const pitch = isPowered(tr.type)
+    ? clampv(Math.atan2(varioAt(tr, time), Math.max(1, speed)), -maxPitch, maxPitch)
+    : clampv(-Math.max(0, speed - GLIDER.pitchLevelSpeed) * GLIDER.pitchGain, -maxPitch, 0);
   return { heading: headingAt(tr, time), roll, pitch, speed };
 }
 

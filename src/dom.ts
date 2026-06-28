@@ -44,6 +44,7 @@ export const dateEl     = $<HTMLInputElement>('date');
 export const loadBtn    = $<HTMLButtonElement>('load');
 export const hudreg     = $('hudreg');
 export const hudhdg     = $('hudhdg');
+export const hudspd     = $('hudspd');
 export const hudalt     = $('hudalt');
 export const hudvar     = $('hudvar');
 export const langEl     = $<HTMLSelectElement>('lang');

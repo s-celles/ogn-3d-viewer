@@ -3,9 +3,10 @@ import { posAt, airborne, slice, brg, varioAt, headingAt, buildRel, attitudeAt, 
 import { GLIDER } from './config';
 import type { RenderTrack, TrackPoint, RelPoint } from './types';
 
-// Build a synthetic RenderTrack from [lon,lat,alt,relTime] points.
-function mkTrack(rel: RelPoint[]): RenderTrack {
-  return { label: 'x', reg: 'R', type: 1, maxalt: 0, color: [0, 0, 0], path: [], tstart: rel[0][3], tend: rel[rel.length - 1][3], rel, rstart: rel[0][3], rend: rel[rel.length - 1][3], gaps: [] };
+// Build a synthetic RenderTrack from [lon,lat,alt,relTime] points. type 1 = a
+// glider, type 2 = a (powered) tow plane — they pitch differently.
+function mkTrack(rel: RelPoint[], type = 1): RenderTrack {
+  return { label: 'x', reg: 'R', type, maxalt: 0, color: [0, 0, 0], path: [], tstart: rel[0][3], tend: rel[rel.length - 1][3], rel, rstart: rel[0][3], rend: rel[rel.length - 1][3], gaps: [] };
 }
 
 // A simple synthetic track: climbs 0→200 m while moving east, rel time 0→20 s.
@@ -86,11 +87,24 @@ test('attitudeAt: straight & level → no roll, no pitch', () => {
   expect(a.speed).toBeGreaterThan(0);
 });
 
-test('attitudeAt: climb → nose up, descent → nose down (clamped)', () => {
-  const climb = mkTrack([[0, 45, 0, 0], [0.001, 45, 100, 5], [0.002, 45, 200, 10], [0.003, 45, 300, 15], [0.004, 45, 400, 20]]);
+test('attitudeAt: a glider never pitches nose-up, even climbing (speed-based)', () => {
+  // Fast (~31 m/s) climb: a powered aircraft would pitch up, but a glider is set
+  // by airspeed → nose-DOWN, and never positive.
+  const climb = mkTrack([[0, 45, 0, 0], [0.002, 45, 100, 5], [0.004, 45, 200, 10], [0.006, 45, 300, 15], [0.008, 45, 400, 20]]);
+  expect(attitudeAt(climb, 10).pitch).toBeLessThanOrEqual(0);
+  expect(attitudeAt(climb, 10).pitch).toBeLessThan(-0.05);              // nose-down from speed
+  expect(attitudeAt(climb, 10).pitch).toBeGreaterThanOrEqual(-maxPitchRad - 1e-9);
+  // Slow flight (below pitchLevelSpeed) → ~level, still never nose-up.
+  const slow = mkTrack([[0, 45, 0, 0], [0.0005, 45, 20, 5], [0.001, 45, 40, 10], [0.0015, 45, 60, 15], [0.002, 45, 80, 20]]);
+  expect(attitudeAt(slow, 10).pitch).toBeLessThanOrEqual(1e-9);
+  expect(attitudeAt(slow, 10).pitch).toBeGreaterThan(-0.05);
+});
+
+test('attitudeAt: a powered aircraft pitches nose-up when climbing (clamped)', () => {
+  const climb = mkTrack([[0, 45, 0, 0], [0.001, 45, 100, 5], [0.002, 45, 200, 10], [0.003, 45, 300, 15], [0.004, 45, 400, 20]], 2);
   expect(attitudeAt(climb, 10).pitch).toBeGreaterThan(0.1);
   expect(attitudeAt(climb, 10).pitch).toBeLessThanOrEqual(maxPitchRad + 1e-9);
-  const descent = mkTrack([[0, 45, 400, 0], [0.001, 45, 300, 5], [0.002, 45, 200, 10], [0.003, 45, 100, 15], [0.004, 45, 0, 20]]);
+  const descent = mkTrack([[0, 45, 400, 0], [0.001, 45, 300, 5], [0.002, 45, 200, 10], [0.003, 45, 100, 15], [0.004, 45, 0, 20]], 2);
   expect(attitudeAt(descent, 10).pitch).toBeLessThan(-0.1);
 });
 

@@ -1,7 +1,7 @@
 // ============ viewer: deck.gl instance, dynamic layers, HUD ============
 import { S } from './state';
 import { t } from './i18n';
-import { mapDiv, sunEl, moonEl, hudreg, hudhdg, hudalt, hudvar, lglist, focusBadge } from './dom';
+import { mapDiv, sunEl, moonEl, hudreg, hudhdg, hudspd, hudalt, hudvar, lglist, focusBadge } from './dom';
 import {
   Deck, MapView, FirstPersonView, PathLayer, PolygonLayer, TripsLayer, ScatterplotLayer, SimpleMeshLayer,
   LightingEffect, AmbientLight, DirectionalLight, PathStyleExtension,
@@ -11,7 +11,7 @@ import { drawGraphs } from './graphs';
 import { drawTraffic } from './traffic';
 import { varioAudio } from './vario-audio';
 import { updateSky, getSun, getMoon, nightPolygon } from './sky';
-import { subjectTrack, shown, scaled, posAt, airborne, headingAt, varioAt, compVarioAt, clampCur, attitudeAt, nearestToCenter } from './flight-math';
+import { subjectTrack, shown, scaled, posAt, airborne, headingAt, varioAt, compVarioAt, groundSpeedAt, clampCur, attitudeAt, nearestToCenter } from './flight-math';
 import { GLIDER_MESH, PLANE_MESH, isPowered } from './aircraft-mesh';
 import { CHASE, MODEL_SCALE } from './config';
 import type { RGB, Pos3, RenderTrack } from './types';
@@ -125,12 +125,21 @@ function dynamicLayers() {
       sizeScale: MODEL_SCALE, material: aircraftMaterial as any, parameters: { depthTest: true } as any }),
     new ScatterplotLayer({ id: 'airfield', data: S.AF ? [{ pos: [S.AF.lon, S.AF.lat, S.AF.elev * k] as Pos3 }] : [], getPosition: (d: any) => d.pos,
       getFillColor: [255, 60, 60], getRadius: 6, radiusUnits: 'pixels', stroked: true, lineWidthMinPixels: 1.5, getLineColor: [255, 255, 255] }),
-    ...(focusTr && airborne(focusTr, S.cur) ? [new ScatterplotLayer({
-      id: 'focus-ring', data: [focusTr],
-      getPosition: (tr: any) => { const p = posAt(tr, S.cur); return [p[0], p[1], groundClamp(p) * k] as Pos3; },
-      filled: false, stroked: true, getLineColor: [...focusTr.color, 255] as any, lineWidthUnits: 'pixels', getLineWidth: 2,
-      getRadius: 18, radiusUnits: 'pixels', radiusMinPixels: 16, parameters: { depthTest: false } as any,
-    } as any)] : []),
+    ...(focusTr && airborne(focusTr, S.cur) ? (() => {
+      // Dashed halo around the focus glider. A pixel-radius circle isn't possible
+      // with PathLayer, so build a geographic ring whose radius tracks the zoom's
+      // metres-per-pixel — keeping it ~constant on screen.
+      const p = posAt(focusTr, S.cur), z = groundClamp(p) * k, lat = p[1] * Math.PI / 180;
+      const R = 18 * 156543.03392 * Math.cos(lat) / Math.pow(2, S.mapVS.zoom);
+      const mPerLng = 111320 * Math.cos(lat), mPerLat = 111320;
+      const ring: Pos3[] = [];
+      for (let i = 0; i <= 48; i++) { const a = i / 48 * 2 * Math.PI; ring.push([p[0] + R * Math.cos(a) / mPerLng, p[1] + R * Math.sin(a) / mPerLat, z]); }
+      return [new PathLayer({
+        id: 'focus-ring', data: [ring], getPath: (d: any) => d, getColor: [...focusTr!.color, 150] as any,
+        getWidth: 2, widthUnits: 'pixels', getDashArray: [5, 4], dashJustified: true, extensions: [dashExt],
+        parameters: { depthTest: false } as any,
+      } as any)];
+    })() : []),
   ];
 }
 
@@ -333,10 +342,11 @@ export function updateHUD(): void {
   if (!S.ready) return;
   const tr = subjectTrack(); hudreg.textContent = tr.reg + ' · ' + tr.label;
   if (!airborne(tr, S.cur)) {
-    hudhdg.textContent = '—'; hudalt.textContent = '—';
+    hudhdg.textContent = '—'; hudspd.textContent = '—'; hudalt.textContent = '—';
     hudvar.textContent = S.cur < tr.rstart ? t('beforeTk') : t('landed'); hudvar.className = 'vario'; return;
   }
   const p = posAt(tr, S.cur), h = headingAt(tr, S.cur), v = S.compensated ? compVarioAt(tr, S.cur) : varioAt(tr, S.cur);
   hudhdg.textContent = Math.round(h).toString().padStart(3, '0') + '°'; hudalt.textContent = Math.round(p[2]) + ' m';
+  hudspd.textContent = Math.round(groundSpeedAt(tr, S.cur) * 3.6) + ' km/h';
   hudvar.textContent = (v >= 0 ? '+' : '') + v.toFixed(1) + ' m/s' + (S.compensated ? ' TE' : ''); hudvar.className = 'vario ' + (v >= 0.1 ? 'pos' : (v <= -0.1 ? 'neg' : ''));
 }

@@ -35,10 +35,13 @@ export const MINZ = 8.5, MAXZ = 14.5, PMIN = 0, PMAX = 85;
 export const clampv = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
 
 // Glider attitude (display). Bank is derived from the coordinated-turn relation
-// tan(roll) = V·ω / g (turn rate × ground speed), pitch from the flight-path
-// angle (vario / ground speed). Both are CAPPED by the max angles below so noisy
-// OGN tracks can't produce absurd attitudes. halfSpan / halfLen are the on-screen
-// marker half-sizes in metres (a readable glyph, not the real 15 m wingspan).
+// tan(roll) = V·ω / g (turn rate × ground speed). Pitch is set by AIRSPEED, not
+// climb rate: a glider is always descending through the air, so unlike a powered
+// aircraft it never holds a nose-up attitude in normal flight — it flies ~level
+// near stall and increasingly nose-down as it speeds up. Both angles are CAPPED
+// by the max below so noisy OGN tracks can't produce absurd attitudes. halfSpan /
+// halfLen are the on-screen marker half-sizes in metres (a readable glyph, not
+// the real 15 m wingspan).
 export const GLIDER = {
   maxBankDeg: 55,   // max |roll|
   maxPitchDeg: 35,  // max |pitch|
@@ -48,6 +51,8 @@ export const GLIDER = {
   wingPos: 0.35,    // where the wings cross the fuselage, as a fraction of halfLen
                     // ahead of the position (0 = centre, 1 = at the nose)
   dt: 3,            // ± window (s) for speed / turn-rate estimation
+  pitchLevelSpeed: 19,  // m/s (~68 km/h, near stall): body attitude ≈ level
+  pitchGain: 0.0085,    // rad of nose-down per m/s of speed above pitchLevelSpeed
 };
 
 // Chase cam: a FirstPersonView orbiting the subject aircraft. The viewpoint is
