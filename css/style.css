@@ -45,6 +45,8 @@ button:disabled{opacity:.5;cursor:default}
 select,input[type=text],input[type=date]{background:#1b2531;color:var(--txt);border:1px solid var(--line);
        border-radius:8px;padding:6px 8px;font-size:12px;width:100%}
 input[type=range]{width:100%;accent-color:var(--accent)}
+/* Local-time endpoints under the time-of-day slider. */
+.scrubends{display:flex;justify-content:space-between;font-size:10px;color:var(--mut);margin-top:2px;font-variant-numeric:tabular-nums}
 label.lbl{font-size:11px;color:var(--mut);display:block;margin-bottom:3px}
 /* FlightBook link beside the airfield label. */
 .fblink{font-size:10.5px;font-weight:600;color:var(--accent);text-decoration:none;white-space:nowrap;flex:0 0 auto}

@@ -5,7 +5,7 @@ import { API_BASE, REPO_URL, MINZ, MAXZ, PMIN, PMAX, CHASE, clampv } from './con
 import { APP_VERSION, GIT_HASH } from './version';
 import {
   subjEl, viewsEl, cammodeEl, traceEl, smoothBtn, compBtn, bankBtn, soundBtn, trafficModeEl, graphModeEl, graphClose, winEl, winval, playBtn, segEl,
-  exoEl, exval, pitchEl, pitchval, scrub, clkEl, lglist, rose, altsl, icaoEl, fblink, acEl,
+  exoEl, exval, pitchEl, pitchval, scrub, scrubMin, scrubMax, clkEl, lglist, rose, altsl, icaoEl, fblink, acEl,
   dateEl, loadBtn, langEl, discEl, infoBtn, collapseBtn, liveBtn,
 } from './dom';
 import { subjectTrack, airborne, headingAt, clampCur, fmt } from './flight-math';
@@ -19,7 +19,15 @@ import type { Mode, Trace, GraphMode, TrafficMode, Lang } from './types';
 const asEl = (c: Element) => c as HTMLElement;
 
 // ---- clock / scrubber ----
-export function syncUI(): void { clkEl.textContent = S.ready ? fmt(S.cur) : '--:--'; scrub.value = String(Math.round(S.cur / S.SPAN * 1000)); updateFbLink(); }
+export function syncUI(): void {
+  clkEl.textContent = S.ready ? fmt(S.cur) : '--:--';
+  scrub.value = String(Math.round(S.cur / S.SPAN * 1000));
+  // Anchor the time-of-day slider to local clock times (first → last beacon), so
+  // its scale reads as the local time of day rather than abstract 0…100%.
+  scrubMin.textContent = S.ready ? fmt(0).slice(0, 5) : '--:--';
+  scrubMax.textContent = S.ready ? fmt(S.SPAN).slice(0, 5) : '--:--';
+  updateFbLink();
+}
 scrub.addEventListener('input', e => { if (!S.ready) return; S.cur = +(e.target as HTMLInputElement).value / 1000 * S.SPAN; render(); syncUI(); });
 
 // ---- view toggle ----
