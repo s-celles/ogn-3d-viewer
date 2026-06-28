@@ -146,6 +146,13 @@ export interface AppState {
   // Aircraft mesh scale per view (overview/cockpit inflate to a readable marker,
   // chase draws ~real size). User-adjustable via the UI.
   modelScale: Record<Mode, number>;
+  // Glide ("final glide") cone around the airfield: a transparent inverted cone
+  // of slope 1/glideRatio, apex at field elevation + safetyHeight. An aircraft
+  // above the surface can reach the field at the given glide ratio.
+  glideCone: boolean;
+  glideRatio: number;    // finesse (L/D)
+  safetyHeight: number;  // arrival safety height (m) added to the apex
+  coneRadiusKm: number;  // horizontal radius (km) the cone is drawn out to
   windowMin: number;
   spline: boolean;
   compensated: boolean;

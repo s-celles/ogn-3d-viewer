@@ -14,6 +14,7 @@ export const S: AppState = {
   mode: 'over', source: 'ogn', subject: null, focus: null, fpvPitch: 6, fpvFollow: true, bank: true, freeCam: { bearing: 0, pitch: 6 },
   chase: { az: 0, el: 17, dist: 25 },
   trace: 'window', trailFx: 'basic', modelScale: { ...MODEL_SCALE }, windowMin: 10, spline: true, compensated: true, sound: true, trafficMode: 'directional', graphMode: 'off',
+  glideCone: false, glideRatio: 10, safetyHeight: 0, coneRadiusKm: 25,
   live: false, liveTimer: null,
   INIT: { ...INIT },
   mapVS: { ...INIT },

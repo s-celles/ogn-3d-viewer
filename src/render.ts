@@ -4,14 +4,14 @@ import { t } from './i18n';
 import { mapDiv, sunEl, moonEl, hudreg, hudhdg, hudspd, hudalt, hudvar, lglist, focusBadge } from './dom';
 import {
   Deck, MapView, FirstPersonView, PathLayer, PolygonLayer, TripsLayer, ScatterplotLayer, SimpleMeshLayer, IconLayer,
-  LightingEffect, AmbientLight, DirectionalLight, PathStyleExtension, PostProcessEffect,
+  LightingEffect, AmbientLight, DirectionalLight, PathStyleExtension, PostProcessEffect, COORDINATE_SYSTEM,
 } from './deck';
 import { makeTerrain, terrainElevAt } from './terrain';
 import { drawGraphs } from './graphs';
 import { drawTraffic } from './traffic';
 import { varioAudio } from './vario-audio';
 import { updateSky, getSun, getMoon, nightPolygon } from './sky';
-import { subjectTrack, shown, scaled, posAt, presence, headingAt, varioAt, compVarioAt, groundSpeedAt, clampCur, attitudeAt, nearestToCenter } from './flight-math';
+import { subjectTrack, shown, scaled, posAt, presence, airborne, headingAt, varioAt, compVarioAt, groundSpeedAt, clampCur, attitudeAt, nearestToCenter } from './flight-math';
 import { GLIDER_MESH, PLANE_MESH, isPowered } from './aircraft-mesh';
 import { CHASE } from './config';
 import type { RGB, Pos3, RenderTrack } from './types';
@@ -53,6 +53,56 @@ function markerZ(p: Pos3, k: number, scale: number): number {
   const g = terrainElevAt(p[0], p[1]);
   const floor = g != null ? g * k + scale * 1.5 : -Infinity;
   return Math.max(p[2] * k, floor);
+}
+
+// ---- glide ("final glide") cone around the airfield ----
+const CONE_ANCHOR = [{}];
+
+// Minimum altitude (m, real) needed at lng/lat to reach the airfield at the
+// current glide ratio + safety height. An aircraft above it is "local".
+function glideFloor(lon: number, lat: number): number {
+  const af = S.AF!;
+  const cosLat = Math.cos(af.lat * Math.PI / 180);
+  const dE = (lon - af.lon) * 111320 * cosLat, dN = (lat - af.lat) * 111320;
+  return af.elev + S.safetyHeight + Math.hypot(dE, dN) / S.glideRatio;
+}
+function reachable(tr: RenderTrack): boolean {
+  if (!S.AF || !airborne(tr, S.cur)) return false;
+  const p = posAt(tr, S.cur);
+  return p[2] >= glideFloor(p[0], p[1]);
+}
+
+// The transparent glide cone (sloped surface + top-edge ring) centred on the
+// airfield. Apex at elevation + safety height; radius grows by glideRatio per
+// metre of altitude, up to the highest track's altitude.
+function glideConeLayers(k: number): any[] {
+  const af = S.AF; if (!af) return [];
+  const base = af.elev + S.safetyHeight;
+  const R = S.coneRadiusKm * 1000;                 // horizontal radius (m) the cone is drawn to
+  const top = base + R / S.glideRatio;             // altitude at the rim (slope 1/finesse)
+  if (R <= 0) return [];
+  const N = 72, cosLat = Math.cos(af.lat * Math.PI / 180), mLng = 111320 * cosLat, mLat = 111320;
+  const ring = (i: number): Pos3 => { const a = i / N * 2 * Math.PI; return [af.lon + R * Math.cos(a) / mLng, af.lat + R * Math.sin(a) / mLat, top * k]; };
+  const apex: Pos3 = [af.lon, af.lat, base * k];
+  const pos: number[] = [], nrm: number[] = [], idx: number[] = [];
+  for (let i = 0; i < N; i++) { const p1 = ring(i), p2 = ring((i + 1) % N); for (const p of [apex, p1, p2]) { idx.push(pos.length / 3); pos.push(p[0], p[1], p[2]); nrm.push(0, 0, 1); } }
+  const mesh = { attributes: { POSITION: { value: new Float32Array(pos), size: 3 }, NORMAL: { value: new Float32Array(nrm), size: 3 } }, indices: { value: new Uint32Array(idx), size: 1 }, mode: 4 };
+  const col = [90, 220, 140], ringPath: Pos3[] = []; for (let i = 0; i <= N; i++) ringPath.push(ring(i % N));
+  return [
+    new SimpleMeshLayer({
+      id: 'glide-cone', data: CONE_ANCHOR, getPosition: () => [0, 0, 0], _instanced: false,
+      coordinateSystem: COORDINATE_SYSTEM.LNGLAT, mesh: mesh as any, getColor: [...col, 26], material: false,
+      parameters: {
+        depthCompare: 'less-equal', depthWriteEnabled: false, blend: true, cullMode: 'none',
+        blendColorOperation: 'add', blendColorSrcFactor: 'src-alpha', blendColorDstFactor: 'one-minus-src-alpha',
+        blendAlphaOperation: 'add', blendAlphaSrcFactor: 'one', blendAlphaDstFactor: 'one-minus-src-alpha',
+      },
+    } as any),
+    new PathLayer({
+      id: 'glide-cone-ring', data: [ringPath], getPath: (d: any) => d, getColor: [...col, 150],
+      getWidth: 1.5, widthUnits: 'pixels', parameters: { depthCompare: 'less-equal', depthWriteEnabled: false } as any,
+    } as any),
+  ];
 }
 
 const dashExt = new PathStyleExtension({ dash: true });
@@ -247,6 +297,7 @@ function dynamicLayers() {
         parameters: { depthTest: false } as any,
       } as any)];
     })()),
+    ...(S.glideCone ? glideConeLayers(k) : []),
   ];
 }
 
@@ -411,6 +462,7 @@ export function render(): void {
     updateHUD();
   }
   updateFocusUI();
+  updateLegendLocal();
   feedVarioSound();
   updateCelestial();
   drawGraphs();
@@ -434,6 +486,20 @@ function updateFocusUI(): void {
       `<span class="reg">${tr.reg}</span><span class="mut">${tr.label}</span>`;
   } else {
     focusBadge.style.display = 'none'; focusBadge.innerHTML = '';
+  }
+}
+
+// Per-frame "local" badge in the legend: when the glide cone is on, mark each
+// glider that can currently reach the airfield (sits above the glide floor).
+function updateLegendLocal(): void {
+  const rows = lglist.children;
+  for (let i = 0; i < rows.length; i++) {
+    const loc = (rows[i] as HTMLElement).querySelector('.loc') as HTMLElement | null;
+    if (!loc) continue;
+    const tr = S.TRACKS[i];
+    if (!S.glideCone || !tr || !airborne(tr, S.cur)) { loc.className = 'loc'; loc.textContent = ''; loc.title = ''; continue; }
+    const ok = reachable(tr);
+    loc.className = 'loc ' + (ok ? 'ok' : 'no'); loc.textContent = '🏠'; loc.title = ok ? t('reachOk') : t('reachNo');
   }
 }
 
