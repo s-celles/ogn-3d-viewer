@@ -160,6 +160,44 @@ export function compVarioAt(tr: RenderTrack, time: number): number {
 
 export const clampCur = (tr: RenderTrack): number => Math.max(tr.rstart, Math.min(tr.rend, S.cur));
 
+export interface TrackStats {
+  dur: number;       // flight duration (s)
+  maxAlt: number;    // max altitude (m)
+  gain: number;      // cumulative climb (m, sum of positive Δalt)
+  distKm: number;    // ground distance flown (km)
+  avgKmh: number;    // average ground speed (km/h)
+  maxKmh: number;    // 98th-percentile ground speed (km/h, glitch-robust)
+  maxClimb: number;  // 98th-percentile climb rate (m/s)
+}
+
+// Per-track summary stats from a single O(n) pass over the (spline) samples — no
+// posAt, so it stays cheap even for densified IGC tracks. Speed/climb maxima are
+// resampled into ~4 s windows then taken at the 98th percentile, so a single
+// glitch beacon can't blow up the figures.
+export function statsFor(tr: RenderTrack): TrackStats {
+  const P = tr.rel;
+  let gain = 0, dist = 0, wHoriz = 0, wDz = 0, wT = 0;
+  const speeds: number[] = [], climbs: number[] = [];
+  for (let i = 1; i < P.length; i++) {
+    const a = P[i - 1], b = P[i], dt = b[3] - a[3];
+    if (dt <= 0) continue;
+    const dz = b[2] - a[2], lat = (a[1] + b[1]) / 2 * Math.PI / 180;
+    const dE = (b[0] - a[0]) * 111320 * Math.cos(lat), dN = (b[1] - a[1]) * 111320, seg = Math.hypot(dE, dN);
+    dist += seg; if (dz > 0) gain += dz;
+    wHoriz += seg; wDz += dz; wT += dt;
+    if (wT >= 4) { speeds.push(wHoriz / wT); climbs.push(wDz / wT); wHoriz = wDz = wT = 0; }
+  }
+  const dur = tr.rend - tr.rstart;
+  speeds.sort((x, y) => x - y); climbs.sort((x, y) => x - y);
+  const pct = (arr: number[], q: number) => arr.length ? arr[Math.min(arr.length - 1, Math.floor(q * arr.length))] : 0;
+  return {
+    dur, maxAlt: tr.maxalt, gain, distKm: dist / 1000,
+    avgKmh: dur > 0 ? dist / dur * 3.6 : 0,
+    maxKmh: pct(speeds, 0.98) * 3.6,
+    maxClimb: pct(climbs, 0.98),
+  };
+}
+
 export interface Attitude { heading: number; roll: number; pitch: number; speed: number; }
 
 // Estimate the aircraft's attitude at a time: ground speed and turn rate from a

@@ -1,5 +1,5 @@
 import { test, expect } from 'bun:test';
-import { posAt, airborne, slice, brg, varioAt, headingAt, buildRel, attitudeAt, compVarioAt, groundSpeedAt, presence } from './flight-math';
+import { posAt, airborne, slice, brg, varioAt, headingAt, buildRel, attitudeAt, compVarioAt, groundSpeedAt, presence, statsFor } from './flight-math';
 import { GLIDER, LIVE } from './config';
 import { S } from './state';
 import type { RenderTrack, TrackPoint, RelPoint } from './types';
@@ -180,4 +180,15 @@ test('presence: live freezes at the last fix, online → offline → hidden by a
   } finally {
     S.live = false; S.cur = 0;               // restore shared state for other tests
   }
+});
+
+test('statsFor: distance, cumulative gain, duration, avg/max from one pass', () => {
+  // climb 0→100 m then descend 100→50 m, moving east at lat 45 (0.001°/seg)
+  const tr = mkTrack([[0, 45, 0, 0], [0.001, 45, 100, 50], [0.002, 45, 50, 100]]);
+  const s = statsFor(tr);
+  expect(s.dur).toBe(100);
+  expect(s.gain).toBeCloseTo(100, 6);          // only the climb counts
+  expect(s.distKm).toBeCloseTo(0.1574, 3);     // 2 × ~78.7 m
+  expect(s.avgKmh).toBeCloseTo(5.67, 1);
+  expect(s.maxClimb).toBeCloseTo(2, 6);        // 100 m / 50 s
 });

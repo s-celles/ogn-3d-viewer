@@ -8,7 +8,7 @@ import {
   exoEl, exval, pitchEl, pitchval, scrub, scrubMin, scrubMax, clkEl, lglist, rose, altsl, icaoEl, fblink, acEl,
   dateEl, loadBtn, langEl, discEl, infoBtn, collapseBtn, liveBtn, igcBtn, igcInput, mapDiv,
 } from './dom';
-import { subjectTrack, airborne, headingAt, clampCur, fmt } from './flight-math';
+import { subjectTrack, airborne, headingAt, clampCur, fmt, statsFor } from './flight-math';
 import { makeTerrain } from './terrain';
 import { render, updateHUD } from './render';
 import { loadFlights, refreshLive, statusMsg, setStatus, rebuild, syncUrl, loadTrackFiles } from './data';
@@ -148,8 +148,14 @@ export function buildLegend(): void {
   lglist.innerHTML = '';
   S.TRACKS.forEach(tr => {
     const d = document.createElement('div'); d.className = 'lg'; const dur = Math.round((tr.rend - tr.rstart) / 60);
+    const s = statsFor(tr);
+    const stats = `↔ ${s.distKm.toFixed(0)} km · ${t('gain')} ${s.gain.toFixed(0)} m · ` +
+                  `${s.avgKmh.toFixed(0)}→${s.maxKmh.toFixed(0)} km/h · vz ${s.maxClimb.toFixed(1)} m/s`;
     d.innerHTML = `<span class="dot" style="background:rgb(${tr.color.join(',')})"></span>` +
-                  `<span class="reg">${tr.reg}</span>` + `<span class="mut">${tr.label} · ${tr.maxalt} m · ${dur} ${t('min')}</span>`;
+                  `<div class="lgtext">` +
+                    `<div class="lgtop"><span class="reg">${tr.reg}</span><span class="mut">${tr.label} · ${tr.maxalt} m · ${dur} ${t('min')}</span></div>` +
+                    `<div class="mut2">${stats}</div>` +
+                  `</div>`;
     d.style.cursor = 'pointer'; d.style.opacity = (S.solo && S.solo !== tr.reg) ? '0.45' : '1';
     d.onclick = () => {
       if (S.mode === 'fpv') { S.subject = tr.reg; subjEl.value = tr.reg; const tt = subjectTrack(); if (!airborne(tt, S.cur)) S.cur = tt.rstart; }
