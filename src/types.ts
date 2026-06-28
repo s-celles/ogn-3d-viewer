@@ -143,6 +143,9 @@ export interface AppState {
   chase: { az: number; el: number; dist: number };
   trace: Trace;
   trailFx: TrailFx;
+  // Aircraft mesh scale per view (overview/cockpit inflate to a readable marker,
+  // chase draws ~real size). User-adjustable via the UI.
+  modelScale: Record<Mode, number>;
   windowMin: number;
   spline: boolean;
   compensated: boolean;

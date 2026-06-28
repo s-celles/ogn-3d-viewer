@@ -13,7 +13,7 @@ import { varioAudio } from './vario-audio';
 import { updateSky, getSun, getMoon, nightPolygon } from './sky';
 import { subjectTrack, shown, scaled, posAt, presence, headingAt, varioAt, compVarioAt, groundSpeedAt, clampCur, attitudeAt, nearestToCenter } from './flight-math';
 import { GLIDER_MESH, PLANE_MESH, isPowered } from './aircraft-mesh';
-import { CHASE, MODEL_SCALE } from './config';
+import { CHASE } from './config';
 import type { RGB, Pos3, RenderTrack } from './types';
 
 interface PathDatum { color: RGB; pts: Pos3[]; }
@@ -130,8 +130,8 @@ function dynamicLayers() {
     pushPaths(pastData, pastGap, tr.color, splitPath(tr, histStart(tr), S.cur, k));
     if (S.trace === 'histfut') pushPaths(futData, futGap, tr.color, splitPath(tr, S.cur, tr.rend, k));
   }
-  // Per-view mesh scale (real size in chase, inflated marker elsewhere).
-  const meshScale = MODEL_SCALE[S.mode];
+  // Per-view mesh scale (real size in chase, inflated marker elsewhere), user-tunable.
+  const meshScale = S.modelScale[S.mode];
   // 3D aircraft models, oriented to the estimated attitude. deck orientation is
   // [pitch, yaw, roll] with the mesh frame +X=nose, +Y=left, +Z=up, so our
   // attitude maps to [-pitch, 90-heading, roll] (degrees).

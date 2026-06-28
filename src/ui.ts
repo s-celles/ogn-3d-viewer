@@ -5,7 +5,7 @@ import { API_BASE, REPO_URL, MINZ, MAXZ, PMIN, PMAX, CHASE, clampv } from './con
 import { APP_VERSION, GIT_HASH } from './version';
 import {
   subjEl, viewsEl, cammodeEl, traceEl, trailFxEl, smoothBtn, compBtn, bankBtn, soundBtn, trafficModeEl, graphModeEl, graphClose, winEl, winval, playBtn, segEl,
-  exoEl, exval, pitchEl, pitchval, scrub, scrubMin, scrubMax, clkEl, lglist, rose, altsl, icaoEl, fblink, acEl,
+  exoEl, exval, acscaleEl, acscaleval, pitchEl, pitchval, scrub, scrubMin, scrubMax, clkEl, lglist, rose, altsl, icaoEl, fblink, acEl,
   dateEl, loadBtn, langEl, discEl, infoBtn, copyBtn, collapseBtn, liveBtn, igcBtn, igcInput, mapDiv,
 } from './dom';
 import { subjectTrack, airborne, headingAt, clampCur, fmt, statsFor } from './flight-math';
@@ -46,6 +46,7 @@ export function setMode(m: Mode): void {
   // nearest the scene centre). The replay clock is left untouched on a view
   // change, so switching views never jumps the time.
   if ((m === 'fpv' || m === 'chase') && from === 'over' && S.focus) { S.subject = S.focus; subjEl.value = S.focus; }
+  syncAcScale();   // reflect this view's aircraft-size setting
   render(); syncUI();
 }
 export function applyFollowClass(): void {
@@ -142,6 +143,14 @@ playBtn.onclick = () => { if (!S.ready) return; S.playing = !S.playing; playBtn.
 
 // ---- exaggeration & pitch ----
 exoEl.addEventListener('input', e => { S.exo = parseFloat((e.target as HTMLInputElement).value); exval.textContent = S.exo.toFixed(1) + '×'; S.terrainInst = makeTerrain(); render(); });
+
+// ---- aircraft size (per view, edits the current view's mesh scale) ----
+const fmtScale = (v: number) => (Number.isInteger(v) ? String(v) : v.toFixed(1)) + '×';
+export function syncAcScale(): void { const v = S.modelScale[S.mode]; acscaleEl.value = String(v); acscaleval.textContent = fmtScale(v); }
+acscaleEl.addEventListener('input', e => {
+  S.modelScale[S.mode] = parseFloat((e.target as HTMLInputElement).value);
+  acscaleval.textContent = fmtScale(S.modelScale[S.mode]); render();
+});
 pitchEl.addEventListener('input', e => { S.fpvPitch = parseFloat((e.target as HTMLInputElement).value); pitchval.textContent = (S.fpvPitch >= 0 ? '+' : '') + S.fpvPitch + '°'; render(); });
 
 (document.getElementById('reset') as HTMLButtonElement).onclick = () => {

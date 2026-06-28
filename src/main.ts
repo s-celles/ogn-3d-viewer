@@ -2,7 +2,7 @@
 import { S } from './state';
 import { dateEl, icaoEl } from './dom';
 import { initDeck, render } from './render';
-import { applyI18n, applyFollowClass, syncUI, easeCamera, updateCompass, updateFbLink, setLive, applyDeepLinkCursor } from './ui';
+import { applyI18n, applyFollowClass, syncUI, syncAcScale, easeCamera, updateCompass, updateFbLink, setLive, applyDeepLinkCursor } from './ui';
 import { loadFlights } from './data';
 import { initGraphs } from './graphs';
 
@@ -17,7 +17,7 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
 
 initDeck();
 initGraphs();
-applyI18n(); applyFollowClass(); syncUI();
+applyI18n(); applyFollowClass(); syncUI(); syncAcScale();
 
 // Deep link: ?icao=LFBI preselects and loads an airfield, so links to/from the
 // OGN FlightBook work (and the URL stays shareable — loadFlights keeps it in
