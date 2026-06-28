@@ -13,6 +13,16 @@ export type GraphMode = 'off' | 'hist' | 'histfut' | 'rolling';
 export type TrafficMode = 'off' | 'radar' | 'directional';
 export type Lang = 'fr' | 'en' | 'de';
 
+/** One track parsed from an imported file (IGC/GPX/KML), before render prep. */
+export interface ImportedTrack {
+  name: string;          // human label (track/placemark name or glider type)
+  reg: string | null;    // registration / competition id, if the format carries one
+  type: number | null;   // OGN aircraft_type code if known, else null (→ glider)
+  pts: TrackPoint[];
+}
+/** Result of parsing one imported file: its tracks + the take-off date if known. */
+export interface ImportedFile { tracks: ImportedTrack[]; date: string | null; }
+
 /** A flight track as parsed from the API (before render prep). */
 export interface Track {
   label: string;

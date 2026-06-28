@@ -11,7 +11,7 @@ import {
 import { subjectTrack, airborne, headingAt, clampCur, fmt } from './flight-math';
 import { makeTerrain } from './terrain';
 import { render, updateHUD } from './render';
-import { loadFlights, refreshLive, statusMsg, setStatus, rebuild, syncUrl, loadIgcFiles } from './data';
+import { loadFlights, refreshLive, statusMsg, setStatus, rebuild, syncUrl, loadTrackFiles } from './data';
 import { varioAudio } from './vario-audio';
 import { refreshGraphTabs } from './graphs';
 import type { Mode, Trace, GraphMode, TrafficMode, Lang } from './types';
@@ -266,7 +266,7 @@ liveBtn.onclick = setLive;
 igcBtn.onclick = () => igcInput.click();
 igcInput.addEventListener('change', e => {
   const files = (e.target as HTMLInputElement).files;
-  if (files && files.length) { stopLive(); loadIgcFiles(files, false); }
+  if (files && files.length) { stopLive(); loadTrackFiles(files, false); }
   igcInput.value = ''; // allow re-selecting the same file
 });
 ['dragenter', 'dragover'].forEach(ev => mapDiv.addEventListener(ev, e => {
@@ -278,7 +278,7 @@ igcInput.addEventListener('change', e => {
 }));
 mapDiv.addEventListener('drop', e => {
   const files = (e as DragEvent).dataTransfer?.files;
-  if (files && files.length) { e.preventDefault(); stopLive(); loadIgcFiles(files, true); }
+  if (files && files.length) { e.preventDefault(); stopLive(); loadTrackFiles(files, true); }
 });
 
 // ---- collapse panel (keeps the map visible, esp. on phones) ----

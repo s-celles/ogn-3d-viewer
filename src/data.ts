@@ -2,7 +2,8 @@
 import UPNG from 'upng-js';
 import { S } from './state';
 import { API_BASE, PALETTE, TERRAIN, GAP_MIN, GAP_FACTOR, MINZ, MAXZ, clampv } from './config';
-import { parseTz, parseIGC, parseIgcHeaders, pool } from './igc';
+import { parseTz, parseIGC, pool } from './igc';
+import { parseTrackFile, TRACK_EXT } from './track-import';
 import { t } from './i18n';
 import { statusEl, loadBtn, subjEl, viewsEl, playBtn, icaoEl } from './dom';
 import { render } from './render';
@@ -278,8 +279,8 @@ async function computeFileGeoid(tracks: Track[]): Promise<number> {
  * current scene (drag-drop); false replaces it (file picker). All tracks must
  * share the take-off date; a file from another day is skipped with a notice.
  */
-export async function loadIgcFiles(fileList: FileList | File[], append: boolean): Promise<void> {
-  const files = [...fileList].filter(f => /\.igc$/i.test(f.name));
+export async function loadTrackFiles(fileList: FileList | File[], append: boolean): Promise<void> {
+  const files = [...fileList].filter(f => TRACK_EXT.test(f.name));
   if (!files.length) { setStatus(t('igcNone'), 'err'); return; }
   S.live = false; if (S.liveTimer) { clearTimeout(S.liveTimer); S.liveTimer = null; }
   setStatus(t('loading'));
@@ -287,18 +288,25 @@ export async function loadIgcFiles(fileList: FileList | File[], append: boolean)
   let baseDate: string | null = fresh ? null : S.date;
   let skipped = 0;
   const newTracks: Track[] = [];
+  const usedRegs = new Set<string>(fresh ? [] : S.RAW.map(tr => tr.reg));
   for (const f of files) {
     let txt = '';
     try { txt = await f.text(); } catch { skipped++; continue; }
-    const pts = parseIGC(txt);
-    if (pts.length < 2) { skipped++; continue; }
-    const h = parseIgcHeaders(txt);
-    if (h.date) { if (!baseDate) baseDate = h.date; else if (h.date !== baseDate) { skipped++; continue; } }
-    const reg = h.reg || h.comp || f.name.replace(/\.igc$/i, '');
-    newTracks.push({
-      label: h.gliderType || h.pilot || 'IGC', reg, type: 1,
-      path: pts, tstart: pts[0][3], tend: pts[pts.length - 1][3],
-      maxalt: Math.max(...pts.map(q => q[2])),
+    const parsed = parseTrackFile(f.name, txt);
+    // Enforce a single take-off day (the engine is day-relative); skip others.
+    if (parsed.date) { if (!baseDate) baseDate = parsed.date; else if (parsed.date !== baseDate) { skipped += parsed.tracks.length || 1; continue; } }
+    if (!parsed.tracks.length) { skipped++; continue; }
+    const base = f.name.replace(TRACK_EXT, '');
+    parsed.tracks.forEach((it, i) => {
+      if (it.pts.length < 2) { skipped++; return; }
+      let reg = it.reg || it.name || (parsed.tracks.length > 1 ? `${base} #${i + 1}` : base);
+      while (usedRegs.has(reg)) reg += '·';                 // unique reg (colour / subject keying)
+      usedRegs.add(reg);
+      newTracks.push({
+        label: it.name || it.reg || base, reg, type: it.type ?? 1,
+        path: it.pts, tstart: it.pts[0][3], tend: it.pts[it.pts.length - 1][3],
+        maxalt: Math.max(...it.pts.map(q => q[2])),
+      });
     });
   }
   if (!newTracks.length) { setStatus(t('noFlights')); return; }
@@ -319,10 +327,10 @@ export async function loadIgcFiles(fileList: FileList | File[], append: boolean)
   const tz = Math.round(cLon / 15);
   fileGeoid = await computeFileGeoid(S.RAW);
   const elev = await terrainElevAt(cLat, cLon);
-  const af: FBAirfield = { name: 'IGC', code: '', latlng: [cLat, cLon], elevation: elev ?? 0 };
+  const af: FBAirfield = { name: 'import', code: '', latlng: [cLat, cLon], elevation: elev ?? 0 };
   // Drop any OGN deep-link params — a file session isn't shareable by URL.
   if (fresh) { try { history.replaceState(null, '', location.pathname); } catch { /* opaque origin */ } }
   rebuild(af, tz, !fresh);
   if (fresh) { S.INIT = fitBoundsView(S.RAW); S.mapTarget = { ...S.INIT }; render(); }
-  setStatus(`${S.RAW.length} ${t('flights')} · IGC` + (skipped ? ` · ${skipped} ${t('igcSkipped')}` : ''));
+  setStatus(`${S.RAW.length} ${t('flights')} · ${t('fileSrc')}` + (skipped ? ` · ${skipped} ${t('igcSkipped')}` : ''));
 }
