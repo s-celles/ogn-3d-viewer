@@ -76,13 +76,16 @@ const BLOOM_FS = `
 vec4 bloom_sampleColor(sampler2D source, vec2 texSize, vec2 texCoord) {
   vec4 c = texture(source, texCoord);
   vec3 glow = vec3(0.0);
-  for (int i = -2; i <= 2; i++) {
-    for (int j = -2; j <= 2; j++) {
-      vec2 off = vec2(float(i), float(j)) * 1.6 / texSize;
-      glow += max(texture(source, texCoord + off).rgb - 0.62, 0.0);
+  float wsum = 0.0;
+  for (int i = -3; i <= 3; i++) {
+    for (int j = -3; j <= 3; j++) {
+      vec2 off = vec2(float(i), float(j)) * 2.4 / texSize;
+      float w = exp(-float(i * i + j * j) * 0.18);                 // gaussian falloff → soft halo
+      glow += max(texture(source, texCoord + off).rgb - 0.62, 0.0) * w;
+      wsum += w;
     }
   }
-  return vec4(c.rgb + glow * 0.13, c.a);
+  return vec4(c.rgb + glow / wsum * 0.9, c.a);                     // normalised, so it adds a soft bloom not a wash
 }
 `;
 let bloomFx: any = null;   // null = not yet built, undefined = build failed
@@ -173,7 +176,7 @@ function dynamicLayers() {
     } as any);
   // Contrail puffs: soft sprites sampled along the last ~30 s of each trail,
   // growing + fading with age, tinted by trace colour (normal alpha blend).
-  const contrailOn = S.trailFx === 'contrail' || S.trailFx === 'bloom';
+  const contrailOn = S.trailFx === 'contrail';
   const puffParams = {
     depthCompare: 'less-equal', depthWriteEnabled: false, blend: true,
     blendColorOperation: 'add', blendColorSrcFactor: 'src-alpha', blendColorDstFactor: 'one-minus-src-alpha',
@@ -196,11 +199,12 @@ function dynamicLayers() {
       id: 'night', data: [night], getPolygon: (d: any) => d, getFillColor: [4, 7, 22, 200],
       stroked: false, parameters: { depthTest: false } as any,
     } as any)] : []),
-    // Vapour glow under the trails (wide soft halo + tighter inner glow). Skipped in the "basic" effect.
-    ...(off || S.trailFx === 'basic' ? [] : [
+    // Vapour glow under the trails — only for the neon + contrail effects (bloom
+    // gets its glow from the post-process pass instead; basic gets none).
+    ...(!off && (S.trailFx === 'glow' || S.trailFx === 'contrail') ? [
       glow('future-glow', futData, 9, 12), glow('future-glow2', futData, 4, 16),
       glow('past-glow', pastData, 11, 18), glow('past-glow2', pastData, 5, 30),
-    ]),
+    ] : []),
     ...(puffs.length ? [new IconLayer({
       id: 'contrail', data: puffs,
       iconAtlas: smokeSprite(), iconMapping: { p: { x: 0, y: 0, width: 64, height: 64, mask: true } } as any,
