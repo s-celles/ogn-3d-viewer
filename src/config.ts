@@ -1,5 +1,5 @@
 // ============ config ============
-import type { RGB } from './types';
+import type { RGB, Mode } from './types';
 
 // FlightBook exposes open CORS (access-control-allow-origin: *): direct calls are possible.
 export const API_BASE = 'https://flightbook.glidernet.org';
@@ -74,7 +74,9 @@ export const CHASE = {
 // half-width of the base.
 export const ARROW = { len: 150, back: 65, halfW: 80 };
 
-// Scale factor applied to the (metre-sized) 3D aircraft meshes in overview /
-// cockpit so they read as a marker rather than their true ~15 m span. The chase
-// cam draws them at true size (scale 1) instead — see render.ts.
-export const MODEL_SCALE = 16;
+// Scale factor applied to the (metre-sized) 3D aircraft meshes, per view. The
+// overview and cockpit inflate them into a readable marker (their true ~15 m
+// span would be near-invisible on the map); the chase cam draws them at true
+// size (1) for a lifelike close follow. The chase camera distances (CHASE) are
+// tuned to this chase scale — keep them in step if it changes.
+export const MODEL_SCALE: Record<Mode, number> = { over: 16, fpv: 16, chase: 1 };

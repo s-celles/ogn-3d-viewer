@@ -90,9 +90,8 @@ function dynamicLayers() {
   }).filter((d): d is AircraftDatum & { type: number } => d !== null);
   const gliders = aircraft.filter(d => !isPowered(d.type));
   const planes = aircraft.filter(d => isPowered(d.type));
-  // Real (true metric) size in chase so the followed aircraft looks lifelike;
-  // the inflated marker size everywhere else keeps it readable on the map.
-  const meshScale = S.mode === 'chase' ? 1 : MODEL_SCALE;
+  // Per-view mesh scale (real size in chase, inflated marker elsewhere).
+  const meshScale = MODEL_SCALE[S.mode];
   const aircraftMaterial = { ambient: 0.5, diffuse: 0.8, shininess: 24, specularColor: [40, 40, 40] };
   const pastAlpha = (S.mode === 'fpv' || S.solo) ? 215 : 165, trail = S.trace === 'window' ? S.windowMin * 60 : 240;
   // Day/night terminator overlay: darken the night side of the world so a
