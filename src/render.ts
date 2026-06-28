@@ -1,7 +1,7 @@
 // ============ viewer: deck.gl instance, dynamic layers, HUD ============
 import { S } from './state';
 import { t } from './i18n';
-import { mapDiv, sunEl, moonEl, hudreg, hudhdg, hudalt, hudvar } from './dom';
+import { mapDiv, sunEl, moonEl, hudreg, hudhdg, hudalt, hudvar, lglist, focusBadge } from './dom';
 import {
   Deck, MapView, FirstPersonView, PathLayer, PolygonLayer, TripsLayer, ScatterplotLayer, SimpleMeshLayer,
   LightingEffect, AmbientLight, DirectionalLight, PathStyleExtension,
@@ -11,7 +11,7 @@ import { drawGraphs } from './graphs';
 import { drawTraffic } from './traffic';
 import { varioAudio } from './vario-audio';
 import { updateSky, getSun, getMoon, nightPolygon } from './sky';
-import { subjectTrack, shown, scaled, posAt, airborne, headingAt, varioAt, compVarioAt, clampCur, attitudeAt } from './flight-math';
+import { subjectTrack, shown, scaled, posAt, airborne, headingAt, varioAt, compVarioAt, clampCur, attitudeAt, nearestToCenter } from './flight-math';
 import { GLIDER_MESH, PLANE_MESH, isPowered } from './aircraft-mesh';
 import { CHASE, MODEL_SCALE } from './config';
 import type { RGB, Pos3, RenderTrack } from './types';
@@ -98,6 +98,9 @@ function dynamicLayers() {
   // trails/aircraft.
   const ms = S.date ? Date.parse(S.date + 'T00:00:00Z') + (S.G0 + S.cur) * 1000 : NaN;
   const night = Number.isFinite(ms) ? nightPolygon(ms) : null;
+  // Overview focus ring: a halo in the glider's trace colour around the focus
+  // candidate (the glider cockpit/chase will follow), so it's unmistakable on the map.
+  const focusTr = S.mode === 'over' && S.focus ? vis.find(tr => tr.reg === S.focus) : null;
   return [
     ...(night ? [new PolygonLayer({
       id: 'night', data: [night], getPolygon: (d: any) => d, getFillColor: [4, 7, 22, 200],
@@ -122,6 +125,12 @@ function dynamicLayers() {
       sizeScale: MODEL_SCALE, material: aircraftMaterial as any, parameters: { depthTest: true } as any }),
     new ScatterplotLayer({ id: 'airfield', data: S.AF ? [{ pos: [S.AF.lon, S.AF.lat, S.AF.elev * k] as Pos3 }] : [], getPosition: (d: any) => d.pos,
       getFillColor: [255, 60, 60], getRadius: 6, radiusUnits: 'pixels', stroked: true, lineWidthMinPixels: 1.5, getLineColor: [255, 255, 255] }),
+    ...(focusTr && airborne(focusTr, S.cur) ? [new ScatterplotLayer({
+      id: 'focus-ring', data: [focusTr],
+      getPosition: (tr: any) => { const p = posAt(tr, S.cur); return [p[0], p[1], groundClamp(p) * k] as Pos3; },
+      filled: false, stroked: true, getLineColor: [...focusTr.color, 255] as any, lineWidthUnits: 'pixels', getLineWidth: 2,
+      getRadius: 18, radiusUnits: 'pixels', radiusMinPixels: 16, parameters: { depthTest: false } as any,
+    } as any)] : []),
   ];
 }
 
@@ -262,6 +271,9 @@ export function render(): void {
   updateSky();        // recompute sky colours + sun (before building the layers)
   applySunLight();
   if (S.mode === 'over') {
+    // The glider nearest the scene centre (the one cockpit/chase will adopt).
+    // Recomputed each frame so it tracks the camera and time.
+    const f = nearestToCenter(); S.focus = f ? f.reg : null;
     deckgl.setProps({
       views: [new MapView({ id: 'main' })], viewState: { main: S.mapVS }, controller: { keyboard: false },
       layers: [S.terrainInst, ...dynamicLayers()],
@@ -279,10 +291,31 @@ export function render(): void {
     } as any);
     updateHUD();
   }
+  updateFocusUI();
   feedVarioSound();
   updateCelestial();
   drawGraphs();
   drawTraffic();
+}
+
+// Reflect the overview focus candidate in the legend: a badge (registration +
+// trace colour) under the title, and an outline on the matching glider row. All
+// cleared in cockpit/chase, where the followed glider is shown by the HUD instead.
+function updateFocusUI(): void {
+  const over = S.mode === 'over';
+  const rows = lglist.children;
+  for (let i = 0; i < rows.length; i++) {
+    (rows[i] as HTMLElement).classList.toggle('focus', over && !!S.TRACKS[i] && S.TRACKS[i].reg === S.focus);
+  }
+  const tr = over && S.focus ? S.TRACKS.find(t2 => t2.reg === S.focus) : null;
+  if (tr) {
+    focusBadge.style.display = 'flex';
+    focusBadge.innerHTML = `<span class="lbl2">${t('focusLabel')}</span>` +
+      `<span class="dot" style="background:rgb(${tr.color.join(',')})"></span>` +
+      `<span class="reg">${tr.reg}</span><span class="mut">${tr.label}</span>`;
+  } else {
+    focusBadge.style.display = 'none'; focusBadge.innerHTML = '';
+  }
 }
 
 // Drive the audio variometer from the followed glider's Vz (cockpit & chase only,

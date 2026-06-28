@@ -116,6 +116,10 @@ export interface AppState {
   solo: string | null;
   mode: Mode;
   subject: string | null;
+  // Overview focus candidate: registration of the glider nearest the scene
+  // centre. Highlighted in overview and adopted as the subject when switching
+  // to cockpit/chase. Null when no glider is airborne.
+  focus: string | null;
   fpvPitch: number;
   fpvFollow: boolean;
   bank: boolean;

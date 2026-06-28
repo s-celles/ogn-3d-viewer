@@ -50,6 +50,23 @@ export const subjectTrack = (): RenderTrack => S.TRACKS.find(tr => tr.reg === S.
 /** Whether a track should be drawn (cockpit shows all; overview honours solo). */
 export function shown(tr: RenderTrack): boolean { if (S.mode === 'fpv') return true; return !S.solo || S.solo === tr.reg; }
 
+/**
+ * The shown, currently-airborne track nearest the overview camera centre — the
+ * focus candidate that cockpit/chase will follow. Distance is a cheap planar
+ * approximation (degrees, longitude scaled by cos(lat)); good enough for ranking.
+ * Returns null when no glider is airborne at the current time.
+ */
+export function nearestToCenter(): RenderTrack | null {
+  const cx = S.mapVS.longitude, cy = S.mapVS.latitude, cosLat = Math.cos(cy * Math.PI / 180);
+  let best: RenderTrack | null = null, bestD = Infinity;
+  for (const tr of S.TRACKS) {
+    if (!shown(tr) || !airborne(tr, S.cur)) continue;
+    const p = posAt(tr, S.cur), dx = (p[0] - cx) * cosLat, dy = p[1] - cy, d = dx * dx + dy * dy;
+    if (d < bestD) { bestD = d; best = tr; }
+  }
+  return best;
+}
+
 /** Track path with the current vertical exaggeration applied. */
 export function scaled(tr: RenderTrack): Pos3[] { const k = S.exo; return tr.rel.map(p => [p[0], p[1], p[2] * k]); }
 

@@ -34,6 +34,7 @@ export const pitchval   = $('pitchval');
 export const scrub      = $<HTMLInputElement>('scrub');
 export const clkEl      = $('clk');
 export const lglist     = $('lglist');
+export const focusBadge = $('focusBadge');
 export const rose       = $<SVGGElement>('rose');
 export const altsl      = $<HTMLInputElement>('altsl');
 export const icaoEl     = $<HTMLInputElement>('icao');

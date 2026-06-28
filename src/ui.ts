@@ -28,12 +28,17 @@ scrub.addEventListener('input', e => { if (!S.ready) return; S.cur = +(e.target 
   b.onclick = () => setMode(m); viewsEl.appendChild(b);
 });
 export function setMode(m: Mode): void {
-  if ((m === 'fpv' || m === 'chase') && !S.ready) return; S.mode = m;
+  if ((m === 'fpv' || m === 'chase') && !S.ready) return;
+  const from = S.mode; S.mode = m;
   [...viewsEl.children].forEach(c => asEl(c).classList.toggle('on', asEl(c).dataset.m === m));
   document.body.classList.toggle('fpv', m === 'fpv');
   document.body.classList.toggle('chase', m === 'chase');
   applyFollowClass();
-  if (m === 'fpv' || m === 'chase') { const tr = subjectTrack(); if (!airborne(tr, S.cur)) S.cur = tr.rstart; } render(); syncUI();
+  // Entering a follow view from the overview adopts the focused glider (the one
+  // nearest the scene centre). The replay clock is left untouched on a view
+  // change, so switching views never jumps the time.
+  if ((m === 'fpv' || m === 'chase') && from === 'over' && S.focus) { S.subject = S.focus; subjEl.value = S.focus; }
+  render(); syncUI();
 }
 export function applyFollowClass(): void {
   document.body.classList.toggle('follow', S.fpvFollow);
