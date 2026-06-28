@@ -6,7 +6,7 @@ import { APP_VERSION, GIT_HASH } from './version';
 import {
   subjEl, viewsEl, cammodeEl, traceEl, smoothBtn, compBtn, bankBtn, soundBtn, trafficModeEl, graphModeEl, graphClose, winEl, winval, playBtn, segEl,
   exoEl, exval, pitchEl, pitchval, scrub, scrubMin, scrubMax, clkEl, lglist, rose, altsl, icaoEl, fblink, acEl,
-  dateEl, loadBtn, langEl, discEl, infoBtn, collapseBtn, liveBtn, igcBtn, igcInput, mapDiv,
+  dateEl, loadBtn, langEl, discEl, infoBtn, copyBtn, collapseBtn, liveBtn, igcBtn, igcInput, mapDiv,
 } from './dom';
 import { subjectTrack, airborne, headingAt, clampCur, fmt, statsFor } from './flight-math';
 import { makeTerrain } from './terrain';
@@ -337,6 +337,8 @@ function renderDisc(): void {
 // page for the currently typed/loaded airfield + date (round-trip with the
 // ?icao=…&date=… deep link). Updated live as the inputs change.
 export function updateFbLink(): void {
+  // Share-link button: only when there's a loaded OGN session to deep-link to.
+  copyBtn.style.display = (S.ready && S.source !== 'file') ? '' : 'none';
   if (S.source === 'file') { fblink.style.display = 'none'; return; }   // no FlightBook for local files
   const code = icaoEl.value.trim().toUpperCase() || (S.AF && S.AF.code) || '';
   const date = dateEl.value || S.date;
@@ -348,6 +350,45 @@ export function updateFbLink(): void {
   }
 }
 infoBtn.onclick = () => { const open = discEl.style.display !== 'none'; discEl.style.display = open ? 'none' : 'block'; infoBtn.classList.toggle('on', !open); };
+
+// ---- shareable deep link (current moment + selected aircraft) ----
+// The address bar already carries icao/date/mode (syncUrl); here we add the
+// current time (?t=HHMMSS, local clock) and selected aircraft (?reg=) so the
+// link reopens on that exact frame. `reg` is neutral — the subject may be a
+// glider, a tug or a powered aircraft.
+function shareUrl(): string {
+  const u = new URL(location.href);
+  if (S.subject) u.searchParams.set('reg', S.subject);
+  if (S.ready && !S.live) u.searchParams.set('t', fmt(S.cur).replace(/:/g, ''));
+  return u.toString();
+}
+copyBtn.onclick = async () => {
+  try {
+    await navigator.clipboard.writeText(shareUrl());
+    const prev = copyBtn.textContent; copyBtn.textContent = '✓'; copyBtn.classList.add('on');
+    setTimeout(() => { copyBtn.textContent = prev; copyBtn.classList.remove('on'); }, 1200);
+  } catch { /* clipboard blocked (insecure context) — no-op */ }
+};
+
+/**
+ * Apply ?reg= (selected aircraft) and ?t= (HHMMSS, local clock) from a shared
+ * deep link, once the data has loaded. Pauses on the shared instant. Called from
+ * main.ts after loadFlights/setLive resolves.
+ */
+export function applyDeepLinkCursor(qp: URLSearchParams): void {
+  if (!S.ready) return;
+  const reg = (qp.get('reg') || '').trim();
+  if (reg && S.TRACKS.some(tr => tr.reg === reg)) { S.subject = reg; subjEl.value = reg; }
+  const digits = (qp.get('t') || '').replace(/\D/g, '');
+  if (!S.live && digits.length >= 4) {
+    const local = (+digits.slice(0, 2)) * 3600 + (+digits.slice(2, 4)) * 60 + (+digits.slice(4, 6) || 0);
+    let cur = local - (S.AF ? S.AF.tz_off : 0) * 3600 - S.G0;   // local clock → replay-relative seconds
+    if (cur < -43200) cur += 86400;                             // clock wrapped past midnight
+    S.cur = Math.max(0, Math.min(S.SPAN, cur));                 // out-of-range → clamp to start/end
+    S.playing = false; playBtn.textContent = t('play'); playBtn.classList.remove('on');
+  }
+  render(); syncUI();
+}
 
 // ---- keyboard ----
 window.addEventListener('keydown', e => {

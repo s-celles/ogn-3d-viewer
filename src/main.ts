@@ -2,7 +2,7 @@
 import { S } from './state';
 import { dateEl, icaoEl } from './dom';
 import { initDeck, render } from './render';
-import { applyI18n, applyFollowClass, syncUI, easeCamera, updateCompass, updateFbLink, setLive } from './ui';
+import { applyI18n, applyFollowClass, syncUI, easeCamera, updateCompass, updateFbLink, setLive, applyDeepLinkCursor } from './ui';
 import { loadFlights } from './data';
 import { initGraphs } from './graphs';
 
@@ -29,11 +29,11 @@ if (qIcao) {
   icaoEl.value = qIcao;
   updateFbLink();   // inputs were set programmatically (no input event)
   if ((qp.get('mode') || '').trim().toLowerCase() === 'live') {
-    setLive();      // real-time mode (loads today and auto-refreshes)
+    setLive().then(() => applyDeepLinkCursor(qp));       // real-time mode (loads today, auto-refreshes)
   } else {
     const qDate = (qp.get('date') || '').trim();
     if (/^\d{4}-\d{2}-\d{2}$/.test(qDate) && qDate <= todayStr) dateEl.value = qDate;
-    loadFlights(qIcao, dateEl.value);
+    loadFlights(qIcao, dateEl.value).then(() => applyDeepLinkCursor(qp));  // ?t=…&reg=… → frame + aircraft
   }
 }
 
