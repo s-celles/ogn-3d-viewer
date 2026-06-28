@@ -54,3 +54,5 @@ export const discEl     = $<HTMLElement>('disclaimer');
 export const infoBtn    = $<HTMLButtonElement>('infoBtn');
 export const collapseBtn= $<HTMLButtonElement>('collapseBtn');
 export const liveBtn    = $<HTMLButtonElement>('liveBtn');
+export const igcBtn     = $<HTMLButtonElement>('igcBtn');
+export const igcInput   = $<HTMLInputElement>('igcInput');

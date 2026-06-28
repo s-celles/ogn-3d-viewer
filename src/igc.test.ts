@@ -1,5 +1,5 @@
 import { test, expect } from 'bun:test';
-import { parseTz, parseIGC, pool } from './igc';
+import { parseTz, parseIGC, parseIgcHeaders, pool } from './igc';
 
 test('parseTz reads signed HHMM offsets', () => {
   expect(parseTz('+0200')).toBe(2);
@@ -45,4 +45,31 @@ test('pool runs all items with bounded concurrency', async () => {
   });
   expect(seen.sort()).toEqual([1, 2, 3, 4, 5]);
   expect(maxActive).toBeLessThanOrEqual(2);
+});
+
+test('parseIGC falls back to pressure altitude when GPS alt is 0', () => {
+  // GPS alt 00000 (no fix) → use pressure altitude 01100
+  const noFix = 'B' + '100000' + '4500000N' + '00500000E' + 'A' + '01100' + '00000';
+  expect(parseIGC(noFix + '\n')[0][2]).toBe(1100);
+  // GPS present → GPS wins over pressure
+  const withFix = 'B' + '100000' + '4500000N' + '00500000E' + 'A' + '01100' + '01234';
+  expect(parseIGC(withFix + '\n')[0][2]).toBe(1234);
+});
+
+test('parseIgcHeaders reads date, ids and glider type (both header dialects)', () => {
+  const igc = [
+    'HFDTE150624',
+    'HFGIDGLIDERID:F-CGKK',
+    'HFCIDCOMPETITIONID:7T',
+    'HFGTYGLIDERTYPE:ASK 21',
+    'HFPLTPILOTINCHARGE:Jane Doe',
+  ].join('\n');
+  const h = parseIgcHeaders(igc);
+  expect(h.date).toBe('2024-06-15');
+  expect(h.reg).toBe('F-CGKK');
+  expect(h.comp).toBe('7T');
+  expect(h.gliderType).toBe('ASK 21');
+  expect(h.pilot).toBe('Jane Doe');
+  // newer HFDTEDATE dialect
+  expect(parseIgcHeaders('HFDTEDATE:010125,01').date).toBe('2025-01-01');
 });

@@ -132,7 +132,7 @@ function dynamicLayers() {
     new SimpleMeshLayer<AircraftDatum>({ id: 'planes', data: planes, mesh: PLANE_MESH as any,
       getPosition: d => d.pos, getOrientation: d => d.orient, getColor: d => d.offline ? [...greyed(d.c, 0.6), 170] : [...d.c, 255],
       sizeScale: meshScale, material: aircraftMaterial as any, parameters: { depthTest: true } as any }),
-    new ScatterplotLayer({ id: 'airfield', data: S.AF ? [{ pos: [S.AF.lon, S.AF.lat, S.AF.elev * k] as Pos3 }] : [], getPosition: (d: any) => d.pos,
+    new ScatterplotLayer({ id: 'airfield', data: S.AF && S.source !== 'file' ? [{ pos: [S.AF.lon, S.AF.lat, S.AF.elev * k] as Pos3 }] : [], getPosition: (d: any) => d.pos,
       getFillColor: [255, 60, 60], getRadius: 6, radiusUnits: 'pixels', stroked: true, lineWidthMinPixels: 1.5, getLineColor: [255, 255, 255] }),
     ...((() => {
       const fp = focusTr ? presence(focusTr) : null;

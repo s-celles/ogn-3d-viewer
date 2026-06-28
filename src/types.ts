@@ -115,6 +115,9 @@ export interface AppState {
   speed: number;
   solo: string | null;
   mode: Mode;
+  // Data source: 'ogn' = FlightBook logbook/live; 'file' = locally loaded IGC
+  // files (replay only, no deep-link, synthetic airfield).
+  source: 'ogn' | 'file';
   subject: string | null;
   // Overview focus candidate: registration of the glider nearest the scene
   // centre. Highlighted in overview and adopted as the subject when switching

@@ -6,12 +6,12 @@ import { APP_VERSION, GIT_HASH } from './version';
 import {
   subjEl, viewsEl, cammodeEl, traceEl, smoothBtn, compBtn, bankBtn, soundBtn, trafficModeEl, graphModeEl, graphClose, winEl, winval, playBtn, segEl,
   exoEl, exval, pitchEl, pitchval, scrub, scrubMin, scrubMax, clkEl, lglist, rose, altsl, icaoEl, fblink, acEl,
-  dateEl, loadBtn, langEl, discEl, infoBtn, collapseBtn, liveBtn,
+  dateEl, loadBtn, langEl, discEl, infoBtn, collapseBtn, liveBtn, igcBtn, igcInput, mapDiv,
 } from './dom';
 import { subjectTrack, airborne, headingAt, clampCur, fmt } from './flight-math';
 import { makeTerrain } from './terrain';
 import { render, updateHUD } from './render';
-import { loadFlights, refreshLive, statusMsg, setStatus, rebuild, syncUrl } from './data';
+import { loadFlights, refreshLive, statusMsg, setStatus, rebuild, syncUrl, loadIgcFiles } from './data';
 import { varioAudio } from './vario-audio';
 import { refreshGraphTabs } from './graphs';
 import type { Mode, Trace, GraphMode, TrafficMode, Lang } from './types';
@@ -260,6 +260,27 @@ export async function setLive(): Promise<void> {
 }
 liveBtn.onclick = setLive;
 
+// ---- local IGC files (offline replay) ----
+// Picker replaces the scene; drag-drop onto the map adds to it. Either way we
+// leave any live/OGN session first.
+igcBtn.onclick = () => igcInput.click();
+igcInput.addEventListener('change', e => {
+  const files = (e.target as HTMLInputElement).files;
+  if (files && files.length) { stopLive(); loadIgcFiles(files, false); }
+  igcInput.value = ''; // allow re-selecting the same file
+});
+['dragenter', 'dragover'].forEach(ev => mapDiv.addEventListener(ev, e => {
+  if ((e as DragEvent).dataTransfer?.types.includes('Files')) { e.preventDefault(); document.body.classList.add('dragover'); }
+}));
+['dragleave', 'drop'].forEach(ev => mapDiv.addEventListener(ev, e => {
+  if (ev === 'dragleave' && e.target !== mapDiv) return;
+  document.body.classList.remove('dragover');
+}));
+mapDiv.addEventListener('drop', e => {
+  const files = (e as DragEvent).dataTransfer?.files;
+  if (files && files.length) { e.preventDefault(); stopLive(); loadIgcFiles(files, true); }
+});
+
 // ---- collapse panel (keeps the map visible, esp. on phones) ----
 export function setCollapsed(c: boolean): void {
   document.body.classList.toggle('collapsed', c);
@@ -310,6 +331,7 @@ function renderDisc(): void {
 // page for the currently typed/loaded airfield + date (round-trip with the
 // ?icao=…&date=… deep link). Updated live as the inputs change.
 export function updateFbLink(): void {
+  if (S.source === 'file') { fblink.style.display = 'none'; return; }   // no FlightBook for local files
   const code = icaoEl.value.trim().toUpperCase() || (S.AF && S.AF.code) || '';
   const date = dateEl.value || S.date;
   if (code.length >= 3) {

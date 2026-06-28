@@ -1,14 +1,14 @@
 // ============ data fetching & render-state assembly ============
 import UPNG from 'upng-js';
 import { S } from './state';
-import { API_BASE, PALETTE, TERRAIN, GAP_MIN, GAP_FACTOR } from './config';
-import { parseTz, parseIGC, pool } from './igc';
+import { API_BASE, PALETTE, TERRAIN, GAP_MIN, GAP_FACTOR, MINZ, MAXZ, clampv } from './config';
+import { parseTz, parseIGC, parseIgcHeaders, pool } from './igc';
 import { t } from './i18n';
 import { statusEl, loadBtn, subjEl, viewsEl, playBtn, icaoEl } from './dom';
 import { render } from './render';
 import { buildLegend, syncUI, applyFollowClass, setCollapsed } from './ui';
 import { buildRel } from './flight-math';
-import type { FBLogbook, FBDevice, FetchResult, FBAirfield, Track, TrackPoint, RGB } from './types';
+import type { FBLogbook, FBDevice, FetchResult, FBAirfield, Track, TrackPoint, RGB, ViewStateLike } from './types';
 
 interface Task { dev: FBDevice; t0: number; t1: number; maxalt: number; stop: number; }
 
@@ -78,6 +78,7 @@ export { statusMsgInner as statusMsg };
 // the FlightBook. Live links carry mode=live and drop the date (live is always
 // "now"); replay links carry mode=replay and the chosen date.
 export function syncUrl(icao: string, date: string): void {
+  if (S.source === 'file') return;   // a local IGC session isn't URL-shareable
   try {
     const u = new URL(location.href);
     u.searchParams.set('icao', icao);
@@ -94,6 +95,7 @@ export function syncUrl(icao: string, date: string): void {
 
 export async function loadFlights(icao: string, date: string): Promise<void> {
   if (!icao || icao.length < 3) { setStatus(t('errLoad'), 'err'); return; }
+  S.source = 'ogn'; fileGeoid = null;   // back to the OGN logbook source
   S.date = date; // for the sun/sky computation
   syncUrl(icao, date);
   loadBtn.disabled = true; setStatus(t('loading'));
@@ -136,6 +138,7 @@ async function terrainElevAt(lat: number, lon: number): Promise<number | null> {
   } catch { return null; }
 }
 let afDemElev: number | null = null;   // rendered DEM elevation at the loaded airfield
+let fileGeoid: number | null = null;   // geoid/datum offset for the current IGC session
 
 // IGC GNSS altitude is WGS84 ellipsoidal (HAE), so aircraft float above the
 // orthometric terrain by the geoid undulation (~+48 m in W. Europe); published
@@ -186,7 +189,9 @@ export function rebuild(af: FBAirfield | null, tzoff: number | null, preserve: b
   const g0 = Math.min(...tracks.map(x => x.tstart)), g1 = Math.max(...tracks.map(x => x.tend));
   S.AF = { name: curaf.name, code: curaf.code, lon: curaf.latlng[1], lat: curaf.latlng[0], elev: curaf.elevation || 0, tz_off: S.CURTZ };
   S.G0 = g0; S.G1 = g1; S.SPAN = Math.max(1, S.G1 - S.G0);
-  S.altOffset = geoidOffset(tracks, S.AF);   // before buildRel (which subtracts it)
+  // before buildRel (which subtracts it). IGC sessions use a field-agnostic
+  // per-point geoid estimate computed at load (works across several airfields).
+  S.altOffset = S.source === 'file' && fileGeoid != null ? fileGeoid : geoidOffset(tracks, S.AF);
   S.TRACKS = tracks.map(tr => ({
     ...tr, color: tr.color!,
     rel: buildRel(tr.path, S.G0, S.spline),
@@ -229,4 +234,95 @@ export async function refreshLive(): Promise<void> {
     }
   } catch (e) { /* transient network error: keep last frame, try again next tick */ }
   if (S.live) S.liveTimer = setTimeout(refreshLive, 20000);
+}
+
+// ---- local IGC files (offline replay, synthetic airfield) ----
+
+// Fit all tracks in view: bounding-box centre + a Web-Mercator zoom framing the
+// lon/lat extent in the current viewport (with margin).
+function fitBoundsView(tracks: Track[]): ViewStateLike {
+  let minLon = Infinity, minLat = Infinity, maxLon = -Infinity, maxLat = -Infinity;
+  for (const tr of tracks) for (const p of tr.path) {
+    if (p[0] < minLon) minLon = p[0]; if (p[0] > maxLon) maxLon = p[0];
+    if (p[1] < minLat) minLat = p[1]; if (p[1] > maxLat) maxLat = p[1];
+  }
+  const lon = (minLon + maxLon) / 2, lat = (minLat + maxLat) / 2;
+  const W = (typeof window !== 'undefined' ? window.innerWidth : 1000) * 0.82;
+  const H = (typeof window !== 'undefined' ? window.innerHeight : 700) * 0.82;
+  const merc = (d: number) => Math.log(Math.tan(Math.PI / 4 + d * Math.PI / 360));
+  const fracX = Math.max(1e-6, (maxLon - minLon) / 360);
+  const fracY = Math.max(1e-6, Math.abs(merc(maxLat) - merc(minLat)) / (2 * Math.PI));
+  const zoom = clampv(Math.min(Math.log2(W / (256 * fracX)), Math.log2(H / (256 * fracY))), MINZ, MAXZ);
+  return { longitude: lon, latitude: lat, zoom, pitch: 55, bearing: 0, maxPitch: 85 };
+}
+
+// Field-agnostic geoid/datum offset: median of (GNSS altitude − DEM elevation)
+// sampled at every track's take-off and landing point. Works across several
+// airfields (the geoid varies slowly) and tolerates land-outs.
+async function computeFileGeoid(tracks: Track[]): Promise<number> {
+  const ground = tracks.flatMap(tr => [tr.path[0], tr.path[tr.path.length - 1]]);
+  const diffs: number[] = [];
+  await pool(ground, 4, async (p) => {
+    const dem = await terrainElevAt(p[1], p[0]);
+    if (dem != null && dem > -1000) diffs.push(p[2] - dem);
+  });
+  if (diffs.length < 2) return 0;
+  diffs.sort((a, b) => a - b);
+  const off = diffs[diffs.length >> 1];
+  return Math.abs(off) <= 200 ? off : 0;
+}
+
+/**
+ * Load one or more local IGC files and replay them — no FlightBook / OGN call
+ * (only the basemap terrain tiles still stream). append=true merges into the
+ * current scene (drag-drop); false replaces it (file picker). All tracks must
+ * share the take-off date; a file from another day is skipped with a notice.
+ */
+export async function loadIgcFiles(fileList: FileList | File[], append: boolean): Promise<void> {
+  const files = [...fileList].filter(f => /\.igc$/i.test(f.name));
+  if (!files.length) { setStatus(t('igcNone'), 'err'); return; }
+  S.live = false; if (S.liveTimer) { clearTimeout(S.liveTimer); S.liveTimer = null; }
+  setStatus(t('loading'));
+  const fresh = !append || !S.ready;
+  let baseDate: string | null = fresh ? null : S.date;
+  let skipped = 0;
+  const newTracks: Track[] = [];
+  for (const f of files) {
+    let txt = '';
+    try { txt = await f.text(); } catch { skipped++; continue; }
+    const pts = parseIGC(txt);
+    if (pts.length < 2) { skipped++; continue; }
+    const h = parseIgcHeaders(txt);
+    if (h.date) { if (!baseDate) baseDate = h.date; else if (h.date !== baseDate) { skipped++; continue; } }
+    const reg = h.reg || h.comp || f.name.replace(/\.igc$/i, '');
+    newTracks.push({
+      label: h.gliderType || h.pilot || 'IGC', reg, type: 1,
+      path: pts, tstart: pts[0][3], tend: pts[pts.length - 1][3],
+      maxalt: Math.max(...pts.map(q => q[2])),
+    });
+  }
+  if (!newTracks.length) { setStatus(t('noFlights')); return; }
+  S.source = 'file';
+  if (!fresh && S.RAW.length) {
+    const byReg = new Map(S.RAW.map(tr => [tr.reg, tr] as [string, Track]));
+    newTracks.forEach(tr => byReg.set(tr.reg, tr));
+    S.RAW = [...byReg.values()];
+  } else {
+    S.RAW = newTracks;
+  }
+  S.date = baseDate || S.date || new Date().toISOString().slice(0, 10);
+  // Synthetic airfield: centroid of the take-off points, DEM elevation there,
+  // and a longitude-derived timezone (only affects the clock + sun position).
+  const tos = S.RAW.map(tr => tr.path[0]);
+  const cLon = tos.reduce((s, p) => s + p[0], 0) / tos.length;
+  const cLat = tos.reduce((s, p) => s + p[1], 0) / tos.length;
+  const tz = Math.round(cLon / 15);
+  fileGeoid = await computeFileGeoid(S.RAW);
+  const elev = await terrainElevAt(cLat, cLon);
+  const af: FBAirfield = { name: 'IGC', code: '', latlng: [cLat, cLon], elevation: elev ?? 0 };
+  // Drop any OGN deep-link params — a file session isn't shareable by URL.
+  if (fresh) { try { history.replaceState(null, '', location.pathname); } catch { /* opaque origin */ } }
+  rebuild(af, tz, !fresh);
+  if (fresh) { S.INIT = fitBoundsView(S.RAW); S.mapTarget = { ...S.INIT }; render(); }
+  setStatus(`${S.RAW.length} ${t('flights')} · IGC` + (skipped ? ` · ${skipped} ${t('igcSkipped')}` : ''));
 }
