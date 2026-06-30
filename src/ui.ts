@@ -5,7 +5,7 @@ import { API_BASE, REPO_URL, MINZ, MAXZ, PMIN, PMAX, CHASE, clampv } from './con
 import { APP_VERSION, GIT_HASH } from './version';
 import {
   subjEl, viewsEl, cammodeEl, traceEl, trailFxEl, smoothBtn, compBtn, bankBtn, soundBtn, trafficModeEl, graphModeEl, graphClose, winEl, winval, playBtn, segEl,
-  exoEl, exval, acscaleEl, acscaleval, coneBtn, finesseEl, finval, safetyEl, safeval, coneRadEl, coneradval, labelsBtn, labelFieldsEl, shadowsEl, pitchEl, pitchval, scrub, scrubMin, scrubMax, clkEl, lglist, rose, altsl, icaoEl, fblink, acEl,
+  exoEl, exval, acscaleEl, acscaleval, coneBtn, finesseEl, finval, safetyEl, safeval, coneRadEl, coneradval, labelsBtn, labelFieldsEl, shadowsEl, curtainBtn, pitchEl, pitchval, scrub, scrubMin, scrubMax, clkEl, lglist, rose, altsl, icaoEl, fblink, acEl,
   dateEl, loadBtn, langEl, discEl, infoBtn, copyBtn, collapseBtn, liveBtn, igcBtn, igcInput, mapDiv,
 } from './dom';
 import { subjectTrack, airborne, headingAt, clampCur, fmt, statsFor } from './flight-math';
@@ -182,6 +182,10 @@ LABEL_FIELDS.forEach(([f, k]) => {
   .forEach(([v, k]) => { const o = document.createElement('option'); o.value = v; o.dataset.k = k; shadowsEl.appendChild(o); });
 shadowsEl.value = S.shadowMode;
 shadowsEl.addEventListener('change', e => { S.shadowMode = (e.target as HTMLSelectElement).value as ShadowMode; render(); });
+curtainBtn.onclick = () => {
+  S.altCurtain = !S.altCurtain;
+  curtainBtn.textContent = S.altCurtain ? t('on') : t('off'); curtainBtn.classList.toggle('on', S.altCurtain); render();
+};
 pitchEl.addEventListener('input', e => { S.fpvPitch = parseFloat((e.target as HTMLInputElement).value); pitchval.textContent = (S.fpvPitch >= 0 ? '+' : '') + S.fpvPitch + '°'; render(); });
 
 (document.getElementById('reset') as HTMLButtonElement).onclick = () => {
@@ -365,6 +369,7 @@ export function applyI18n(): void {
   labelsBtn.textContent = S.labels ? t('on') : t('off'); labelsBtn.classList.toggle('on', S.labels);
   [...labelFieldsEl.children].forEach(b => { asEl(b).textContent = t(asEl(b).dataset.k!); });
   [...shadowsEl.options].forEach(o => { o.textContent = t(o.dataset.k!); });
+  curtainBtn.textContent = S.altCurtain ? t('on') : t('off'); curtainBtn.classList.toggle('on', S.altCurtain);
   [...trafficModeEl.options].forEach(o => o.textContent = t(o.dataset.k!));
   document.body.classList.toggle('traffic', S.trafficMode !== 'off');
   [...graphModeEl.options].forEach(o => o.textContent = t(o.dataset.k!));

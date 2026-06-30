@@ -161,6 +161,9 @@ export interface AppState {
   // — to convey where aircraft are over the ground. 'nadir' = straight down
   // (position indicator), 'sun' = cast along the sun direction (realistic).
   shadowMode: ShadowMode;
+  // Altitude curtain: a transparent vertical drape between each track and its
+  // nadir ground projection, for a strong sense of height over the terrain.
+  altCurtain: boolean;
   windowMin: number;
   spline: boolean;
   compensated: boolean;

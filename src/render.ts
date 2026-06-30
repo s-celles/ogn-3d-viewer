@@ -69,6 +69,22 @@ function shadowGround(lon: number, lat: number, alt: number, useSun: boolean, di
   return [slon, slat, sg * k];
 }
 
+// Vertical "altitude curtain" mesh: a ribbon whose top edge is the track and
+// bottom edge is the terrain straight below — drawn translucent so height over
+// the ground reads at a glance. dp = decimated track points [lon,lat,alt,t].
+const CURTAIN_ANCHOR = [{}];
+function altCurtainMesh(dp: number[][], k: number): any {
+  const pos: number[] = [], nrm: number[] = [], idx: number[] = [];
+  for (const rp of dp) {
+    const gg = terrainElevAt(rp[0], rp[1]);
+    pos.push(rp[0], rp[1], rp[2] * k); nrm.push(0, 0, 1);                       // top (on the track)
+    pos.push(rp[0], rp[1], (gg != null ? gg : rp[2]) * k); nrm.push(0, 0, 1);  // bottom (on the ground)
+  }
+  for (let i = 0; i < dp.length - 1; i++) { const t0 = i * 2; idx.push(t0, t0 + 1, t0 + 2, t0 + 2, t0 + 1, t0 + 3); }
+  if (idx.length < 3) return null;
+  return { attributes: { POSITION: { value: new Float32Array(pos), size: 3 }, NORMAL: { value: new Float32Array(nrm), size: 3 } }, indices: { value: new Uint32Array(idx), size: 1 }, mode: 4 };
+}
+
 // ---- glide ("final glide") cone around the airfield ----
 const CONE_ANCHOR = [{}];
 
@@ -283,6 +299,30 @@ function dynamicLayers() {
       }
     }
   }
+  // Altitude curtains: one translucent vertical ribbon per glider (track → ground).
+  const curtains: any[] = [];
+  if (S.altCurtain && !off) {
+    const cp = {
+      depthCompare: 'less-equal', depthWriteEnabled: false, blend: true, cullMode: 'none',
+      blendColorOperation: 'add', blendColorSrcFactor: 'src-alpha', blendColorDstFactor: 'one-minus-src-alpha',
+      blendAlphaOperation: 'add', blendAlphaSrcFactor: 'one', blendAlphaDstFactor: 'one-minus-src-alpha',
+    } as any;
+    for (const tr of vis) {
+      if (S.mode === 'fpv' && tr.reg === S.subject) continue;
+      const pr = presence(tr); if (!pr) continue;
+      const t0 = histStart(tr), wp: number[][] = [];
+      for (const rp of tr.rel) if (rp[3] >= t0 && rp[3] <= S.cur) wp.push(rp);
+      if (wp.length < 2) continue;
+      const stride = Math.max(1, Math.floor(wp.length / 300)), dp: number[][] = [];
+      for (let i = 0; i < wp.length; i += stride) dp.push(wp[i]);
+      if (dp[dp.length - 1] !== wp[wp.length - 1]) dp.push(wp[wp.length - 1]);
+      const mesh = altCurtainMesh(dp, k); if (!mesh) continue;
+      curtains.push(new SimpleMeshLayer({
+        id: 'curtain-' + tr.reg, data: CURTAIN_ANCHOR, getPosition: () => [0, 0, 0], _instanced: false,
+        coordinateSystem: COORDINATE_SYSTEM.LNGLAT, mesh, getColor: [...tr.color, 28], material: false, parameters: cp,
+      } as any));
+    }
+  }
   return [
     ...(night ? [new PolygonLayer({
       id: 'night', data: [night], getPolygon: (d: any) => d, getFillColor: [4, 7, 22, 200],
@@ -296,6 +336,7 @@ function dynamicLayers() {
       new PathLayer<{ path: Pos3[]; c: RGB }>({ id: 'shadow-stalk', data: stalks, getPath: d => d.path, getColor: d => [...d.c, 55],
         getWidth: 1, widthUnits: 'pixels', parameters: { depthTest: true } as any }),
     ] : []),
+    ...curtains,
     // Vapour glow under the trails — only for the neon + contrail effects (bloom
     // gets its glow from the post-process pass instead; basic gets none).
     ...(!off && (S.trailFx === 'glow' || S.trailFx === 'contrail') ? [

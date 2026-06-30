@@ -16,7 +16,7 @@ export const S: AppState = {
   trace: 'window', trailFx: 'basic', modelScale: { ...MODEL_SCALE }, windowMin: 10, spline: true, compensated: true, sound: true, trafficMode: 'directional', graphMode: 'off',
   glideCone: false, glideRatio: 10, safetyHeight: 0, coneRadiusKm: 25,
   labels: false, labelFields: { reg: true, alt: true, speed: false, vario: false, hdg: false },
-  shadowMode: 'off',
+  shadowMode: 'off', altCurtain: false,
   live: false, liveTimer: null,
   INIT: { ...INIT },
   mapVS: { ...INIT },
