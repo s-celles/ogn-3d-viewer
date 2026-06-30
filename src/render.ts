@@ -63,18 +63,45 @@ const shadowMeshParams = {
   blendAlphaOperation: 'add', blendAlphaSrcFactor: 'one', blendAlphaDstFactor: 'one-minus-src-alpha',
 } as any;
 
-// Ground point where a point at [lon, lat, alt] casts its shadow: straight down
-// (nadir), or — when useSun — offset along the sun light direction `dir`
-// ([east, north, up]) by height/|dir.z|. Returns [lon, lat, terrainZ*k] or null.
-function shadowGround(lon: number, lat: number, alt: number, useSun: boolean, dir: number[], k: number): Pos3 | null {
+// March the sun ray from [lon, lat, alt] along the light direction `dir`
+// ([east, north, up], dir.z < 0) and return the FIRST terrain intersection — so
+// the shadow lands correctly on slopes and a glider inside a mountain's shadow
+// is handled. Works in world space (×k) so it matches the (exaggerated) terrain.
+// Returns [lon, lat, terrainZ*k] or null (no hit / no tiles).
+function rayShadow(lon: number, lat: number, alt: number, dir: number[], k: number): Pos3 | null {
+  if (dir[2] >= -0.03) return null;                                  // sun at/below horizon
   const gBelow = terrainElevAt(lon, lat); if (gBelow == null) return null;
-  let slon = lon, slat = lat;
-  if (useSun) {
-    const agl = Math.max(0, alt - gBelow), t = Math.min(agl / Math.abs(dir[2]), agl * 6), cosLat = Math.cos(lat * Math.PI / 180);
-    slon = lon + t * dir[0] / (111320 * cosLat); slat = lat + t * dir[1] / 111320;
+  const cosLat = Math.cos(lat * Math.PI / 180), mLng = 111320 * cosLat, mLat = 111320, z0 = alt * k;
+  const at = (t: number): Pos3 => [lon + t * dir[0] / mLng, lat + t * dir[1] / mLat, 0];
+  const maxT = Math.min(60000, (z0 - gBelow * k + 1500) / Math.abs(dir[2])), step = 30;
+  let prevT = 0;
+  for (let t = step, n = 0; t < maxT && n < 260; t += step, n++) {
+    const q = at(t), terr = terrainElevAt(q[0], q[1]);
+    if (terr == null) { prevT = t; continue; }
+    if (z0 + t * dir[2] <= terr * k) {                               // ray dropped to/under the terrain → refine
+      let lo = prevT, hi = t;
+      for (let it = 0; it < 7; it++) { const m = (lo + hi) / 2, mq = at(m), mt = terrainElevAt(mq[0], mq[1]); if (mt != null && z0 + m * dir[2] <= mt * k) hi = m; else lo = m; }
+      const f = at(hi), ft = terrainElevAt(f[0], f[1]);
+      return ft == null ? null : [f[0], f[1], ft * k];
+    }
+    prevT = t;
   }
-  const sg = terrainElevAt(slon, slat); if (sg == null) return null;
-  return [slon, slat, sg * k];
+  return null;
+}
+
+// Ground point where a point at [lon, lat, alt] casts its shadow: straight down
+// (nadir), or — when useSun — ray-marched along the sun direction onto the
+// terrain (with a flat-ground single-step fallback). Returns [lon,lat,z*k]|null.
+function shadowGround(lon: number, lat: number, alt: number, useSun: boolean, dir: number[], k: number): Pos3 | null {
+  if (useSun) {
+    const r = rayShadow(lon, lat, alt, dir, k); if (r) return r;
+    const gBelow = terrainElevAt(lon, lat); if (gBelow == null) return null;   // fallback: flat-ground offset
+    const agl = Math.max(0, alt - gBelow), t = Math.min(agl / Math.abs(dir[2]), agl * 6), cosLat = Math.cos(lat * Math.PI / 180);
+    const slon = lon + t * dir[0] / (111320 * cosLat), slat = lat + t * dir[1] / 111320, sg = terrainElevAt(slon, slat);
+    return sg == null ? null : [slon, slat, sg * k];
+  }
+  const g = terrainElevAt(lon, lat);
+  return g == null ? null : [lon, lat, g * k];
 }
 
 // Vertical "altitude curtain" mesh: a ribbon whose top edge is the track and
@@ -299,13 +326,20 @@ function dynamicLayers() {
       // Glider-shaped silhouette laid flat on the ground, oriented to the heading.
       shAc.push({ pos: [sp[0], sp[1], sz], heading: headingAt(tr, pr.time), a: Math.round(Math.max(40, 165 - agl * 0.06)), type: tr.type });
       stalks.push({ path: [[p[0], p[1], az], [sp[0], sp[1], sz]], c: tr.color });
-      if (!off) {                                                    // track footprint on the terrain — always nadir (a
-        const t0 = histStart(tr), wp: number[][] = [];               // sun-cast track smears into noise in thermals).
-        for (const rp of tr.rel) if (rp[3] >= t0 && rp[3] <= S.cur) wp.push(rp);
-        const stride = Math.max(1, Math.floor(wp.length / 400)), pts: Pos3[] = [];   // decimate over the WINDOW so circles read
-        for (let i = 0; i < wp.length; i += stride) { const rp = wp[i], gg = terrainElevAt(rp[0], rp[1]); if (gg != null) pts.push([rp[0], rp[1], gg * k + 1]); }
-        if (pts.length >= 2) gtracks.push({ color: tr.color, pts });
-      }
+    }
+  }
+  // Track footprint on the terrain (always nadir — a sun-cast track smears into
+  // noise in thermals). Shown with ground shadows OR the altitude curtain, since
+  // it is the curtain's base line.
+  if ((S.shadowMode !== 'off' || S.altCurtain) && !off) {
+    for (const tr of vis) {
+      if (S.mode === 'fpv' && tr.reg === S.subject) continue;
+      const pr = presence(tr); if (!pr) continue;
+      const t0 = histStart(tr), wp: number[][] = [];
+      for (const rp of tr.rel) if (rp[3] >= t0 && rp[3] <= S.cur) wp.push(rp);
+      const stride = Math.max(1, Math.floor(wp.length / 400)), pts: Pos3[] = [];   // decimate over the WINDOW so circles read
+      for (let i = 0; i < wp.length; i += stride) { const rp = wp[i], gg = terrainElevAt(rp[0], rp[1]); if (gg != null) pts.push([rp[0], rp[1], gg * k + 1]); }
+      if (pts.length >= 2) gtracks.push({ color: tr.color, pts });
     }
   }
   // Altitude curtains: one translucent vertical ribbon per glider (track → ground).
@@ -337,9 +371,12 @@ function dynamicLayers() {
       id: 'night', data: [night], getPolygon: (d: any) => d, getFillColor: [4, 7, 22, 200],
       stroked: false, parameters: { depthTest: false } as any,
     } as any)] : []),
-    ...(S.shadowMode !== 'off' ? [
-      new PathLayer<PathDatum>({ id: 'ground-track', data: gtracks, getPath: d => d.pts, getColor: [18, 22, 28, 95],
+    ...(gtracks.length ? [
+      new PathLayer<PathDatum>({ id: 'ground-track', data: gtracks, getPath: d => d.pts,
+        getColor: d => [Math.round(d.color[0] * 0.35), Math.round(d.color[1] * 0.35), Math.round(d.color[2] * 0.35), 120],
         getWidth: 2, widthUnits: 'pixels', parameters: { depthTest: true } as any }),
+    ] : []),
+    ...(S.shadowMode !== 'off' ? [
       new PathLayer<{ path: Pos3[]; c: RGB }>({ id: 'shadow-stalk', data: stalks, getPath: d => d.path, getColor: d => [...d.c, 55],
         getWidth: 1, widthUnits: 'pixels', parameters: { depthTest: true } as any }),
       new SimpleMeshLayer({ id: 'shadow-gliders', data: shAc.filter(d => !isPowered(d.type)), mesh: GLIDER_FLAT as any,
