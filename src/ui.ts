@@ -142,9 +142,15 @@ graphModeEl.value = S.graphMode;
 const applyGraphMode = () => { document.body.classList.toggle('graphs', S.graphMode !== 'off'); render(); };
 graphModeEl.addEventListener('change', e => { S.graphMode = (e.target as HTMLSelectElement).value as GraphMode; applyGraphMode(); });
 graphClose.onclick = () => { S.graphMode = 'off'; graphModeEl.value = 'off'; applyGraphMode(); };
-// Browsers block audio until a user gesture; unlock on the first interaction.
-const unlockAudio = () => { if (S.sound) varioAudio.resume(); window.removeEventListener('pointerdown', unlockAudio); };
-window.addEventListener('pointerdown', unlockAudio);
+// Browsers block audio until a user gesture. Mobile is strict (a context made
+// outside a gesture stays suspended, and one touch may not be enough), so retry
+// on several gesture types until it's actually running, then stop listening.
+const AUDIO_EVENTS = ['pointerdown', 'touchstart', 'click', 'keydown'];
+const unlockAudio = () => {
+  if (S.sound) varioAudio.resume();
+  if (varioAudio.running || !S.sound) AUDIO_EVENTS.forEach(ev => window.removeEventListener(ev, unlockAudio));
+};
+AUDIO_EVENTS.forEach(ev => window.addEventListener(ev, unlockAudio));
 
 // ---- play / speed ----
 playBtn.onclick = () => { if (!S.ready) return; S.playing = !S.playing; playBtn.textContent = S.playing ? t('pause') : t('play'); playBtn.classList.toggle('on', S.playing); };

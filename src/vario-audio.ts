@@ -49,11 +49,13 @@ class VarioAudio {
   // Call from a user gesture to unlock / resume audio.
   resume(): void { this.ensure(); this.ctx?.resume(); }
 
-  // Per-frame feed: the current Vz and whether sound should play.
-  update(vz: number, active: boolean): void {
-    this.vz = vz; this.active = active;
-    if (active) this.ensure();
-  }
+  // Whether the context is actually producing sound (false until a gesture
+  // unlocks it — mobile autoplay policies start it suspended).
+  get running(): boolean { return this.ctx?.state === 'running'; }
+
+  // Per-frame feed: the current Vz and whether sound should play. Does NOT create
+  // the AudioContext (that must happen inside a user gesture, via resume()).
+  update(vz: number, active: boolean): void { this.vz = vz; this.active = active; }
 
   private tick(): void {
     const ctx = this.ctx, gate = this.gate, osc = this.osc;
