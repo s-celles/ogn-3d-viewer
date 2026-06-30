@@ -45,8 +45,12 @@ export function buildRel(path: TrackPoint[], G0: number, spline: boolean): RelPo
   return spline ? densify(base) : base;
 }
 
-/** The track currently followed in cockpit view. */
-export const subjectTrack = (): RenderTrack => S.TRACKS.find(tr => tr.reg === S.subject) || S.TRACKS[0];
+/** The track currently followed in cockpit view. A glider may have several
+ *  flights that day (same reg); follow the one airborne now, else its first. */
+export const subjectTrack = (): RenderTrack => {
+  const m = S.TRACKS.filter(tr => tr.reg === S.subject);
+  return m.find(tr => airborne(tr, S.cur)) || m[0] || S.TRACKS[0];
+};
 
 /** Whether a track should be drawn (cockpit shows all; overview honours solo). */
 export function shown(tr: RenderTrack): boolean { if (S.mode === 'fpv') return true; return !S.solo || S.solo === tr.reg; }

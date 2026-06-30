@@ -209,7 +209,9 @@ export function rebuild(af: FBAirfield | null, tzoff: number | null, preserve: b
     if (S.solo && !S.TRACKS.some(tr => tr.reg === S.solo)) S.solo = null;
   }
   subjEl.innerHTML = '';
+  const seenReg = new Set<string>();   // one entry per registration (a glider may have several flights that day)
   S.TRACKS.forEach(tr => {
+    if (seenReg.has(tr.reg)) return; seenReg.add(tr.reg);
     const o = document.createElement('option'); o.value = tr.reg;
     o.textContent = `${tr.reg} — ${tr.label}`; subjEl.appendChild(o);
   });

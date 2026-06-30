@@ -6,7 +6,7 @@ import { APP_VERSION, GIT_HASH } from './version';
 import {
   subjEl, viewsEl, cammodeEl, traceEl, trailFxEl, smoothBtn, compBtn, bankBtn, soundBtn, trafficModeEl, graphModeEl, graphClose, winEl, winval, playBtn, segEl,
   exoEl, exval, acscaleEl, acscaleval, coneBtn, finesseEl, finval, safetyEl, safeval, coneRadEl, coneradval, labelsBtn, labelFieldsEl, shadowsEl, curtainBtn, pitchEl, pitchval, scrub, scrubMin, scrubMax, clkEl, lglist, rose, altsl, icaoEl, fblink, acEl,
-  dateEl, loadBtn, langEl, discEl, infoBtn, copyBtn, collapseBtn, liveBtn, igcBtn, igcInput, mapDiv,
+  dateEl, loadBtn, langEl, discEl, infoBtn, copyBtn, collapseBtn, liveBtn, igcBtn, igcInput, mapDiv, prevAc, nextAc,
 } from './dom';
 import { subjectTrack, airborne, headingAt, clampCur, fmt, statsFor } from './flight-math';
 import { makeTerrain } from './terrain';
@@ -68,6 +68,18 @@ subjEl.addEventListener('change', e => {
   S.subject = (e.target as HTMLSelectElement).value; const tr = subjectTrack();
   if (!airborne(tr, S.cur)) S.cur = tr.rstart; render(); syncUI();
 });
+
+// Cycle the followed aircraft (keyboard j/k, or the HUD ◀/▶ buttons for touch).
+// Doesn't touch the replay clock — just switches which glider is followed.
+const uniqueRegs = (): string[] => [...new Set(S.TRACKS.map(tr => tr.reg))];
+function cycleSubject(dir: number): void {
+  const regs = uniqueRegs(); if (!regs.length) return;
+  const i = regs.indexOf(S.subject!);
+  const n = i < 0 ? (dir > 0 ? 0 : regs.length - 1) : (i + dir + regs.length) % regs.length;
+  S.subject = regs[n]; subjEl.value = S.subject; render(); syncUI();
+}
+prevAc.onclick = () => cycleSubject(-1);
+nextAc.onclick = () => cycleSubject(1);
 
 // ---- trace mode ----
 ([['off', 'traceOff'], ['hist', 'traceHist'], ['histfut', 'traceHistFut'], ['window', 'traceWindow']] as [string, string][]).forEach(([v, key]) => {
@@ -452,11 +464,11 @@ window.addEventListener('keydown', e => {
   if (tag === 'INPUT' || tag === 'SELECT') return;
   if (e.key === 'v' || e.key === 'V') { const order: Mode[] = ['over', 'fpv', 'chase']; setMode(order[(order.indexOf(S.mode) + 1) % 3]); }
   else if ('123'.includes(e.key)) {
-    const i = +e.key - 1; if (S.TRACKS[i]) {
-      S.subject = S.TRACKS[i].reg; subjEl.value = S.subject;
-      const tr = subjectTrack(); if (S.mode === 'fpv' && !airborne(tr, S.cur)) S.cur = tr.rstart; render();
-    }
-  } else if (e.key === ' ') { e.preventDefault(); playBtn.click(); }
+    const regs = uniqueRegs(), reg = regs[+e.key - 1];
+    if (reg) { S.subject = reg; subjEl.value = reg; render(); syncUI(); }
+  } else if (e.key === 'j' || e.key === 'J') cycleSubject(-1);   // previous aircraft
+  else if (e.key === 'k' || e.key === 'K') cycleSubject(1);      // next aircraft
+  else if (e.key === ' ') { e.preventDefault(); playBtn.click(); }
   else if (S.mode === 'over') {
     if (e.key === 'ArrowLeft') S.mapTarget.bearing -= 15; else if (e.key === 'ArrowRight') S.mapTarget.bearing += 15;
     else if (e.key === 'ArrowUp') S.mapTarget.pitch = clampv(S.mapTarget.pitch + 8, PMIN, PMAX);
