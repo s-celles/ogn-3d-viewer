@@ -325,7 +325,9 @@ function dynamicLayers() {
       const sz = sp[2] + 1;
       // Glider-shaped silhouette laid flat on the ground, oriented to the heading.
       shAc.push({ pos: [sp[0], sp[1], sz], heading: headingAt(tr, pr.time), a: Math.round(Math.max(40, 165 - agl * 0.06)), type: tr.type });
-      stalks.push({ path: [[p[0], p[1], az], [sp[0], sp[1], sz]], c: tr.color });
+      // Drop line only in nadir mode (a clear vertical altitude cue); in sun mode
+      // the offset silhouette stands on its own — a slanted "ray" just confuses.
+      if (!useSun) stalks.push({ path: [[p[0], p[1], az], [sp[0], sp[1], sz]], c: tr.color });
     }
   }
   // Track footprint on the terrain (always nadir — a sun-cast track smears into
