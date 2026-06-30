@@ -15,6 +15,7 @@
 <div id="map"></div>
 <div id="sun"></div>
 <div id="moon"></div>
+<div id="labels"></div>
 
 <div id="panel" class="card">
   <div class="row spread hdr" style="margin-top:0">
@@ -122,6 +123,14 @@
     <div class="row" style="flex-direction:column;align-items:stretch">
       <label class="lbl"><span data-i18n="acScale">Taille des aéronefs (vue courante) :</span> <b id="acscaleval">16×</b></label>
       <input id="acscale" type="range" min="0.5" max="30" value="16" step="0.5">
+    </div>
+    <div class="row spread">
+      <label class="lbl" style="margin:0" data-i18n="labels">Étiquettes</label>
+      <button id="labelsBtn">Désactivé</button>
+    </div>
+    <div class="row labelsOnly spread">
+      <label class="lbl" style="margin:0" data-i18n="labelFields">Champs</label>
+      <div class="seg" id="labelFields"></div>
     </div>
     <div class="row spread">
       <label class="lbl" style="margin:0" data-i18n="glideCone">Cône de finesse</label>

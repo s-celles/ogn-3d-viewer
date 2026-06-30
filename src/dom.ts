@@ -8,6 +8,7 @@ const $ = <T extends Element = HTMLElement>(id: string) =>
 export const mapDiv     = $('map');
 export const sunEl      = $('sun');
 export const moonEl     = $('moon');
+export const labelsDiv  = $('labels');
 export const statusEl   = $('status');
 export const subjEl     = $<HTMLSelectElement>('subject');
 export const viewsEl    = $('views');
@@ -39,6 +40,8 @@ export const safetyEl    = $<HTMLInputElement>('safety');
 export const safeval    = $('safeval');
 export const coneRadEl  = $<HTMLInputElement>('conerad');
 export const coneradval = $('coneradval');
+export const labelsBtn  = $<HTMLButtonElement>('labelsBtn');
+export const labelFieldsEl = $('labelFields');
 export const pitchEl    = $<HTMLInputElement>('pitch');
 export const pitchval   = $('pitchval');
 export const scrub      = $<HTMLInputElement>('scrub');

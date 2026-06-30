@@ -1,7 +1,7 @@
 // ============ viewer: deck.gl instance, dynamic layers, HUD ============
 import { S } from './state';
 import { t } from './i18n';
-import { mapDiv, sunEl, moonEl, hudreg, hudhdg, hudspd, hudalt, hudvar, lglist, focusBadge } from './dom';
+import { mapDiv, sunEl, moonEl, labelsDiv, hudreg, hudhdg, hudspd, hudalt, hudvar, lglist, focusBadge } from './dom';
 import {
   Deck, MapView, FirstPersonView, PathLayer, PolygonLayer, TripsLayer, ScatterplotLayer, SimpleMeshLayer, IconLayer,
   LightingEffect, AmbientLight, DirectionalLight, PathStyleExtension, PostProcessEffect, COORDINATE_SYSTEM,
@@ -319,6 +319,62 @@ function moonSvg(fraction: number, waxing: boolean, disc: [number, number, numbe
 // positions. Updating tiny elements is cheap (unlike repainting the full-viewport
 // sky bg, which janked pan/zoom). Hidden when behind the camera or off-screen.
 let sunShown = false, moonShown = false, moonKey = '';
+// ---- per-aircraft labels as a DOM overlay ----
+// deck's TextLayer doesn't render under FirstPersonView, so labels are plain
+// <div>s positioned by projecting each aircraft's world position to screen —
+// the same approach the sun/moon use, which works in every view.
+const labelEls: HTMLElement[] = [];
+function projectToScreen(vp: any, lon: number, lat: number, alt: number, w: number, h: number): [number, number] | null {
+  const cp = vp.projectPosition([lon, lat, alt]), m = vp.viewProjectionMatrix;
+  const cx = cp[0], cy = cp[1], cz = cp[2];
+  const cw = m[3] * cx + m[7] * cy + m[11] * cz + m[15];
+  if (cw <= 1e-6) return null;                                        // behind the camera
+  const nx = (m[0] * cx + m[4] * cy + m[8] * cz + m[12]) / cw, ny = (m[1] * cx + m[5] * cy + m[9] * cz + m[13]) / cw;
+  if (nx < -1.3 || nx > 1.3 || ny < -1.3 || ny > 1.3) return null;   // off-screen
+  return [(nx * 0.5 + 0.5) * w, (0.5 - ny * 0.5) * h];
+}
+function labelText(tr: RenderTrack, time: number): string {
+  const lf = S.labelFields, p = posAt(tr, time), parts: string[] = [];
+  if (lf.alt) parts.push(Math.round(p[2]) + ' m');
+  if (lf.speed) parts.push(Math.round(groundSpeedAt(tr, time) * 3.6) + ' km/h');
+  if (lf.vario) { const v = S.compensated ? compVarioAt(tr, time) : varioAt(tr, time); parts.push((v >= 0 ? '+' : '') + v.toFixed(1) + ' m/s'); }
+  if (lf.hdg) parts.push(Math.round(headingAt(tr, time)).toString().padStart(3, '0') + '°');
+  return [lf.reg ? tr.reg : '', parts.join('  ')].filter(Boolean).join('\n');
+}
+function updateLabels(): void {
+  const lf = S.labelFields, on = S.ready && S.labels && (lf.reg || lf.alt || lf.speed || lf.vario || lf.hdg);
+  const width = mapDiv.clientWidth, height = mapDiv.clientHeight;
+  let vp: any = null;
+  if (on && width && height) {
+    try {
+      vp = S.mode === 'over'
+        ? new MapView({ id: 'main' }).makeViewport({ width, height, viewState: S.mapVS as any })
+        : new FirstPersonView({ id: 'fpv', fovy: S.mode === 'chase' ? CHASE.fovy : 64, near: 1, far: 200000 })
+          .makeViewport({ width, height, viewState: (S.mode === 'chase' ? computeChase() : computeFPV()) as any });
+    } catch { vp = null; }
+  }
+  let n = 0;
+  if (vp && vp.viewProjectionMatrix) try {
+    const k = S.exo, meshScale = S.modelScale[S.mode];
+    for (const tr of S.TRACKS) {
+      // Skip the followed glider in cockpit/chase — its data is already in the HUD.
+      if (!shown(tr) || ((S.mode === 'fpv' || S.mode === 'chase') && tr.reg === S.subject)) continue;
+      const pr = presence(tr); if (!pr) continue;
+      const p = posAt(tr, pr.time);
+      const sp = projectToScreen(vp, p[0], p[1], markerZ(p, k, meshScale), width, height);
+      if (!sp) continue;
+      const text = labelText(tr, pr.time); if (!text) continue;
+      let el = labelEls[n];
+      if (!el) { el = document.createElement('div'); el.className = 'aclabel'; labelsDiv.appendChild(el); labelEls[n] = el; }
+      el.style.display = 'block'; el.style.left = sp[0].toFixed(0) + 'px'; el.style.top = (sp[1] - 16).toFixed(0) + 'px';
+      el.style.color = `rgb(${tr.color.join(',')})`;
+      if (el.textContent !== text) el.textContent = text;
+      n++;
+    }
+  } catch { /* projection unavailable this frame — hide everything below */ }
+  for (let i = n; i < labelEls.length; i++) labelEls[i].style.display = 'none';
+}
+
 function updateCelestial(): void {
   const sun = getSun(), moon = getMoon();
   const hideSun = () => { if (sunShown) { sunEl.style.display = 'none'; sunShown = false; } };
@@ -465,6 +521,7 @@ export function render(): void {
   updateLegendLocal();
   feedVarioSound();
   updateCelestial();
+  updateLabels();
   drawGraphs();
   drawTraffic();
 }

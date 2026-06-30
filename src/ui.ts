@@ -5,7 +5,7 @@ import { API_BASE, REPO_URL, MINZ, MAXZ, PMIN, PMAX, CHASE, clampv } from './con
 import { APP_VERSION, GIT_HASH } from './version';
 import {
   subjEl, viewsEl, cammodeEl, traceEl, trailFxEl, smoothBtn, compBtn, bankBtn, soundBtn, trafficModeEl, graphModeEl, graphClose, winEl, winval, playBtn, segEl,
-  exoEl, exval, acscaleEl, acscaleval, coneBtn, finesseEl, finval, safetyEl, safeval, coneRadEl, coneradval, pitchEl, pitchval, scrub, scrubMin, scrubMax, clkEl, lglist, rose, altsl, icaoEl, fblink, acEl,
+  exoEl, exval, acscaleEl, acscaleval, coneBtn, finesseEl, finval, safetyEl, safeval, coneRadEl, coneradval, labelsBtn, labelFieldsEl, pitchEl, pitchval, scrub, scrubMin, scrubMax, clkEl, lglist, rose, altsl, icaoEl, fblink, acEl,
   dateEl, loadBtn, langEl, discEl, infoBtn, copyBtn, collapseBtn, liveBtn, igcBtn, igcInput, mapDiv,
 } from './dom';
 import { subjectTrack, airborne, headingAt, clampCur, fmt, statsFor } from './flight-math';
@@ -161,6 +161,21 @@ coneBtn.onclick = () => {
 finesseEl.addEventListener('input', e => { S.glideRatio = parseFloat((e.target as HTMLInputElement).value); finval.textContent = String(S.glideRatio); render(); });
 safetyEl.addEventListener('input', e => { S.safetyHeight = parseFloat((e.target as HTMLInputElement).value); safeval.textContent = String(S.safetyHeight); render(); });
 coneRadEl.addEventListener('input', e => { S.coneRadiusKm = parseFloat((e.target as HTMLInputElement).value); coneradval.textContent = String(S.coneRadiusKm); render(); });
+
+// ---- per-aircraft labels (off by default) + selectable fields ----
+const LABEL_FIELDS: [keyof typeof S.labelFields, string][] =
+  [['reg', 'lblReg'], ['alt', 'lblAlt'], ['speed', 'lblSpeed'], ['vario', 'lblVario'], ['hdg', 'lblHdg']];
+labelsBtn.onclick = () => {
+  S.labels = !S.labels;
+  labelsBtn.textContent = S.labels ? t('on') : t('off'); labelsBtn.classList.toggle('on', S.labels);
+  document.body.classList.toggle('labels', S.labels); render();
+};
+LABEL_FIELDS.forEach(([f, k]) => {
+  const b = document.createElement('button'); b.dataset.f = f; b.dataset.k = k;
+  b.textContent = t(k); b.classList.toggle('on', S.labelFields[f]);
+  b.onclick = () => { S.labelFields[f] = !S.labelFields[f]; b.classList.toggle('on', S.labelFields[f]); render(); };
+  labelFieldsEl.appendChild(b);
+});
 pitchEl.addEventListener('input', e => { S.fpvPitch = parseFloat((e.target as HTMLInputElement).value); pitchval.textContent = (S.fpvPitch >= 0 ? '+' : '') + S.fpvPitch + '°'; render(); });
 
 (document.getElementById('reset') as HTMLButtonElement).onclick = () => {
@@ -341,6 +356,8 @@ export function applyI18n(): void {
   bankBtn.textContent = S.bank ? t('on') : t('off'); bankBtn.classList.toggle('on', S.bank);
   soundBtn.textContent = S.sound ? t('on') : t('off'); soundBtn.classList.toggle('on', S.sound);
   coneBtn.textContent = S.glideCone ? t('on') : t('off'); coneBtn.classList.toggle('on', S.glideCone);
+  labelsBtn.textContent = S.labels ? t('on') : t('off'); labelsBtn.classList.toggle('on', S.labels);
+  [...labelFieldsEl.children].forEach(b => { asEl(b).textContent = t(asEl(b).dataset.k!); });
   [...trafficModeEl.options].forEach(o => o.textContent = t(o.dataset.k!));
   document.body.classList.toggle('traffic', S.trafficMode !== 'off');
   [...graphModeEl.options].forEach(o => o.textContent = t(o.dataset.k!));

@@ -153,6 +153,9 @@ export interface AppState {
   glideRatio: number;    // finesse (L/D)
   safetyHeight: number;  // arrival safety height (m) added to the apex
   coneRadiusKm: number;  // horizontal radius (km) the cone is drawn out to
+  // Floating per-aircraft labels and which fields they show.
+  labels: boolean;
+  labelFields: { reg: boolean; alt: boolean; speed: boolean; vario: boolean; hdg: boolean };
   windowMin: number;
   spline: boolean;
   compensated: boolean;
