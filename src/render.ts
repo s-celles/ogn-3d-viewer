@@ -12,7 +12,7 @@ import { drawTraffic } from './traffic';
 import { varioAudio } from './vario-audio';
 import { updateSky, getSun, getMoon, nightPolygon } from './sky';
 import { subjectTrack, shown, scaled, posAt, presence, airborne, headingAt, varioAt, compVarioAt, groundSpeedAt, clampCur, attitudeAt, nearestToCenter } from './flight-math';
-import { GLIDER_MESH, PLANE_MESH, isPowered } from './aircraft-mesh';
+import { GLIDER_MESH, PLANE_MESH, GLIDER_FLAT, PLANE_FLAT, isPowered } from './aircraft-mesh';
 import { CHASE } from './config';
 import type { RGB, Pos3, RenderTrack } from './types';
 
@@ -54,6 +54,14 @@ function markerZ(p: Pos3, k: number, scale: number): number {
   const floor = g != null ? g * k + scale * 1.5 : -Infinity;
   return Math.max(p[2] * k, floor);
 }
+
+// Blend params for the flat (unlit, translucent) ground-shadow meshes: occluded
+// by terrain in front, no depth write, normal alpha blend, both faces.
+const shadowMeshParams = {
+  depthCompare: 'less-equal', depthWriteEnabled: false, blend: true, cullMode: 'none',
+  blendColorOperation: 'add', blendColorSrcFactor: 'src-alpha', blendColorDstFactor: 'one-minus-src-alpha',
+  blendAlphaOperation: 'add', blendAlphaSrcFactor: 'one', blendAlphaDstFactor: 'one-minus-src-alpha',
+} as any;
 
 // Ground point where a point at [lon, lat, alt] casts its shadow: straight down
 // (nadir), or — when useSun — offset along the sun light direction `dir`
@@ -277,7 +285,7 @@ function dynamicLayers() {
   // Ground shadows: a soft blob at each glider's ground point (straight down, or
   // offset along the sun ray), growing + fading with height, an altitude/light
   // line, and the track projected onto the terrain.
-  const sdots: { pos: Pos3; r: number; a: number }[] = [], stalks: { path: Pos3[]; c: RGB }[] = [], gtracks: PathDatum[] = [];
+  const shAc: { pos: Pos3; heading: number; a: number; type: number }[] = [], stalks: { path: Pos3[]; c: RGB }[] = [], gtracks: PathDatum[] = [];
   if (S.shadowMode !== 'off') {
     const sun = getSun(), useSun = S.shadowMode === 'sun' && sun.up && Math.abs(sun.dir[2]) > 0.08, dir = sun.dir;
     for (const tr of vis) {
@@ -287,8 +295,9 @@ function dynamicLayers() {
       if (gBelow == null) continue;
       const agl = Math.max(0, p[2] - gBelow), az = markerZ(p, k, meshScale);
       const sp = shadowGround(p[0], p[1], p[2], useSun, dir, k); if (!sp) continue;
-      const sz = sp[2] + 1.5;
-      sdots.push({ pos: [sp[0], sp[1], sz], r: 14 + agl * 0.045, a: Math.max(26, 120 - agl * 0.05) });
+      const sz = sp[2] + 1;
+      // Glider-shaped silhouette laid flat on the ground, oriented to the heading.
+      shAc.push({ pos: [sp[0], sp[1], sz], heading: headingAt(tr, pr.time), a: Math.round(Math.max(40, 165 - agl * 0.06)), type: tr.type });
       stalks.push({ path: [[p[0], p[1], az], [sp[0], sp[1], sz]], c: tr.color });
       if (!off) {                                                    // track footprint on the terrain — always nadir (a
         const t0 = histStart(tr), wp: number[][] = [];               // sun-cast track smears into noise in thermals).
@@ -331,10 +340,14 @@ function dynamicLayers() {
     ...(S.shadowMode !== 'off' ? [
       new PathLayer<PathDatum>({ id: 'ground-track', data: gtracks, getPath: d => d.pts, getColor: [18, 22, 28, 95],
         getWidth: 2, widthUnits: 'pixels', parameters: { depthTest: true } as any }),
-      new ScatterplotLayer({ id: 'shadow-blob', data: sdots, getPosition: (d: any) => d.pos, getRadius: (d: any) => d.r,
-        radiusUnits: 'meters', radiusMinPixels: 2, getFillColor: (d: any) => [6, 8, 12, d.a], stroked: false, parameters: { depthTest: true } as any }),
       new PathLayer<{ path: Pos3[]; c: RGB }>({ id: 'shadow-stalk', data: stalks, getPath: d => d.path, getColor: d => [...d.c, 55],
         getWidth: 1, widthUnits: 'pixels', parameters: { depthTest: true } as any }),
+      new SimpleMeshLayer({ id: 'shadow-gliders', data: shAc.filter(d => !isPowered(d.type)), mesh: GLIDER_FLAT as any,
+        getPosition: (d: any) => d.pos, getOrientation: (d: any) => [0, 90 - d.heading, 0], getColor: (d: any) => [6, 8, 12, d.a],
+        sizeScale: meshScale, material: false, parameters: shadowMeshParams }),
+      new SimpleMeshLayer({ id: 'shadow-planes', data: shAc.filter(d => isPowered(d.type)), mesh: PLANE_FLAT as any,
+        getPosition: (d: any) => d.pos, getOrientation: (d: any) => [0, 90 - d.heading, 0], getColor: (d: any) => [6, 8, 12, d.a],
+        sizeScale: meshScale, material: false, parameters: shadowMeshParams }),
     ] : []),
     ...curtains,
     // Vapour glow under the trails — only for the neon + contrail effects (bloom

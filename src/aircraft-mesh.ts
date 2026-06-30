@@ -144,6 +144,16 @@ function buildPlane() {
 export const GLIDER_MESH = buildGlider();
 export const PLANE_MESH = buildPlane();
 
+// Flattened copies (vertical extent squashed) for ground shadows: laid flat and
+// oriented to the heading, they read as the aircraft's planform silhouette.
+function flattenMesh(m: ReturnType<typeof buildGlider>) {
+  const src = m.attributes.POSITION.value, p = new Float32Array(src);
+  for (let i = 2; i < p.length; i += 3) p[i] *= 0.05;
+  return { ...m, attributes: { ...m.attributes, POSITION: { value: p, size: 3 } } };
+}
+export const GLIDER_FLAT = flattenMesh(GLIDER_MESH);
+export const PLANE_FLAT = flattenMesh(PLANE_MESH);
+
 // OGN aircraft_type codes treated as powered (everything else → glider mesh).
 const POWERED = new Set([2, 5, 8, 9]); // tow plane, drop plane, piston, jet
 export const isPowered = (type: number | undefined): boolean => POWERED.has(type ?? 0);
