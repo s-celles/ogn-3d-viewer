@@ -12,7 +12,7 @@ import { drawTraffic } from './traffic';
 import { varioAudio } from './vario-audio';
 import { updateSky, getSun, getMoon, nightPolygon } from './sky';
 import { subjectTrack, shown, scaled, posAt, presence, airborne, headingAt, varioAt, compVarioAt, groundSpeedAt, clampCur, attitudeAt, nearestToCenter } from './flight-math';
-import { GLIDER_MESH, PLANE_MESH, GLIDER_FLAT, PLANE_FLAT, isPowered } from './aircraft-mesh';
+import { GLIDER_MESH, PLANE_MESH, PROP_MESH, GLIDER_FLAT, PLANE_FLAT, isPowered } from './aircraft-mesh';
 import { CHASE } from './config';
 import type { RGB, Pos3, RenderTrack } from './types';
 
@@ -247,6 +247,8 @@ function dynamicLayers() {
   }
   // Per-view mesh scale (real size in chase, inflated marker elsewhere), user-tunable.
   const meshScale = S.modelScale[S.mode];
+  const propSpin = (performance.now() * 0.8) % 360;   // propeller roll (deg), real-time
+
   // 3D aircraft models, oriented to the estimated attitude. deck orientation is
   // [pitch, yaw, roll] with the mesh frame +X=nose, +Y=left, +Z=up, so our
   // attitude maps to [-pitch, 90-heading, roll] (degrees).
@@ -418,6 +420,11 @@ function dynamicLayers() {
     new SimpleMeshLayer<AircraftDatum>({ id: 'planes', data: planes, mesh: PLANE_MESH as any,
       getPosition: d => d.pos, getOrientation: d => d.orient, getColor: d => d.offline ? [...greyed(d.c, 0.6), 170] : [...d.c, 255],
       sizeScale: meshScale, material: aircraftMaterial as any, parameters: { depthTest: true } as any }),
+    // Spinning propeller: the plane mesh oriented + an extra roll about the nose,
+    // advanced each frame (render runs every frame, so it spins even when paused).
+    new SimpleMeshLayer<AircraftDatum>({ id: 'props', data: planes, mesh: PROP_MESH as any,
+      getPosition: d => d.pos, getOrientation: d => [d.orient[0], d.orient[1], d.orient[2] + propSpin], getColor: [28, 30, 34, 255],
+      sizeScale: meshScale, material: aircraftMaterial as any, parameters: { depthTest: true } as any, updateTriggers: { getOrientation: propSpin } }),
     new ScatterplotLayer({ id: 'airfield', data: S.AF && S.source !== 'file' ? [{ pos: [S.AF.lon, S.AF.lat, S.AF.elev * k] as Pos3 }] : [], getPosition: (d: any) => d.pos,
       getFillColor: [255, 60, 60], getRadius: 6, radiusUnits: 'pixels', stroked: true, lineWidthMinPixels: 1.5, getLineColor: [255, 255, 255] }),
     ...((() => {

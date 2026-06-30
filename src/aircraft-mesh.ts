@@ -86,6 +86,20 @@ class MeshBuilder {
     return this;
   }
 
+  // `blades` flat tapered propeller blades in the Y-Z plane at x, radiating from
+  // the spin (X) axis (root radius r0 → tip r1; half-width hw → hwt; thickness th).
+  prop(x: number, r0: number, r1: number, hw: number, hwt: number, th: number, blades: number): this {
+    for (let b = 0; b < blades; b++) {
+      const a = b / blades * 2 * Math.PI, uy = Math.cos(a), uz = Math.sin(a), ty = -Math.sin(a), tz = Math.cos(a);
+      for (const s of [th, -th]) {                                   // front + back face
+        const A = this.add([x + s, r0 * uy - hw * ty, r0 * uz - hw * tz]), B = this.add([x + s, r0 * uy + hw * ty, r0 * uz + hw * tz]);
+        const C = this.add([x + s, r1 * uy + hwt * ty, r1 * uz + hwt * tz]), D = this.add([x + s, r1 * uy - hwt * ty, r1 * uz - hwt * tz]);
+        if (s > 0) this.quad(A, B, C, D); else this.quad(A, D, C, B);
+      }
+    }
+    return this;
+  }
+
   geometry() {
     const P: number[] = [], N: number[] = [];
     // Flat per-face normals: duplicate vertices so each triangle is independent.
@@ -136,13 +150,17 @@ function buildPlane() {
   const tr: Edge = { le: -2.8, te: -3.4, y: 0, z: 0.06 };
   m.panel(tr, { le: -3.0, te: -3.4, y: 1.9, z: 0.06 }, 0.05);
   m.panel(tr, { le: -3.0, te: -3.4, y: -1.9, z: 0.06 }, 0.05);
-  // propeller disc at the nose
-  m.disc(2.95, 1.15, 14);
-  return m.geometry();
+  return m.geometry();   // propeller is a separate (spun) mesh — see buildProp / PROP_MESH
+}
+
+// Propeller at the nose, its own (spun-by-render) mesh of radiating blades.
+function buildProp() {
+  return new MeshBuilder().prop(2.95, 0.12, 1.12, 0.1, 0.05, 0.02, 3).geometry();
 }
 
 export const GLIDER_MESH = buildGlider();
 export const PLANE_MESH = buildPlane();
+export const PROP_MESH = buildProp();
 
 // Flattened copies (vertical extent squashed) for ground shadows: laid flat and
 // oriented to the heading, they read as the aircraft's planform silhouette.
