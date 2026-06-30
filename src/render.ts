@@ -55,6 +55,20 @@ function markerZ(p: Pos3, k: number, scale: number): number {
   return Math.max(p[2] * k, floor);
 }
 
+// Ground point where a point at [lon, lat, alt] casts its shadow: straight down
+// (nadir), or — when useSun — offset along the sun light direction `dir`
+// ([east, north, up]) by height/|dir.z|. Returns [lon, lat, terrainZ*k] or null.
+function shadowGround(lon: number, lat: number, alt: number, useSun: boolean, dir: number[], k: number): Pos3 | null {
+  const gBelow = terrainElevAt(lon, lat); if (gBelow == null) return null;
+  let slon = lon, slat = lat;
+  if (useSun) {
+    const agl = Math.max(0, alt - gBelow), t = Math.min(agl / Math.abs(dir[2]), agl * 6), cosLat = Math.cos(lat * Math.PI / 180);
+    slon = lon + t * dir[0] / (111320 * cosLat); slat = lat + t * dir[1] / 111320;
+  }
+  const sg = terrainElevAt(slon, slat); if (sg == null) return null;
+  return [slon, slat, sg * k];
+}
+
 // ---- glide ("final glide") cone around the airfield ----
 const CONE_ANCHOR = [{}];
 
@@ -244,11 +258,44 @@ function dynamicLayers() {
       }
     }
   }
+  // Ground shadows: a soft blob at each glider's ground point (straight down, or
+  // offset along the sun ray), growing + fading with height, an altitude/light
+  // line, and the track projected onto the terrain.
+  const sdots: { pos: Pos3; r: number; a: number }[] = [], stalks: { path: Pos3[]; c: RGB }[] = [], gtracks: PathDatum[] = [];
+  if (S.shadowMode !== 'off') {
+    const sun = getSun(), useSun = S.shadowMode === 'sun' && sun.up && Math.abs(sun.dir[2]) > 0.08, dir = sun.dir;
+    for (const tr of vis) {
+      if (S.mode === 'fpv' && tr.reg === S.subject) continue;
+      const pr = presence(tr); if (!pr) continue;
+      const p = posAt(tr, pr.time), gBelow = terrainElevAt(p[0], p[1]);
+      if (gBelow == null) continue;
+      const agl = Math.max(0, p[2] - gBelow), az = markerZ(p, k, meshScale);
+      const sp = shadowGround(p[0], p[1], p[2], useSun, dir, k); if (!sp) continue;
+      const sz = sp[2] + 1.5;
+      sdots.push({ pos: [sp[0], sp[1], sz], r: 14 + agl * 0.045, a: Math.max(26, 120 - agl * 0.05) });
+      stalks.push({ path: [[p[0], p[1], az], [sp[0], sp[1], sz]], c: tr.color });
+      if (!off) {                                                    // track footprint on the terrain — always nadir (a
+        const t0 = histStart(tr), wp: number[][] = [];               // sun-cast track smears into noise in thermals).
+        for (const rp of tr.rel) if (rp[3] >= t0 && rp[3] <= S.cur) wp.push(rp);
+        const stride = Math.max(1, Math.floor(wp.length / 400)), pts: Pos3[] = [];   // decimate over the WINDOW so circles read
+        for (let i = 0; i < wp.length; i += stride) { const rp = wp[i], gg = terrainElevAt(rp[0], rp[1]); if (gg != null) pts.push([rp[0], rp[1], gg * k + 1]); }
+        if (pts.length >= 2) gtracks.push({ color: tr.color, pts });
+      }
+    }
+  }
   return [
     ...(night ? [new PolygonLayer({
       id: 'night', data: [night], getPolygon: (d: any) => d, getFillColor: [4, 7, 22, 200],
       stroked: false, parameters: { depthTest: false } as any,
     } as any)] : []),
+    ...(S.shadowMode !== 'off' ? [
+      new PathLayer<PathDatum>({ id: 'ground-track', data: gtracks, getPath: d => d.pts, getColor: [18, 22, 28, 95],
+        getWidth: 2, widthUnits: 'pixels', parameters: { depthTest: true } as any }),
+      new ScatterplotLayer({ id: 'shadow-blob', data: sdots, getPosition: (d: any) => d.pos, getRadius: (d: any) => d.r,
+        radiusUnits: 'meters', radiusMinPixels: 2, getFillColor: (d: any) => [6, 8, 12, d.a], stroked: false, parameters: { depthTest: true } as any }),
+      new PathLayer<{ path: Pos3[]; c: RGB }>({ id: 'shadow-stalk', data: stalks, getPath: d => d.path, getColor: d => [...d.c, 55],
+        getWidth: 1, widthUnits: 'pixels', parameters: { depthTest: true } as any }),
+    ] : []),
     // Vapour glow under the trails — only for the neon + contrail effects (bloom
     // gets its glow from the post-process pass instead; basic gets none).
     ...(!off && (S.trailFx === 'glow' || S.trailFx === 'contrail') ? [

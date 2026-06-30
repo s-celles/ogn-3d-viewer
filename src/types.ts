@@ -10,6 +10,7 @@ export type RGB = [number, number, number];
 export type Mode = 'over' | 'fpv' | 'chase';
 export type Trace = 'off' | 'hist' | 'histfut' | 'window';
 export type TrailFx = 'basic' | 'glow' | 'contrail' | 'bloom';
+export type ShadowMode = 'off' | 'nadir' | 'sun';
 export type GraphMode = 'off' | 'hist' | 'histfut' | 'rolling';
 export type TrafficMode = 'off' | 'radar' | 'directional';
 export type Lang = 'fr' | 'en' | 'de';
@@ -156,6 +157,10 @@ export interface AppState {
   // Floating per-aircraft labels and which fields they show.
   labels: boolean;
   labelFields: { reg: boolean; alt: boolean; speed: boolean; vario: boolean; hdg: boolean };
+  // Ground shadows: a blob + line under each glider and its track on the terrain
+  // — to convey where aircraft are over the ground. 'nadir' = straight down
+  // (position indicator), 'sun' = cast along the sun direction (realistic).
+  shadowMode: ShadowMode;
   windowMin: number;
   spline: boolean;
   compensated: boolean;

@@ -5,7 +5,7 @@ import { API_BASE, REPO_URL, MINZ, MAXZ, PMIN, PMAX, CHASE, clampv } from './con
 import { APP_VERSION, GIT_HASH } from './version';
 import {
   subjEl, viewsEl, cammodeEl, traceEl, trailFxEl, smoothBtn, compBtn, bankBtn, soundBtn, trafficModeEl, graphModeEl, graphClose, winEl, winval, playBtn, segEl,
-  exoEl, exval, acscaleEl, acscaleval, coneBtn, finesseEl, finval, safetyEl, safeval, coneRadEl, coneradval, labelsBtn, labelFieldsEl, pitchEl, pitchval, scrub, scrubMin, scrubMax, clkEl, lglist, rose, altsl, icaoEl, fblink, acEl,
+  exoEl, exval, acscaleEl, acscaleval, coneBtn, finesseEl, finval, safetyEl, safeval, coneRadEl, coneradval, labelsBtn, labelFieldsEl, shadowsEl, pitchEl, pitchval, scrub, scrubMin, scrubMax, clkEl, lglist, rose, altsl, icaoEl, fblink, acEl,
   dateEl, loadBtn, langEl, discEl, infoBtn, copyBtn, collapseBtn, liveBtn, igcBtn, igcInput, mapDiv,
 } from './dom';
 import { subjectTrack, airborne, headingAt, clampCur, fmt, statsFor } from './flight-math';
@@ -14,7 +14,7 @@ import { render, updateHUD } from './render';
 import { loadFlights, refreshLive, statusMsg, setStatus, rebuild, syncUrl, loadTrackFiles } from './data';
 import { varioAudio } from './vario-audio';
 import { refreshGraphTabs } from './graphs';
-import type { Mode, Trace, TrailFx, GraphMode, TrafficMode, Lang } from './types';
+import type { Mode, Trace, TrailFx, ShadowMode, GraphMode, TrafficMode, Lang } from './types';
 
 const asEl = (c: Element) => c as HTMLElement;
 
@@ -176,6 +176,12 @@ LABEL_FIELDS.forEach(([f, k]) => {
   b.onclick = () => { S.labelFields[f] = !S.labelFields[f]; b.classList.toggle('on', S.labelFields[f]); render(); };
   labelFieldsEl.appendChild(b);
 });
+
+// ---- ground shadows: off / vertical (nadir) / sun-cast ----
+([['off', 'shadowOff'], ['nadir', 'shadowNadir'], ['sun', 'shadowSun']] as [string, string][])
+  .forEach(([v, k]) => { const o = document.createElement('option'); o.value = v; o.dataset.k = k; shadowsEl.appendChild(o); });
+shadowsEl.value = S.shadowMode;
+shadowsEl.addEventListener('change', e => { S.shadowMode = (e.target as HTMLSelectElement).value as ShadowMode; render(); });
 pitchEl.addEventListener('input', e => { S.fpvPitch = parseFloat((e.target as HTMLInputElement).value); pitchval.textContent = (S.fpvPitch >= 0 ? '+' : '') + S.fpvPitch + '°'; render(); });
 
 (document.getElementById('reset') as HTMLButtonElement).onclick = () => {
@@ -358,6 +364,7 @@ export function applyI18n(): void {
   coneBtn.textContent = S.glideCone ? t('on') : t('off'); coneBtn.classList.toggle('on', S.glideCone);
   labelsBtn.textContent = S.labels ? t('on') : t('off'); labelsBtn.classList.toggle('on', S.labels);
   [...labelFieldsEl.children].forEach(b => { asEl(b).textContent = t(asEl(b).dataset.k!); });
+  [...shadowsEl.options].forEach(o => { o.textContent = t(o.dataset.k!); });
   [...trafficModeEl.options].forEach(o => o.textContent = t(o.dataset.k!));
   document.body.classList.toggle('traffic', S.trafficMode !== 'off');
   [...graphModeEl.options].forEach(o => o.textContent = t(o.dataset.k!));

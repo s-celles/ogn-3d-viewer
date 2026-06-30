@@ -42,6 +42,7 @@ export const coneRadEl  = $<HTMLInputElement>('conerad');
 export const coneradval = $('coneradval');
 export const labelsBtn  = $<HTMLButtonElement>('labelsBtn');
 export const labelFieldsEl = $('labelFields');
+export const shadowsEl  = $<HTMLSelectElement>('shadows');
 export const pitchEl    = $<HTMLInputElement>('pitch');
 export const pitchval   = $('pitchval');
 export const scrub      = $<HTMLInputElement>('scrub');
