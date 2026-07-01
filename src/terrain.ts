@@ -9,6 +9,15 @@ import { TERRAIN, TEXTURE, TERRAIN_N } from './config';
 import { TileLayer, SimpleMeshLayer, COORDINATE_SYSTEM } from './deck';
 import type { DecodedTile } from './types';
 
+// Cache sizes scale with device RAM: each decoded tile is a 256×256 RGBA buffer
+// (~256 KB), so a big cache is hundreds of MB. deviceMemory is reported in GB
+// (capped at 8 for privacy; undefined on Safari → assume a modest 4). Phones
+// report ≤4 → conservative caches; desktops report 8 → generous ones.
+const DEVICE_GB = (navigator as any).deviceMemory || 4;
+const ROOMY = DEVICE_GB >= 8;
+const DECK_CACHE = ROOMY ? 800 : 300;   // deck's decoded-tile LRU (render)
+const ELEV_CACHE = ROOMY ? 1000 : 400;  // our elevation-lookup FIFO
+
 interface BBox { west: number; east: number; north: number; south: number; }
 
 /** Geographic bounding box of a web-mercator tile. */
@@ -85,7 +94,7 @@ interface CachedTile { rgba: Uint8Array; w: number; h: number; }
 const TILE_CACHE = new Map<string, CachedTile>();
 function cacheTile(z: number, x: number, y: number, t: CachedTile): void {
   TILE_CACHE.set(z + '/' + x + '/' + y, t);
-  if (TILE_CACHE.size > 400) TILE_CACHE.delete(TILE_CACHE.keys().next().value as string);
+  if (TILE_CACHE.size > ELEV_CACHE) TILE_CACHE.delete(TILE_CACHE.keys().next().value as string);
 }
 
 // Ground elevation (m, orthometric) at a lng/lat from the highest-resolution
@@ -109,7 +118,7 @@ const TERRAIN_ANCHOR = [{}];
 /** Build the streaming terrain TileLayer (rebuilt whenever exaggeration changes). */
 export function makeTerrain() {
   return new TileLayer({
-    id: 'terrain', data: TERRAIN, minZoom: 0, maxZoom: 13, tileSize: 256, maxCacheSize: 300,
+    id: 'terrain', data: TERRAIN, minZoom: 0, maxZoom: 13, tileSize: 256, maxCacheSize: DECK_CACHE,
     // Elevation band (metres, scaled by the exaggeration like the mesh z) used to
     // build each tile's 3D bounding box for frustum culling. Without it deck
     // assumes tiles sit at sea level (z=0); in first-person/chase the camera flies
