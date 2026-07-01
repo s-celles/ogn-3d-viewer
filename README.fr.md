@@ -36,19 +36,47 @@ d'info renvoie vers la page FlightBook correspondante.
 
 ## Fonctionnalités
 
-- **Recherche d'aérodrome** par code OACI avec autocomplétion.
+**Chargement des données**
+
+- **Recherche d'aérodrome** par code OACI avec autocomplétion, pour une date donnée.
+- **Mode direct** — vue temps réel épinglée à l'heure courante, qui rafraîchit les planeurs actifs toutes les 20 s (balises récentes en couleur, plus anciennes atténuées comme sur la carte live FlightBook).
+- **Import de fichiers locaux** — glissez (ou choisissez) vos propres traces **IGC / GPX / KML** pour les rejouer de la même façon, sans passer par OGN.
+
+**Scène**
+
 - **Relief 3D** avec imagerie satellite et exagération verticale réglable.
-- **Lecture temporelle** avec curseur d'heure de la journée et vitesses 1× / 8× / 30× / 120×.
-- **Mode direct** — vue temps réel épinglée à l'heure courante, qui rafraîchit les planeurs actifs toutes les 20 s.
 - **Trois vues :** vue d'ensemble (dessus), vue subjective (cockpit — l'horizon s'incline dans les virages) et caméra poursuite qui suit le planeur.
 - **Modes caméra cockpit :** suivi du cap ou regard libre.
-- **Modes d'affichage des traces :** historique, historique + futur, ou fenêtre glissante.
-- **Lissage des traces :** interpolation spline Catmull-Rom entre les balises pour des trajectoires fluides (activé par défaut, bouton dans le panneau).
-- **Attitude estimée :** chaque planeur est dessiné avec un repère aile/fuselage qui s'incline dans les virages (taux de virage × vitesse sol) et prend de l'assiette selon le vario, plafonné à des angles maximaux raisonnables.
-- **Vario compensé :** le HUD affiche un vario à énergie totale par défaut (désactivable pour le vario brut). La vitesse air n'étant pas disponible via GPS, la vitesse sol sert d'approximation — exact seulement par vent nul.
 - **Affichage tête haute (HUD) :** cap, altitude et vario du planeur suivi.
-- **Interface bilingue** (français / anglais), détectée automatiquement selon le navigateur.
-- **Raccourcis clavier :** `V` changer de vue, `1/2/3` choisir un planeur, `Espace` lecture/pause, flèches pour pivoter/incliner/zoomer.
+- **Cône de finesse :** un cône d'atteignabilité optionnel autour de l'aérodrome (finesse, hauteur de sécurité à l'arrivée et rayon réglables) — un aéronef au-dessus de sa surface peut rejoindre le terrain.
+- **Ombres au sol :** un repère (tache/ligne) sous chaque planeur, projeté à la verticale (indicateur de position) ou selon la direction du soleil, pour lire la hauteur au-dessus du sol.
+- **Rideau d'altitude :** un voile translucide reliant chaque trace à sa projection au sol, pour une forte sensation de hauteur.
+- **Étiquettes par aéronef** avec champs sélectionnables (immatriculation, altitude, vitesse, vario, cap).
+
+**Lecture**
+
+- **Lecture temporelle** avec curseur d'heure de la journée et vitesses 1× / 8× / 30× / 120×.
+- **Modes d'affichage des traces :** historique, historique + futur, ou fenêtre glissante.
+- **Effets de trace :** basique, néon (glow), contrail ou bloom.
+- **Lissage des traces :** interpolation spline Catmull-Rom entre les balises pour des trajectoires fluides (activé par défaut, bouton dans le panneau).
+- **Pertes de réception :** les intervalles sans balise OGN sont interpolés et dessinés en pointillés.
+- **Graphes temporels** — altitude, vitesse et cap, suivant les mêmes modes historique / historique + futur / glissant.
+
+**Instruments de vol & trafic**
+
+- **Attitude estimée :** chaque planeur est dessiné avec un repère aile/fuselage qui s'incline dans les virages (taux de virage × vitesse sol) et prend de l'assiette selon la vitesse air, plafonné à des angles maximaux raisonnables.
+- **Vario compensé :** le HUD affiche un vario à énergie totale par défaut (désactivable pour le vario brut). La vitesse air n'étant pas disponible via GPS, la vitesse sol sert d'approximation — exact seulement par vent nul.
+- **Son du vario :** une tonalité de montée/descente optionnelle pour le planeur suivi.
+- **Conscience du trafic** (vues focalisées) : un **radar** cap-en-haut des aéronefs en vol à proximité, ou un indicateur **directionnel** anti-collision avec niveaux d'alerte/avertissement selon les séparations horizontale et verticale.
+
+**Interface & application**
+
+- **Interface trilingue** (français / anglais / allemand), détectée automatiquement selon le navigateur.
+- **Liens profonds** via les paramètres d'URL `?icao=…&date=…`, maintenus synchronisés au fil des chargements.
+- **Préférences persistantes :** vos réglages d'affichage/lecture sont enregistrés dans le `localStorage`, avec réinitialisation aux valeurs par défaut en un clic.
+- **PWA installable** — un manifeste d'application web et un service worker qui gardent l'appli disponible hors ligne et mettent en cache les tuiles de carte de façon persistante (dimensionné selon la RAM de l'appareil), pour des revisites instantanées.
+- **Attribution carte** (imagerie Esri, relief AWS), affichable/masquable sur la carte.
+- **Raccourcis clavier :** `V` changer de vue, `1/2/3` choisir un planeur, `J/K` planeur précédent/suivant, `Espace` lecture/pause, flèches pour pivoter/incliner/zoomer.
 
 ## Fonctionnement
 
@@ -65,6 +93,14 @@ un état partagé [`state.ts`](src/state.ts), etc.). Il utilise :
   carnet de vol et les traces IGC (appelée directement depuis le navigateur —
   l'API expose un CORS ouvert) ;
 - les tuiles d'élévation AWS Terrarium et l'imagerie Esri World Imagery pour le relief.
+
+Le [script de build](scripts/build.ts) émet également un manifeste d'application
+web, des icônes et un service worker ([`sw.js`](scripts/build.ts)) : l'app est
+servie « réseau d'abord » (un nouveau déploiement se met à jour dès que vous êtes
+en ligne, et fonctionne hors ligne sinon), tandis que les tuiles de carte sont
+mises en cache de façon persistante (« cache d'abord ») pour éviter de les
+retélécharger. Les préférences vivent dans le `localStorage` (voir
+[`settings.ts`](src/settings.ts)).
 
 ## Pile technique
 
@@ -111,7 +147,7 @@ Les données OGN sont issues de la communauté et présentent quelques limites �
 - Seuls les aéronefs **enregistrés et « suivis »** dans la base OGN apparaissent ; les appareils anonymes ou non équipés sont absents.
 - La position est interpolée entre les balises reçues — ce n'est pas exactement la trajectoire réellement volée.
 - L'altitude GNSS est affichée sur un relief en MSL : léger flottement possible près du sol (écart géoïde de plusieurs dizaines de mètres).
-- Aucune donnée d'attitude : la caméra ne s'incline pas dans les virages.
+- Aucune donnée d'attitude n'est transmise : l'inclinaison/assiette affichée (et l'horizon qui s'incline) sont **estimées** à partir de la trace sol et de la vitesse, non mesurées.
 - **OGN ne conserve les traces IGC que ~24 h**, les dates anciennes n'ont donc souvent aucune donnée rejouable.
 
 Merci de consulter et de respecter la

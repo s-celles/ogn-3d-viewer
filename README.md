@@ -35,19 +35,47 @@ matching FlightBook page.
 
 ## Features
 
-- **Airfield search** by ICAO code with autocomplete.
+**Loading data**
+
+- **Airfield search** by ICAO code with autocomplete, for a given date.
+- **Live mode** — a real-time view pinned to the current time that auto-refreshes active gliders every 20 s (online fixes full-colour, stale ones dimmed like the FlightBook live map).
+- **Local file import** — drop (or pick) your own **IGC / GPX / KML** tracks to replay them the same way, no OGN round-trip.
+
+**Scene**
+
 - **3D terrain** with satellite imagery and adjustable vertical exaggeration.
-- **Time playback** with a time-of-day scrubber and 1× / 8× / 30× / 120× speeds.
-- **Live mode** — a real-time view pinned to the current time that auto-refreshes active gliders every 20 s.
 - **Three views:** top-down overview, cockpit (first-person — the horizon banks in turns) and a chase cam following the glider.
 - **Cockpit camera modes:** lock-to-heading or free look.
-- **Track display modes:** history, history + future, or a rolling time window.
-- **Track smoothing:** Catmull-Rom spline interpolation between beacons for fluid trajectories (on by default, toggle in the panel).
-- **Estimated attitude:** each glider is drawn as a wing/fuselage marker that banks in turns (from turn rate × ground speed) and pitches with the vario, capped at sane max angles.
-- **Compensated vario:** the HUD shows a total-energy vario by default (toggle off for the raw climb rate). True airspeed isn't available from GPS, so ground speed is used as a proxy — exact only in still air.
 - **Head-up display (HUD):** heading, altitude and vario for the followed glider.
-- **Bilingual UI** (English / French), auto-detected from the browser.
-- **Keyboard shortcuts:** `V` switch view, `1/2/3` pick a glider, `Space` play/pause, arrows to orbit/tilt/zoom.
+- **Final-glide cone:** an optional reachability cone around the airfield (adjustable glide ratio, arrival safety height and radius) — an aircraft above the surface can reach the field.
+- **Ground shadows:** a blob/line under each glider, cast straight down (position indicator) or along the sun direction, to read height over the ground.
+- **Altitude curtain:** a translucent drape from each track down to its ground projection for a strong sense of height.
+- **Per-aircraft labels** with selectable fields (registration, altitude, speed, vario, heading).
+
+**Playback**
+
+- **Time playback** with a time-of-day scrubber and 1× / 8× / 30× / 120× speeds.
+- **Track display modes:** history, history + future, or a rolling time window.
+- **Trail effects:** basic, glow (neon), contrail or bloom.
+- **Track smoothing:** Catmull-Rom spline interpolation between beacons for fluid trajectories (on by default, toggle in the panel).
+- **Reception-loss gaps:** intervals with no OGN beacons are interpolated and drawn dashed.
+- **Time-series graphs** drawer — altitude, speed and heading, following the same history / history + future / rolling modes.
+
+**Flight instruments & traffic**
+
+- **Estimated attitude:** each glider is drawn as a wing/fuselage marker that banks in turns (from turn rate × ground speed) and pitches with airspeed, capped at sane max angles.
+- **Compensated vario:** the HUD shows a total-energy vario by default (toggle off for the raw climb rate). True airspeed isn't available from GPS, so ground speed is used as a proxy — exact only in still air.
+- **Vario audio:** an optional climb/sink tone for the followed glider.
+- **Traffic awareness** (focus views): a track-up **radar** of nearby airborne aircraft, or a **directional** anti-collision indicator with alert/warn threat levels by horizontal and vertical separation.
+
+**UI & app**
+
+- **Trilingual UI** (English / French / German), auto-detected from the browser.
+- **Deep linking** via `?icao=…&date=…` URL parameters, kept in sync as you load.
+- **Persisted settings:** your display/replay preferences are saved in `localStorage`, with one-click reset to defaults.
+- **Installable PWA** — a web-app manifest plus a service worker that keeps the app shell available offline and caches map tiles persistently (sized to device RAM) so revisits are instant.
+- **Map attribution** overlay (Esri imagery, AWS terrain), toggleable on the map.
+- **Keyboard shortcuts:** `V` switch view, `1/2/3` pick a glider, `J/K` previous/next glider, `Space` play/pause, arrows to orbit/tilt/zoom.
 
 ## How it works
 
@@ -63,6 +91,13 @@ geometry, [`terrain.ts`](src/terrain.ts), [`render.ts`](src/render.ts),
   logbook and IGC tracks (called directly from the browser — the API exposes
   open CORS);
 - AWS Terrarium elevation tiles and Esri World Imagery for the terrain.
+
+The [build script](scripts/build.ts) also emits a web-app manifest, icons and a
+service worker ([`sw.js`](scripts/build.ts)): the app shell is served
+network-first (a new deploy updates as soon as you're online, and works offline
+otherwise), while map tiles are cached persistently (cache-first) so revisits
+don't re-download them. Preferences live in `localStorage` (see
+[`settings.ts`](src/settings.ts)).
 
 ## Tech stack
 
@@ -108,7 +143,7 @@ the app via the ⓘ button:
 - Only aircraft **registered and "tracked"** in the OGN database appear; anonymous or non-equipped aircraft are missing.
 - Positions are interpolated between received beacons — not exactly the path actually flown.
 - GNSS altitude is shown over MSL terrain: slight floating near the ground is possible (geoid offset of tens of metres).
-- No attitude data: the camera does not bank in turns.
+- No attitude data is transmitted: the displayed bank/pitch (and the banking horizon) are **estimated** from ground track and speed, not measured.
 - **OGN keeps IGC tracks for only ~24 hours**, so older dates often have no replayable data.
 
 Please review and respect the official
