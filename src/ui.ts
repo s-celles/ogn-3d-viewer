@@ -5,7 +5,7 @@ import { API_BASE, REPO_URL, MINZ, MAXZ, PMIN, PMAX, CHASE, clampv } from './con
 import { APP_VERSION, GIT_HASH } from './version';
 import {
   subjEl, viewsEl, cammodeEl, traceEl, trailFxEl, smoothBtn, compBtn, bankBtn, soundBtn, trafficModeEl, graphModeEl, graphClose, winEl, winval, playBtn, segEl,
-  exoEl, exval, acscaleEl, acscaleval, coneBtn, finesseEl, finval, safetyEl, safeval, coneRadEl, coneradval, labelsBtn, labelFieldsEl, shadowsEl, curtainBtn, pitchEl, pitchval, scrub, scrubMin, scrubMax, clkEl, lglist, rose, altsl, icaoEl, fblink, acEl,
+  exoEl, exval, acscaleEl, acscaleval, coneBtn, finesseEl, finval, safetyEl, safeval, coneRadEl, coneradval, labelsBtn, labelFieldsEl, shadowsEl, curtainBtn, attrBtn, pitchEl, pitchval, scrub, scrubMin, scrubMax, clkEl, lglist, rose, altsl, icaoEl, fblink, acEl,
   dateEl, loadBtn, langEl, discEl, infoBtn, copyBtn, collapseBtn, liveBtn, igcBtn, igcInput, mapDiv, prevAc, nextAc, resetSettingsBtn,
 } from './dom';
 import { clearStored } from './settings';
@@ -189,7 +189,8 @@ export function syncControls(): void {
   smoothBtn.classList.toggle('on', S.spline); compBtn.classList.toggle('on', S.compensated);
   bankBtn.classList.toggle('on', S.bank); soundBtn.classList.toggle('on', S.sound);
   coneBtn.classList.toggle('on', S.glideCone); labelsBtn.classList.toggle('on', S.labels);
-  curtainBtn.classList.toggle('on', S.altCurtain);
+  curtainBtn.classList.toggle('on', S.altCurtain); attrBtn.classList.toggle('on', S.showAttribution);
+  document.body.classList.toggle('noattr', !S.showAttribution);
   [...labelFieldsEl.children].forEach(b => asEl(b).classList.toggle('on', !!S.labelFields[asEl(b).dataset.f as keyof typeof S.labelFields]));
   document.body.classList.toggle('win', S.trace === 'window');
   document.body.classList.toggle('traffic', S.trafficMode !== 'off');
@@ -243,6 +244,12 @@ shadowsEl.addEventListener('change', e => { S.shadowMode = (e.target as HTMLSele
 curtainBtn.onclick = () => {
   S.altCurtain = !S.altCurtain;
   curtainBtn.textContent = S.altCurtain ? t('on') : t('off'); curtainBtn.classList.toggle('on', S.altCurtain); render();
+};
+// ---- cartographic attribution overlay (on by default) ----
+attrBtn.onclick = () => {
+  S.showAttribution = !S.showAttribution;
+  attrBtn.textContent = S.showAttribution ? t('on') : t('off'); attrBtn.classList.toggle('on', S.showAttribution);
+  document.body.classList.toggle('noattr', !S.showAttribution); render();
 };
 pitchEl.addEventListener('input', e => { S.fpvPitch = parseFloat((e.target as HTMLInputElement).value); pitchval.textContent = (S.fpvPitch >= 0 ? '+' : '') + S.fpvPitch + '°'; render(); });
 
@@ -429,6 +436,7 @@ export function applyI18n(): void {
   [...labelFieldsEl.children].forEach(b => { asEl(b).textContent = t(asEl(b).dataset.k!); });
   [...shadowsEl.options].forEach(o => { o.textContent = t(o.dataset.k!); });
   curtainBtn.textContent = S.altCurtain ? t('on') : t('off'); curtainBtn.classList.toggle('on', S.altCurtain);
+  attrBtn.textContent = S.showAttribution ? t('on') : t('off'); attrBtn.classList.toggle('on', S.showAttribution);
   [...trafficModeEl.options].forEach(o => o.textContent = t(o.dataset.k!));
   document.body.classList.toggle('traffic', S.trafficMode !== 'off');
   [...graphModeEl.options].forEach(o => o.textContent = t(o.dataset.k!));
@@ -443,6 +451,7 @@ function renderDisc(): void {
     ? GIT_HASH
     : `<a href="${REPO_URL}/commit/${GIT_HASH}" target="_blank" rel="noopener" style="color:var(--accent)">${GIT_HASH}</a>`;
   discEl.innerHTML = '<b>' + t('disclaimerTitle') + '</b><ul>' + arr.map(x => '<li>' + x + '</li>').join('') + '</ul>' +
+    `<div class="mapcredit" style="margin-top:6px;color:var(--mut)">${t('mapAttribution')}</div>` +
     `<div style="margin-top:6px">${t('sourceCode')} : ` +
     `<a href="${REPO_URL}" target="_blank" rel="noopener" style="color:var(--accent)">github.com/s-celles/ogn-3d-viewer</a></div>` +
     `<div style="margin-top:4px;color:var(--mut)">${t('version')} ${APP_VERSION} · ${commit}</div>`;

@@ -164,6 +164,9 @@ export interface AppState {
   // Altitude curtain: a transparent vertical drape between each track and its
   // nadir ground projection, for a strong sense of height over the terrain.
   altCurtain: boolean;
+  // Show the cartographic attribution overlay (imagery/terrain credit) on the
+  // map. Default on; kept visible in the info panel regardless.
+  showAttribution: boolean;
   windowMin: number;
   spline: boolean;
   compensated: boolean;
