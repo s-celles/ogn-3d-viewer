@@ -50,6 +50,7 @@ export const I18N: Record<Lang, Strings> = {
     zoomOut: 'Reculer (dézoomer)', zoomIn: 'Avancer (zoomer)',
     hdg: 'Cap', alt: 'Altitude', vario: 'Vario', landed: 'posé', beforeTk: 'décollage à venir', min: 'min',
     info: 'Limites / à propos', disclaimerTitle: "Limites d'affichage", sourceCode: 'Code source', version: 'Version', flightbook: 'Carnet FlightBook', copyLink: "Copier le lien (instant + aéronef)", resetSettings: 'Réinitialiser les réglages',
+    guide: 'Guide / aide', guideClose: 'Fermer le guide',
     mapAttribution: "Imagerie satellite : <a href='https://www.arcgis.com/home/item.html?id=10df2279f9684e4a9f6a7f08febac2a9' target='_blank' rel='noopener'>Esri World Imagery</a> (Esri, Maxar, Earthstar Geographics) · Relief : <a href='https://registry.opendata.aws/terrain-tiles/' target='_blank' rel='noopener'>tuiles d'élévation AWS Terrain</a> (Mapzen · SRTM/NASA, USGS et al.)",
     disc: [
       'Données OGN : la trace dépend de la réception par les stations au sol — trous, décrochages ou montées tronquées possibles.',
@@ -103,6 +104,7 @@ export const I18N: Record<Lang, Strings> = {
     zoomOut: 'Zoom out', zoomIn: 'Zoom in',
     hdg: 'Heading', alt: 'Altitude', vario: 'Vario', landed: 'landed', beforeTk: 'before takeoff', min: 'min',
     info: 'Limitations / about', disclaimerTitle: 'Display limitations', sourceCode: 'Source code', version: 'Version', flightbook: 'OGN FlightBook', copyLink: 'Copy link (moment + aircraft)', resetSettings: 'Reset settings to defaults',
+    guide: 'Guide / help', guideClose: 'Close guide',
     mapAttribution: "Satellite imagery: <a href='https://www.arcgis.com/home/item.html?id=10df2279f9684e4a9f6a7f08febac2a9' target='_blank' rel='noopener'>Esri World Imagery</a> (Esri, Maxar, Earthstar Geographics) · Terrain: <a href='https://registry.opendata.aws/terrain-tiles/' target='_blank' rel='noopener'>AWS Terrain Tiles</a> (Mapzen · SRTM/NASA, USGS et al.)",
     disc: [
       'OGN data: the track depends on ground-station reception — gaps, dropouts or truncated climbs are possible.',
@@ -156,6 +158,7 @@ export const I18N: Record<Lang, Strings> = {
     zoomOut: 'Herauszoomen', zoomIn: 'Hineinzoomen',
     hdg: 'Kurs', alt: 'Höhe', vario: 'Vario', landed: 'gelandet', beforeTk: 'vor dem Start', min: 'Min.',
     info: 'Grenzen / Über', disclaimerTitle: 'Anzeigegrenzen', sourceCode: 'Quellcode', version: 'Version', flightbook: 'OGN FlightBook', copyLink: 'Link kopieren (Moment + Luftfahrzeug)', resetSettings: 'Einstellungen zurücksetzen',
+    guide: 'Anleitung / Hilfe', guideClose: 'Anleitung schließen',
     mapAttribution: "Satellitenbilder: <a href='https://www.arcgis.com/home/item.html?id=10df2279f9684e4a9f6a7f08febac2a9' target='_blank' rel='noopener'>Esri World Imagery</a> (Esri, Maxar, Earthstar Geographics) · Gelände: <a href='https://registry.opendata.aws/terrain-tiles/' target='_blank' rel='noopener'>AWS Terrain Tiles</a> (Mapzen · SRTM/NASA, USGS u. a.)",
     disc: [
       'OGN-Daten: die Spur hängt vom Empfang der Bodenstationen ab — Lücken, Aussetzer oder abgeschnittene Steigflüge sind möglich.',

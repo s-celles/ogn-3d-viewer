@@ -23,6 +23,7 @@
     <h1 data-i18n="h1">…</h1>
     <div style="display:flex;gap:6px;align-items:center">
       <button id="copyBtn" data-i18n-title="copyLink" title="">🔗</button>
+      <button id="guideBtn" data-i18n-title="guide" title="">📖</button>
       <button id="infoBtn" data-i18n-title="info" title="">ⓘ</button>
       <button id="resetSettings" data-i18n-title="resetSettings" title="">↺</button>
       <select id="lang" class="langsel" aria-label="Language"></select>
@@ -247,6 +248,13 @@
     <div class="k" data-i18n="speed">Vitesse</div><div class="v" id="hudspd">—</div>
     <div class="k" data-i18n="alt">Altitude</div><div class="v" id="hudalt">—</div>
     <div class="k" data-i18n="vario">Vario</div><div class="v vario" id="hudvar">—</div>
+  </div>
+</div>
+
+<div id="guide" role="dialog" aria-modal="true" aria-labelledby="guideBody">
+  <div class="guide-card">
+    <button id="guideClose" data-i18n-title="guideClose" title="">✕</button>
+    <div id="guideBody" class="md"></div>
   </div>
 </div>
 

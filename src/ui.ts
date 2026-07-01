@@ -15,6 +15,7 @@ import { render, updateHUD } from './render';
 import { loadFlights, refreshLive, statusMsg, setStatus, rebuild, syncUrl, loadTrackFiles } from './data';
 import { varioAudio } from './vario-audio';
 import { refreshGraphTabs } from './graphs';
+import { syncGuide } from './guide';
 import type { Mode, Trace, TrailFx, ShadowMode, GraphMode, TrafficMode, Lang } from './types';
 
 const asEl = (c: Element) => c as HTMLElement;
@@ -443,6 +444,7 @@ export function applyI18n(): void {
   refreshGraphTabs();
   playBtn.textContent = S.playing ? t('pause') : t('play');
   renderDisc();
+  syncGuide();
   if (S.ready) buildLegend(); if (S.mode === 'fpv') updateHUD();
 }
 function renderDisc(): void {

@@ -1,0 +1,53 @@
+# OGN 3D Viewer — Anleitung
+
+3D-Wiedergabe von Segelflügen des [Open Glider Network](http://wiki.glidernet.org/) (OGN), direkt im Browser. Wählen Sie einen Flugplatz und ein Datum — oder laden Sie eigene Tracks — und spielen Sie den Tag über 3D-Gelände ab, mit Wiedergabe, Cockpit-Ansicht und Head-up-Display.
+
+## Daten laden
+
+- **Flugplatzsuche** — nach ICAO-Code mit Autovervollständigung, für ein bestimmtes Datum.
+- **Live-Modus** — Echtzeitansicht, an die aktuelle Uhrzeit gebunden, aktualisiert aktive Segelflugzeuge alle 20 s (aktuelle Baken farbig, ältere abgedunkelt).
+- **Lokaler Datei-Import** — ziehen Sie eigene **IGC- / GPX- / KML**-Tracks auf die Karte (oder wählen Sie sie aus), um sie ebenso abzuspielen, ohne OGN.
+
+## Die Szene
+
+- **3D-Gelände** mit Satellitenbildern und einstellbarer vertikaler Überhöhung.
+- **Drei Ansichten** — Übersicht (von oben), Cockpit (Egoperspektive, der Horizont neigt sich in Kurven) und eine Verfolgerkamera.
+- **Cockpit-Kamera** — Kurs folgen oder freie Sicht.
+- **Head-up-Display (HUD)** — Kurs, Höhe und Vario des verfolgten Segelflugzeugs.
+- **Gleitkegel** — ein optionaler Erreichbarkeitskegel um den Flugplatz (Gleitzahl, Sicherheitshöhe und Radius einstellbar).
+- **Bodenschatten** — senkrecht nach unten (Positionsanzeige) oder in Sonnenrichtung geworfen.
+- **Höhenvorhang** — ein durchscheinender Vorhang von jedem Track bis zum Boden.
+- **Beschriftung je Luftfahrzeug** — Kennzeichen, Höhe, Geschwindigkeit, Vario, Kurs.
+
+## Wiedergabe
+
+- **Zeitwiedergabe** — Tageszeit-Regler und Geschwindigkeiten 1× / 8× / 30× / 120×.
+- **Spurmodi** — Verlauf, Verlauf + Zukunft, oder gleitendes Fenster.
+- **Spureffekte** — einfach, Neon, Kondensstreifen oder Bloom.
+- **Spurglättung** — Catmull-Rom-Spline-Interpolation für flüssige Bahnen.
+- **Empfangslücken** — Intervalle ohne OGN-Bake werden interpoliert und gestrichelt gezeichnet.
+- **Diagramme** — Höhe, Geschwindigkeit und Kurs im Zeitverlauf.
+
+## Instrumente & Verkehr
+
+- **Geschätzte Fluglage** — jedes Segelflugzeug neigt sich in Kurven und stellt sich nach der Eigengeschwindigkeit an.
+- **Kompensiertes Vario** — Gesamtenergie-Vario als Standard (abschaltbar für die rohe Steigrate).
+- **Vario-Ton** — ein optionaler Steig-/Sink-Ton für das verfolgte Segelflugzeug.
+- **Verkehrsbewusstsein** — ein kurs-oben-Radar naher Luftfahrzeuge oder eine direktionale Kollisionswarnung.
+
+## Tastaturkürzel
+
+- **V** — Ansicht wechseln
+- **1 / 2 / 3** — Segelflugzeug wählen
+- **J / K** — vorheriges / nächstes Segelflugzeug
+- **Leertaste** — Wiedergabe / Pause
+- **Pfeiltasten** — drehen / neigen / zoomen
+
+## Hinweise & Grenzen
+
+- OGN-Spuren hängen vom Empfang der Bodenstationen ab — Lücken und Aussetzer sind möglich.
+- Die Fluglage (Quer-/Längsneigung) wird aus Bodenspur und Geschwindigkeit **geschätzt**, nicht gemessen.
+- OGN speichert IGC-Spuren nur **~24 Stunden**, ältere Daten sind daher oft leer.
+- Bitte beachten Sie die [OGN-Datennutzungsrichtlinie](https://www.glidernet.org/ogn-data-usage/).
+
+Die App ist eine clientseitige Single-Page-App; Quellcode und Fehlermeldungen auf [GitHub](https://github.com/s-celles/ogn-3d-viewer).
