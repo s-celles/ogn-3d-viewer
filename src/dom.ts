@@ -69,6 +69,7 @@ export const hudvar     = $('hudvar');
 export const langEl     = $<HTMLSelectElement>('lang');
 export const discEl     = $<HTMLElement>('disclaimer');
 export const infoBtn    = $<HTMLButtonElement>('infoBtn');
+export const resetSettingsBtn = $<HTMLButtonElement>('resetSettings');
 export const copyBtn    = $<HTMLButtonElement>('copyBtn');
 export const collapseBtn= $<HTMLButtonElement>('collapseBtn');
 export const liveBtn    = $<HTMLButtonElement>('liveBtn');

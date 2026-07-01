@@ -1,13 +1,14 @@
 // ============ UI controllers ============
-import { S } from './state';
+import { S, DEFAULT_SETTINGS } from './state';
 import { t, I18N } from './i18n';
 import { API_BASE, REPO_URL, MINZ, MAXZ, PMIN, PMAX, CHASE, clampv } from './config';
 import { APP_VERSION, GIT_HASH } from './version';
 import {
   subjEl, viewsEl, cammodeEl, traceEl, trailFxEl, smoothBtn, compBtn, bankBtn, soundBtn, trafficModeEl, graphModeEl, graphClose, winEl, winval, playBtn, segEl,
   exoEl, exval, acscaleEl, acscaleval, coneBtn, finesseEl, finval, safetyEl, safeval, coneRadEl, coneradval, labelsBtn, labelFieldsEl, shadowsEl, curtainBtn, pitchEl, pitchval, scrub, scrubMin, scrubMax, clkEl, lglist, rose, altsl, icaoEl, fblink, acEl,
-  dateEl, loadBtn, langEl, discEl, infoBtn, copyBtn, collapseBtn, liveBtn, igcBtn, igcInput, mapDiv, prevAc, nextAc,
+  dateEl, loadBtn, langEl, discEl, infoBtn, copyBtn, collapseBtn, liveBtn, igcBtn, igcInput, mapDiv, prevAc, nextAc, resetSettingsBtn,
 } from './dom';
+import { clearStored } from './settings';
 import { subjectTrack, airborne, headingAt, clampCur, fmt, statsFor } from './flight-math';
 import { makeTerrain } from './terrain';
 import { render, updateHUD } from './render';
@@ -169,6 +170,45 @@ acscaleEl.addEventListener('input', e => {
   S.modelScale[S.mode] = parseFloat((e.target as HTMLInputElement).value);
   acscaleval.textContent = fmtScale(S.modelScale[S.mode]); render();
 });
+
+// Reflect every persisted setting onto its control (values, labels, on-states,
+// body classes). Run at startup after settings are loaded, and after a reset.
+// Button *texts* (Activé/Désactivé) are set by applyI18n, called alongside this.
+export function syncControls(): void {
+  traceEl.value = S.trace; trailFxEl.value = S.trailFx;
+  trafficModeEl.value = S.trafficMode; graphModeEl.value = S.graphMode;
+  shadowsEl.value = S.shadowMode; langEl.value = S.lang;
+  exoEl.value = String(S.exo); exval.textContent = S.exo.toFixed(1) + '×';
+  winEl.value = String(S.windowMin); winval.textContent = String(S.windowMin);
+  finesseEl.value = String(S.glideRatio); finval.textContent = String(S.glideRatio);
+  safetyEl.value = String(S.safetyHeight); safeval.textContent = String(S.safetyHeight);
+  coneRadEl.value = String(S.coneRadiusKm); coneradval.textContent = String(S.coneRadiusKm);
+  pitchEl.value = String(S.fpvPitch); pitchval.textContent = (S.fpvPitch >= 0 ? '+' : '') + S.fpvPitch + '°';
+  syncAcScale();
+  [...segEl.children].forEach(c => asEl(c).classList.toggle('on', asEl(c).textContent === S.speed + '×'));
+  smoothBtn.classList.toggle('on', S.spline); compBtn.classList.toggle('on', S.compensated);
+  bankBtn.classList.toggle('on', S.bank); soundBtn.classList.toggle('on', S.sound);
+  coneBtn.classList.toggle('on', S.glideCone); labelsBtn.classList.toggle('on', S.labels);
+  curtainBtn.classList.toggle('on', S.altCurtain);
+  [...labelFieldsEl.children].forEach(b => asEl(b).classList.toggle('on', !!S.labelFields[asEl(b).dataset.f as keyof typeof S.labelFields]));
+  document.body.classList.toggle('win', S.trace === 'window');
+  document.body.classList.toggle('traffic', S.trafficMode !== 'off');
+  document.body.classList.toggle('graphs', S.graphMode !== 'off');
+  document.body.classList.toggle('cone', S.glideCone);
+  document.body.classList.toggle('labels', S.labels);
+}
+
+// Restore the built-in defaults and forget the saved settings. Re-syncs the UI;
+// rebuilds the tracks if loaded (spline/window may have changed).
+resetSettingsBtn.onclick = () => {
+  const d = DEFAULT_SETTINGS as Record<string, unknown>;
+  for (const k of Object.keys(d)) {
+    const v = d[k]; (S as any)[k] = (v && typeof v === 'object') ? JSON.parse(JSON.stringify(v)) : v;
+  }
+  clearStored();
+  syncControls(); applyI18n();
+  if (S.ready) rebuild(null, null, true); else render();
+};
 
 // ---- glide cone (off by default) ----
 coneBtn.onclick = () => {

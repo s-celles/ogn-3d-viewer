@@ -4,6 +4,7 @@
 // bindings, so plain `let` exports could not be reassigned across files).
 import type { AppState, Lang } from './types';
 import { MODEL_SCALE } from './config';
+import { pickSettings, applyStored } from './settings';
 
 const INIT = { longitude: 2.4, latitude: 46.6, zoom: 4.6, pitch: 0, bearing: 0, maxPitch: 85 };
 
@@ -31,3 +32,9 @@ export const S: AppState = {
   // current terrain TileLayer instance (rebuilt when exaggeration changes)
   terrainInst: null,
 };
+
+// Snapshot the built-in defaults BEFORE applying any persisted overrides, so a
+// reset can restore them; then merge in the user's saved settings (if any). This
+// runs at module load, before the UI reads S, so controls init to stored values.
+export const DEFAULT_SETTINGS = pickSettings(S);
+applyStored(S);

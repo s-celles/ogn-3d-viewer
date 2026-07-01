@@ -14,6 +14,7 @@ import { updateSky, getSun, getMoon, nightPolygon } from './sky';
 import { subjectTrack, shown, scaled, posAt, presence, airborne, headingAt, varioAt, compVarioAt, groundSpeedAt, clampCur, attitudeAt, nearestToCenter } from './flight-math';
 import { GLIDER_MESH, PLANE_MESH, PROP_MESH, GLIDER_FLAT, PLANE_FLAT, isPowered } from './aircraft-mesh';
 import { CHASE, FAR_PLANE } from './config';
+import { saveSettings } from './settings';
 import type { RGB, Pos3, RenderTrack } from './types';
 
 interface PathDatum { color: RGB; pts: Pos3[]; }
@@ -638,6 +639,7 @@ export function initDeck(): void {
 }
 
 export function render(): void {
+  saveSettings(S);    // debounced + dirty-checked: persists settings when they change
   updateSky();        // recompute sky colours + sun (before building the layers)
   applySunLight();
   // Scene-wide bloom only in the "bloom" effect (else just the scene lighting).
