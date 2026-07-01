@@ -50,6 +50,7 @@ export const I18N: Record<Lang, Strings> = {
     zoomOut: 'Reculer (dézoomer)', zoomIn: 'Avancer (zoomer)',
     hdg: 'Cap', alt: 'Altitude', vario: 'Vario', landed: 'posé', beforeTk: 'décollage à venir', min: 'min',
     info: 'Limites / à propos', disclaimerTitle: "Limites d'affichage", sourceCode: 'Code source', version: 'Version', flightbook: 'Carnet FlightBook', copyLink: "Copier le lien (instant + aéronef)", resetSettings: 'Réinitialiser les réglages',
+    mapAttribution: "Imagerie satellite : <a href='https://www.arcgis.com/home/item.html?id=10df2279f9684e4a9f6a7f08febac2a9' target='_blank' rel='noopener'>Esri World Imagery</a> (Esri, Maxar, Earthstar Geographics) · Relief : <a href='https://registry.opendata.aws/terrain-tiles/' target='_blank' rel='noopener'>tuiles d'élévation AWS Terrain</a> (Mapzen · SRTM/NASA, USGS et al.)",
     disc: [
       'Données OGN : la trace dépend de la réception par les stations au sol — trous, décrochages ou montées tronquées possibles.',
       'Seuls les aéronefs enregistrés et « suivis » dans la base OGN apparaissent ; les appareils anonymes ou non équipés sont absents.',
@@ -102,6 +103,7 @@ export const I18N: Record<Lang, Strings> = {
     zoomOut: 'Zoom out', zoomIn: 'Zoom in',
     hdg: 'Heading', alt: 'Altitude', vario: 'Vario', landed: 'landed', beforeTk: 'before takeoff', min: 'min',
     info: 'Limitations / about', disclaimerTitle: 'Display limitations', sourceCode: 'Source code', version: 'Version', flightbook: 'OGN FlightBook', copyLink: 'Copy link (moment + aircraft)', resetSettings: 'Reset settings to defaults',
+    mapAttribution: "Satellite imagery: <a href='https://www.arcgis.com/home/item.html?id=10df2279f9684e4a9f6a7f08febac2a9' target='_blank' rel='noopener'>Esri World Imagery</a> (Esri, Maxar, Earthstar Geographics) · Terrain: <a href='https://registry.opendata.aws/terrain-tiles/' target='_blank' rel='noopener'>AWS Terrain Tiles</a> (Mapzen · SRTM/NASA, USGS et al.)",
     disc: [
       'OGN data: the track depends on ground-station reception — gaps, dropouts or truncated climbs are possible.',
       'Only aircraft registered and “tracked” in the OGN database appear; anonymous or non-equipped aircraft are missing.',
@@ -154,6 +156,7 @@ export const I18N: Record<Lang, Strings> = {
     zoomOut: 'Herauszoomen', zoomIn: 'Hineinzoomen',
     hdg: 'Kurs', alt: 'Höhe', vario: 'Vario', landed: 'gelandet', beforeTk: 'vor dem Start', min: 'Min.',
     info: 'Grenzen / Über', disclaimerTitle: 'Anzeigegrenzen', sourceCode: 'Quellcode', version: 'Version', flightbook: 'OGN FlightBook', copyLink: 'Link kopieren (Moment + Luftfahrzeug)', resetSettings: 'Einstellungen zurücksetzen',
+    mapAttribution: "Satellitenbilder: <a href='https://www.arcgis.com/home/item.html?id=10df2279f9684e4a9f6a7f08febac2a9' target='_blank' rel='noopener'>Esri World Imagery</a> (Esri, Maxar, Earthstar Geographics) · Gelände: <a href='https://registry.opendata.aws/terrain-tiles/' target='_blank' rel='noopener'>AWS Terrain Tiles</a> (Mapzen · SRTM/NASA, USGS u. a.)",
     disc: [
       'OGN-Daten: die Spur hängt vom Empfang der Bodenstationen ab — Lücken, Aussetzer oder abgeschnittene Steigflüge sind möglich.',
       'Nur in der OGN-Datenbank registrierte und „verfolgte“ Luftfahrzeuge erscheinen; anonyme oder nicht ausgerüstete Luftfahrzeuge fehlen.',

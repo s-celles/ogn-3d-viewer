@@ -411,6 +411,7 @@ langEl.addEventListener('change', e => { S.lang = (e.target as HTMLSelectElement
 export function applyI18n(): void {
   document.documentElement.lang = S.lang;
   document.querySelectorAll('[data-i18n]').forEach(el => { (el as HTMLElement).textContent = t((el as HTMLElement).dataset.i18n!); });
+  document.querySelectorAll('[data-i18n-html]').forEach(el => { (el as HTMLElement).innerHTML = t((el as HTMLElement).dataset.i18nHtml!); });
   document.querySelectorAll('[data-i18n-title]').forEach(el => { (el as HTMLElement).title = t((el as HTMLElement).dataset.i18nTitle!); });
   langEl.value = S.lang;
   [...viewsEl.children].forEach(b => {
