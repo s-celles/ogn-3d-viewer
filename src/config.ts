@@ -15,6 +15,19 @@ export const TEXTURE = 'https://server.arcgisonline.com/ArcGIS/rest/services/Wor
 
 export const TERRAIN_N = 96; // grid resolution per tile
 
+// Per-device streaming budget. deck.gl's TileLayer loads the whole scene at a
+// single zoom level, so a deep first-person frustum (out to the horizon) asks
+// for thousands of tiles — far more than any cache holds, so the distance never
+// finishes loading. We keep the near ground sharp (full zoom) everywhere and
+// instead cap how FAR the camera sees, tuned to the device: phones (deviceMemory
+// ≤4, or undefined on Safari) get a modest cache and a short view distance so the
+// visible tiles fit; desktops (≥8 GB) get a big cache and a long view distance.
+export const DEVICE_GB = (typeof navigator !== 'undefined' && (navigator as any).deviceMemory) || 4;
+export const ROOMY = DEVICE_GB >= 8;
+export const DECK_CACHE = ROOMY ? 800 : 300;    // deck's decoded-tile LRU (render)
+export const ELEV_CACHE = ROOMY ? 1000 : 400;   // our elevation-lookup FIFO
+export const FAR_PLANE = ROOMY ? 130000 : 70000; // first-person/chase frustum far (m)
+
 // Traffic-awareness radar (focus views): show other airborne aircraft within
 // `range` m of the subject, track-up. Threat levels by horizontal/vertical
 // separation — alert (close) and warn (proximate).

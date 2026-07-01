@@ -5,18 +5,9 @@
 // with UPNG (a pure-JS PNG decoder) on the main thread.
 import UPNG from 'upng-js';
 import { S } from './state';
-import { TERRAIN, TEXTURE, TERRAIN_N } from './config';
+import { TERRAIN, TEXTURE, TERRAIN_N, DECK_CACHE, ELEV_CACHE } from './config';
 import { TileLayer, SimpleMeshLayer, COORDINATE_SYSTEM } from './deck';
 import type { DecodedTile } from './types';
-
-// Cache sizes scale with device RAM: each decoded tile is a 256×256 RGBA buffer
-// (~256 KB), so a big cache is hundreds of MB. deviceMemory is reported in GB
-// (capped at 8 for privacy; undefined on Safari → assume a modest 4). Phones
-// report ≤4 → conservative caches; desktops report 8 → generous ones.
-const DEVICE_GB = (navigator as any).deviceMemory || 4;
-const ROOMY = DEVICE_GB >= 8;
-const DECK_CACHE = ROOMY ? 800 : 300;   // deck's decoded-tile LRU (render)
-const ELEV_CACHE = ROOMY ? 1000 : 400;  // our elevation-lookup FIFO
 
 interface BBox { west: number; east: number; north: number; south: number; }
 
@@ -119,6 +110,12 @@ const TERRAIN_ANCHOR = [{}];
 export function makeTerrain() {
   return new TileLayer({
     id: 'terrain', data: TERRAIN, minZoom: 0, maxZoom: 13, tileSize: 256, maxCacheSize: DECK_CACHE,
+    // In first-person/chase the tilted frustum sees a wide swathe to the horizon,
+    // so many tiles are in flight at once. The default 6 concurrent requests drain
+    // the queue too slowly (background stays blurry/holey); raise it. 'best-available'
+    // keeps a coarse ancestor tile drawn while its children load, so gaps read as
+    // blur that sharpens rather than sky showing through the ground.
+    maxRequests: 12, refinementStrategy: 'best-available',
     // Elevation band (metres, scaled by the exaggeration like the mesh z) used to
     // build each tile's 3D bounding box for frustum culling. Without it deck
     // assumes tiles sit at sea level (z=0); in first-person/chase the camera flies
@@ -129,13 +126,23 @@ export function makeTerrain() {
     getTileData: async (tile: any): Promise<DecodedTile | null> => {
       const { x, y, z } = tile.index || tile;
       const url = TERRAIN.replace('{z}', z).replace('{x}', x).replace('{y}', y);
-      try {
-        const buf = await fetch(url, { signal: tile.signal }).then(r => r.arrayBuffer());
-        const img = UPNG.decode(buf);
-        const dec = { rgba: new Uint8Array(UPNG.toRGBA8(img)[0]), w: img.width, h: img.height };
-        cacheTile(z, x, y, dec);
-        return dec;
-      } catch (e) { return null; }
+      // Retry transient failures (network blips, S3 throttling under a load burst)
+      // with backoff — otherwise a single miss leaves that tile stuck as a coarse
+      // ancestor forever. Give up quietly once the tile has scrolled out of view.
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          const r = await fetch(url, { signal: tile.signal });
+          if (!r.ok) throw new Error('http ' + r.status);
+          const img = UPNG.decode(await r.arrayBuffer());
+          const dec = { rgba: new Uint8Array(UPNG.toRGBA8(img)[0]), w: img.width, h: img.height };
+          cacheTile(z, x, y, dec);
+          return dec;
+        } catch (e) {
+          if (tile.signal?.aborted) return null;
+          await new Promise(res => setTimeout(res, 200 * (attempt + 1)));
+        }
+      }
+      return null;
     },
     renderSubLayers: (props: any) => {
       const t = props.data as DecodedTile | null; if (!t) return null;

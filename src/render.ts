@@ -13,7 +13,7 @@ import { varioAudio } from './vario-audio';
 import { updateSky, getSun, getMoon, nightPolygon } from './sky';
 import { subjectTrack, shown, scaled, posAt, presence, airborne, headingAt, varioAt, compVarioAt, groundSpeedAt, clampCur, attitudeAt, nearestToCenter } from './flight-math';
 import { GLIDER_MESH, PLANE_MESH, PROP_MESH, GLIDER_FLAT, PLANE_FLAT, isPowered } from './aircraft-mesh';
-import { CHASE } from './config';
+import { CHASE, FAR_PLANE } from './config';
 import type { RGB, Pos3, RenderTrack } from './types';
 
 interface PathDatum { color: RGB; pts: Pos3[]; }
@@ -496,7 +496,7 @@ function updateLabels(): void {
     try {
       vp = S.mode === 'over'
         ? new MapView({ id: 'main' }).makeViewport({ width, height, viewState: S.mapVS as any })
-        : new FirstPersonView({ id: 'fpv', fovy: S.mode === 'chase' ? CHASE.fovy : 64, near: 1, far: 200000 })
+        : new FirstPersonView({ id: 'fpv', fovy: S.mode === 'chase' ? CHASE.fovy : 64, near: 1, far: FAR_PLANE })
           .makeViewport({ width, height, viewState: (S.mode === 'chase' ? computeChase() : computeFPV()) as any });
     } catch { vp = null; }
   }
@@ -536,7 +536,7 @@ function updateCelestial(): void {
   let vp: any;
   try {
     vp = (S.mode === 'fpv' || S.mode === 'chase')
-      ? new FirstPersonView({ id: 'fpv', fovy: CHASE.fovy, near: 1, far: 200000 }).makeViewport({ width, height, viewState: (S.mode === 'chase' ? computeChase() : computeFPV()) as any })
+      ? new FirstPersonView({ id: 'fpv', fovy: CHASE.fovy, near: 1, far: FAR_PLANE }).makeViewport({ width, height, viewState: (S.mode === 'chase' ? computeChase() : computeFPV()) as any })
       : new MapView({ id: 'main' }).makeViewport({ width, height, viewState: S.mapVS as any });
   } catch (e) { hideSun(); hideMoon(); return; }
   if (!vp || !vp.viewProjectionMatrix) { hideSun(); hideMoon(); return; }
@@ -653,13 +653,13 @@ export function render(): void {
     } as any);
   } else if (S.mode === 'chase') {
     deckgl.setProps({
-      views: [new FirstPersonView({ id: 'fpv', fovy: CHASE.fovy, near: 1, far: 200000 })], viewState: { fpv: computeChase() }, effects,
+      views: [new FirstPersonView({ id: 'fpv', fovy: CHASE.fovy, near: 1, far: FAR_PLANE })], viewState: { fpv: computeChase() }, effects,
       controller: false, layers: [S.terrainInst, ...dynamicLayers()],
     } as any);
     updateHUD();
   } else {
     deckgl.setProps({
-      views: [new FirstPersonView({ id: 'fpv', fovy: 64, near: 1, far: 200000 })], viewState: { fpv: computeFPV() }, effects,
+      views: [new FirstPersonView({ id: 'fpv', fovy: 64, near: 1, far: FAR_PLANE })], viewState: { fpv: computeFPV() }, effects,
       controller: S.fpvFollow ? false : { keyboard: false, scrollZoom: false, inertia: 200 }, layers: [S.terrainInst, ...dynamicLayers()],
     } as any);
     updateHUD();
