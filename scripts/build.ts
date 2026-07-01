@@ -1,9 +1,9 @@
 // Production build: bundle the app (injecting the version + git hash via Bun's
-// `define`), then emit the PWA files (manifest, icons, network-first service
-// worker) into dist/ with STABLE names and wire their <link>s into the built
-// HTML. We write the PWA files ourselves (rather than letting Bun bundle them)
-// so their names stay stable — the service worker must live at a fixed URL, and
-// the manifest must reference the icons by a predictable path.
+// `define`), then emit the PWA files (manifest, icons, service worker) into
+// dist/ with STABLE names and wire their <link>s into the built HTML. We write
+// the PWA files ourselves (rather than letting Bun bundle them) so their names
+// stay stable — the service worker must live at a fixed URL, and the manifest
+// must reference the icons by a predictable path.
 import pkg from '../package.json';
 import { rm, cp, writeFile, readFile } from 'node:fs/promises';
 
@@ -29,15 +29,30 @@ await cp(`${root}assets/icon-192.png`, `${root}dist/icon-192.png`);
 await cp(`${root}assets/icon-512.png`, `${root}dist/icon-512.png`);
 await cp(`${root}assets/icon-maskable-512.png`, `${root}dist/icon-maskable-512.png`);
 
+// PWA install screenshots (downscaled ~1280px copies of the README captures),
+// for the richer install dialog on desktop Chrome/Edge.
+const SHOTS: [string, string, string][] = [
+  ['overview', '1280x665', 'Overview map with flight tracks'],
+  ['cockpit', '1280x663', 'Cockpit (first-person) view'],
+  ['chase', '1280x662', 'Chase camera view'],
+  ['graphs', '1280x655', 'Flight data graphs'],
+];
+for (const [name] of SHOTS) await cp(`${root}assets/screencaptures/pwa-${name}.png`, `${root}dist/ss-${name}.png`);
+
 // Web app manifest. Relative start_url/scope so it works under the GitHub Pages
 // project subpath (https://<user>.github.io/ogn-3d-viewer/).
 const manifest = {
+  id: './',                 // stable app identity (avoids Chrome's "no id" warning)
   name: 'OGN 3D Viewer',
   short_name: 'OGN 3D',
   description: pkg.description,
+  lang: 'en',
+  dir: 'ltr',
   start_url: './',
   scope: './',
   display: 'standalone',
+  orientation: 'any',
+  categories: ['sports', 'travel', 'utilities'],
   background_color: '#0c1015',
   theme_color: themeColor,
   icons: [
@@ -45,6 +60,9 @@ const manifest = {
     { src: 'icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
     { src: 'icon-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
   ],
+  screenshots: SHOTS.map(([name, sizes, label]) => ({
+    src: `ss-${name}.png`, sizes, type: 'image/png', form_factor: 'wide', label,
+  })),
 };
 await writeFile(`${root}dist/manifest.json`, JSON.stringify(manifest, null, 2));
 
@@ -115,7 +133,13 @@ let html = await readFile(htmlPath, 'utf8');
 html = html.replace('</head>',
   `<link rel="manifest" href="manifest.json">` +
   `<meta name="theme-color" content="${themeColor}">` +
-  `<link rel="apple-touch-icon" href="icon-192.png"></head>`);
+  `<link rel="apple-touch-icon" href="icon-192.png">` +
+  // iOS/Android home-screen: run fullscreen (standalone) with a matching title
+  // and status bar, since Safari ignores the manifest's display on older versions.
+  `<meta name="mobile-web-app-capable" content="yes">` +
+  `<meta name="apple-mobile-web-app-capable" content="yes">` +
+  `<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">` +
+  `<meta name="apple-mobile-web-app-title" content="OGN 3D"></head>`);
 await writeFile(htmlPath, html);
 
 console.log(`built ogn-3d-viewer ${version} (${hash}) + PWA (manifest, icons, sw.js)`);
