@@ -11,11 +11,13 @@ permissions:
   pages: write
   id-token: write
 
-# Allow one concurrent deployment, skipping runs queued between the run
-# in-progress and latest queued.
+# Allow one concurrent deployment, queueing (not cancelling) newer runs. Do NOT
+# cancel in-progress runs: cancelling a live Pages deployment makes the backend
+# report "Deployment cancelled" and fail the run (GitHub's own Pages template
+# uses false for exactly this reason).
 concurrency:
   group: pages
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   build:
