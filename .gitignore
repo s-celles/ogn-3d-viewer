@@ -18,6 +18,7 @@
 !LICENSE
 !.gitignore
 !/bun.lock
+!/justfile
 
 # Re-ignore generated and vendored trees (these override the allows above).
 node_modules/
