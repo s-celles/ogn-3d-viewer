@@ -16,6 +16,12 @@ export function initAnalytics(): void {
   // Only the canonical deployment counts (forks, previews and localhost don't).
   if (location.hostname !== CANONICAL_HOST) return;
 
+  // Record the bare path only. The app's deep links carry a query string
+  // (?icao=…&date=…&reg=…&t=…); without this every share link would count as a
+  // distinct page and shatter the stats. Also keeps those params (airfield,
+  // aircraft, moment) out of the analytics entirely.
+  (window as any).goatcounter = { path: () => location.pathname };
+
   const s = document.createElement('script');
   s.async = true;
   s.src = 'https://gc.zgo.at/count.js';
