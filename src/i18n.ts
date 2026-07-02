@@ -60,6 +60,7 @@ export const I18N: Record<Lang, Strings> = {
       "L'attitude des planeurs (inclinaison/assiette) est estimée à partir du taux de virage, de la vitesse et du vario — ce n'est pas une mesure réelle. Traces IGC conservées ~24 h par OGN.",
       "Le vario compensé (énergie totale) utilise la vitesse sol GPS faute de vitesse air : exact seulement par vent nul, biaisé par le vent.",
       "Usage des données : voir la <a href='https://www.glidernet.org/ogn-data-usage/' target='_blank' rel='noopener' style='color:var(--accent)'>politique d'usage des données OGN</a>.",
+      "Statistiques d'usage anonymes et sans cookie (GoatCounter) : simple comptage des visites — aucune donnée personnelle, aucune adresse IP conservée ; désactivées si le navigateur signale « Do Not Track » ou GPC.",
     ],
   },
   en: {
@@ -114,6 +115,7 @@ export const I18N: Record<Lang, Strings> = {
       'Glider attitude (bank/pitch) is estimated from turn rate, speed and vario — not a real measurement. OGN keeps IGC tracks for ~24 h.',
       'The compensated (total-energy) vario uses GPS ground speed in place of airspeed: exact only in still air, biased by wind.',
       "Data usage: see the <a href='https://www.glidernet.org/ogn-data-usage/' target='_blank' rel='noopener' style='color:var(--accent)'>OGN data usage policy</a>.",
+      'Anonymous, cookieless usage stats (GoatCounter): visit counts only — no personal data, no IP stored; disabled when the browser signals Do Not Track or GPC.',
     ],
   },
   de: {
@@ -168,6 +170,7 @@ export const I18N: Record<Lang, Strings> = {
       'Die Fluglage der Segelflugzeuge (Quer-/Längsneigung) wird aus Drehrate, Geschwindigkeit und Vario geschätzt — keine echte Messung. IGC-Spuren werden ~24 h von OGN gespeichert.',
       'Das kompensierte Vario (Gesamtenergie) nutzt mangels Eigengeschwindigkeit die GPS-Bodengeschwindigkeit: nur bei Windstille exakt, durch Wind verfälscht.',
       "Datennutzung: siehe die <a href='https://www.glidernet.org/ogn-data-usage/' target='_blank' rel='noopener' style='color:var(--accent)'>OGN-Datennutzungsrichtlinie</a>.",
+      'Anonyme, cookiefreie Nutzungsstatistik (GoatCounter): nur Besuchszählung — keine personenbezogenen Daten, keine IP gespeichert; deaktiviert, wenn der Browser „Do Not Track“ oder GPC signalisiert.',
     ],
   },
   es: {
@@ -222,6 +225,7 @@ export const I18N: Record<Lang, Strings> = {
       'La actitud de los planeadores (alabeo/cabeceo) se estima a partir de la tasa de viraje, la velocidad y el vario — no es una medición real. OGN conserva las trazas IGC ~24 h.',
       'El vario compensado (energía total) usa la velocidad respecto al suelo del GPS en lugar de la velocidad aerodinámica: exacto solo sin viento, sesgado por el viento.',
       "Uso de los datos: consulte la <a href='https://www.glidernet.org/ogn-data-usage/' target='_blank' rel='noopener' style='color:var(--accent)'>política de uso de datos OGN</a>.",
+      'Estadísticas de uso anónimas y sin cookies (GoatCounter): solo recuento de visitas — ningún dato personal, ninguna IP almacenada; desactivadas si el navegador indica «Do Not Track» o GPC.',
     ],
   },
   it: {
@@ -276,6 +280,7 @@ export const I18N: Record<Lang, Strings> = {
       "L'assetto degli alianti (rollio/beccheggio) è stimato dalla velocità di virata, dalla velocità e dal vario — non è una misura reale. OGN conserva le tracce IGC ~24 h.",
       "Il vario compensato (energia totale) usa la velocità al suolo del GPS al posto della velocità all'aria: esatto solo in aria calma, falsato dal vento.",
       "Uso dei dati: vedi la <a href='https://www.glidernet.org/ogn-data-usage/' target='_blank' rel='noopener' style='color:var(--accent)'>politica di utilizzo dei dati OGN</a>.",
+      "Statistiche d'uso anonime e senza cookie (GoatCounter): solo conteggio delle visite — nessun dato personale, nessun IP memorizzato; disattivate se il browser segnala «Do Not Track» o GPC.",
     ],
   },
 };

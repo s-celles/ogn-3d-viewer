@@ -5,6 +5,7 @@ import { initDeck, render } from './render';
 import { applyI18n, applyFollowClass, syncUI, syncAcScale, syncControls, easeCamera, updateCompass, updateFbLink, setLive, applyDeepLinkCursor } from './ui';
 import { loadFlights } from './data';
 import { initGraphs } from './graphs';
+import { initAnalytics } from './analytics';
 
 const todayStr = new Date().toISOString().slice(0, 10);
 dateEl.value = todayStr; dateEl.max = todayStr;
@@ -14,6 +15,9 @@ dateEl.value = todayStr; dateEl.max = todayStr;
 if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
   window.addEventListener('load', () => { navigator.serviceWorker.register('./sw.js').catch(() => {}); });
 }
+
+// Privacy-respecting, cookieless usage stats (canonical deploy only; honours DNT/GPC).
+initAnalytics();
 
 initDeck();
 initGraphs();
