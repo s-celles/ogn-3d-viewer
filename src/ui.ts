@@ -411,7 +411,7 @@ export function setCollapsed(c: boolean): void {
 collapseBtn.onclick = () => setCollapsed(!document.body.classList.contains('collapsed'));
 
 // ---- language (dropdown) ----
-(['fr', 'en', 'de'] as Lang[]).forEach(L => {
+(['fr', 'en', 'de', 'es', 'it'] as Lang[]).forEach(L => {
   const o = document.createElement('option'); o.value = L; o.textContent = L.toUpperCase(); langEl.appendChild(o);
 });
 langEl.value = S.lang;

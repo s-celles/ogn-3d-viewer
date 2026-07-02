@@ -13,7 +13,7 @@ export type TrailFx = 'basic' | 'glow' | 'contrail' | 'bloom';
 export type ShadowMode = 'off' | 'nadir' | 'sun';
 export type GraphMode = 'off' | 'hist' | 'histfut' | 'rolling';
 export type TrafficMode = 'off' | 'radar' | 'directional';
-export type Lang = 'fr' | 'en' | 'de';
+export type Lang = 'fr' | 'en' | 'de' | 'es' | 'it';
 
 /** One track parsed from an imported file (IGC/GPX/KML), before render prep. */
 export interface ImportedTrack {

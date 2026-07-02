@@ -11,13 +11,14 @@ import guideEN from '../docs/features.en.md' with { type: 'text' };
 import guideFR from '../docs/features.fr.md' with { type: 'text' };
 import guideDE from '../docs/features.de.md' with { type: 'text' };
 
-const SRC: Record<Lang, string> = { en: guideEN, fr: guideFR, de: guideDE };
+// es/it have no dedicated guide yet — they fall back to English (see render()).
+const SRC: Partial<Record<Lang, string>> = { en: guideEN, fr: guideFR, de: guideDE };
 
 // Language the overlay currently shows, so we only re-parse when it changes.
 let renderedLang: Lang | null = null;
 
 function render(): void {
-  guideBody.innerHTML = marked.parse(SRC[S.lang] || SRC.en, { async: false }) as string;
+  guideBody.innerHTML = marked.parse(SRC[S.lang] || SRC.en || '', { async: false }) as string;
   // External links open in a new tab (the content is our own, so this is safe).
   guideBody.querySelectorAll('a[href^="http"]').forEach(a => {
     a.setAttribute('target', '_blank');
