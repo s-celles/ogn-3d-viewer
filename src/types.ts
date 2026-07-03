@@ -81,6 +81,8 @@ export interface ViewStateLike {
   zoom: number;
   pitch: number;
   bearing: number;
+  minZoom?: number;
+  maxZoom?: number;
   maxPitch?: number;
   position?: number[];
 }

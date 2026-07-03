@@ -55,20 +55,26 @@ export function subsolar(ms: number): { lat: number; lon: number } {
   return { lat: dec * 180 / Math.PI, lon };
 }
 
-// Day/night terminator: the night-side polygon (web-mercator lng/lat ring) at
-// `ms`. The terminator latitude at a longitude is atan(-cos(H)/tan(dec)); the
-// night is the side away from the subsolar point, closed off at the winter pole.
-// Returns null near the equinox (dec≈0 → terminator along meridians, degenerate).
-export function nightPolygon(ms: number): [number, number][] | null {
+// Region (web-mercator lng/lat ring) where the sun is BELOW altitude `altDeg` at
+// `ms`. altDeg = 0 is the day/night terminator; negative values give the twilight
+// bands (civil −6°, nautical −12°, astronomical −18°) that let us draw a soft
+// gradient instead of a hard edge. The boundary latitude for a longitude solves
+// sin(alt) = sinφ·sinδ + cosφ·cosδ·cosH; the region is closed off at the winter
+// pole. Returns null near the equinox (dec≈0 → degenerate along meridians).
+export function nightPolygon(ms: number, altDeg = 0): [number, number][] | null {
   const d = days(ms), { ra, dec } = sunRaDec(d);
   if (Math.abs(dec) < 0.06) return null;
   let lonSs = ra * 180 / Math.PI - (280.16 + 360.9856235 * d);
   lonSs = ((lonSs + 180) % 360 + 360) % 360 - 180;
-  const tanDec = Math.tan(dec), clampLat = (x: number) => Math.max(-85, Math.min(85, x));
+  const a = Math.sin(dec), sinh = Math.sin(altDeg * Math.PI / 180);
+  const clampLat = (x: number) => Math.max(-85, Math.min(85, x));
   const curve: [number, number][] = [];
   for (let lon = -180; lon <= 180; lon += 2) {
-    const H = (lon - lonSs) * Math.PI / 180;
-    curve.push([lon, clampLat(Math.atan(-Math.cos(H) / tanDec) * 180 / Math.PI)]);
+    const H = (lon - lonSs) * Math.PI / 180, b = Math.cos(dec) * Math.cos(H);
+    const R = Math.hypot(a, b) || 1e-9, s = Math.max(-1, Math.min(1, sinh / R)), psi = Math.atan2(b, a);
+    const L = dec > 0 ? Math.asin(s) - psi : Math.PI - Math.asin(s) - psi;   // night-side root
+    const lat = Math.atan2(Math.sin(L), Math.cos(L));                        // wrap to (−π, π]
+    curve.push([lon, clampLat(lat * 180 / Math.PI)]);
   }
   const pole = dec > 0 ? -85 : 85;                  // winter pole = polar night
   return [[-180, pole], ...curve, [180, pole]];

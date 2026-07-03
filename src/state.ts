@@ -3,10 +3,10 @@
 // module reads/writes the same live values (ES module imports are read-only
 // bindings, so plain `let` exports could not be reassigned across files).
 import type { AppState, Lang } from './types';
-import { MODEL_SCALE, GROUND_ZOOM_DEFAULT, TERRAIN_N, FAR_PLANE, DECK_CACHE } from './config';
+import { MODEL_SCALE, GROUND_ZOOM_DEFAULT, TERRAIN_N, FAR_PLANE, DECK_CACHE, OVERVIEW_MINZOOM } from './config';
 import { pickSettings, applyStored } from './settings';
 
-const INIT = { longitude: 2.4, latitude: 46.6, zoom: 4.6, pitch: 0, bearing: 0, maxPitch: 85 };
+const INIT = { longitude: 2.4, latitude: 46.6, zoom: 6, pitch: 0, bearing: 0, minZoom: OVERVIEW_MINZOOM, maxPitch: 85 };
 
 export const S: AppState = {
   // filled by loadData / rebuild

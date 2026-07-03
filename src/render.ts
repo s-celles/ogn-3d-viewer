@@ -278,7 +278,11 @@ function dynamicLayers() {
   // light can't show this on the flat map). Drawn over the terrain, under the
   // trails/aircraft.
   const ms = S.date ? Date.parse(S.date + 'T00:00:00Z') + (S.G0 + S.cur) * 1000 : NaN;
-  const night = Number.isFinite(ms) ? nightPolygon(ms) : null;
+  // Stacked twilight bands (terminator, civil −6°, nautical −12°, astronomical
+  // −18°) so the night edge reads as a soft dusk gradient rather than a hard line.
+  const nightBands = (Number.isFinite(ms)
+    ? [[0, 45], [-6, 45], [-12, 45], [-18, 50]].map(([alt, a]) => ({ poly: nightPolygon(ms, alt), a }))
+    : []).filter(b => b.poly);
   // Overview focus ring: a halo in the glider's trace colour around the focus
   // candidate (the glider cockpit/chase will follow), so it's unmistakable on the map.
   const focusTr = S.mode === 'over' && S.focus ? vis.find(tr => tr.reg === S.focus) : null;
@@ -376,10 +380,10 @@ function dynamicLayers() {
     }
   }
   return [
-    ...(night ? [new PolygonLayer({
-      id: 'night', data: [night], getPolygon: (d: any) => d, getFillColor: [4, 7, 22, 200],
+    ...nightBands.map((b, i) => new PolygonLayer({
+      id: 'night-' + i, data: [b.poly], getPolygon: (d: any) => d, getFillColor: [4, 7, 22, b.a],
       stroked: false, parameters: { depthTest: false } as any,
-    } as any)] : []),
+    } as any)),
     ...(gtracks.length ? [
       new PathLayer<PathDatum>({ id: 'ground-track', data: gtracks, getPath: d => d.pts,
         getColor: d => [Math.round(d.color[0] * 0.35), Math.round(d.color[1] * 0.35), Math.round(d.color[2] * 0.35), 120],

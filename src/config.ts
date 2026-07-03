@@ -57,6 +57,11 @@ export const GAP_MIN = 20, GAP_FACTOR = 6;
 
 // navigation clamps
 export const MINZ = 8.5, MAXZ = 14.5, PMIN = 0, PMAX = 85;
+// Hard floor for the overview map zoom (deck clamps the controller to the
+// viewState's minZoom). Zooming out further turns the flat web-mercator terrain
+// into a continent-to-horizon plane (a flat-Earth look); ~z6 still frames any
+// real flight, and worldwide sites are reached via "Discover spots" instead.
+export const OVERVIEW_MINZOOM = 6;
 export const clampv = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
 
 // Glider attitude (display). Bank is derived from the coordinated-turn relation

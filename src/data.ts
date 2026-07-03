@@ -1,7 +1,7 @@
 // ============ data fetching & render-state assembly ============
 import UPNG from 'upng-js';
 import { S } from './state';
-import { API_BASE, PALETTE, TERRAIN, GAP_MIN, GAP_FACTOR, MINZ, MAXZ, clampv } from './config';
+import { API_BASE, PALETTE, TERRAIN, GAP_MIN, GAP_FACTOR, MINZ, MAXZ, clampv, OVERVIEW_MINZOOM } from './config';
 import { parseTz, parseIGC, pool } from './igc';
 import { parseTrackFile, TRACK_EXT } from './track-import';
 import { t } from './i18n';
@@ -108,7 +108,7 @@ export async function loadFlights(icao: string, date: string): Promise<void> {
       setStatus(t('noFlights'));
       // Still fly to the airfield so the user lands on the zone (e.g. old dates
       // whose IGC tracks have expired).
-      if (res.af.latlng) S.mapTarget = { longitude: res.af.latlng[1], latitude: res.af.latlng[0], zoom: 11, pitch: 55, bearing: 0, maxPitch: 85 };
+      if (res.af.latlng) S.mapTarget = { longitude: res.af.latlng[1], latitude: res.af.latlng[0], zoom: 11, pitch: 55, bearing: 0, minZoom: OVERVIEW_MINZOOM, maxPitch: 85 };
       loadBtn.disabled = false; return;
     }
     // Sample the rendered DEM at the airfield so the geoid/datum offset lands
@@ -202,7 +202,7 @@ export function rebuild(af: FBAirfield | null, tzoff: number | null, preserve: b
   if (!preserve) {
     S.subject = S.TRACKS[0].reg; S.solo = null; S.cur = 0; S.playing = true; S.mode = 'over';
     document.body.classList.remove('fpv'); applyFollowClass();
-    S.INIT = { longitude: S.AF.lon, latitude: S.AF.lat, zoom: 11.3, pitch: 62, bearing: 0, maxPitch: 85 };
+    S.INIT = { longitude: S.AF.lon, latitude: S.AF.lat, zoom: 11.3, pitch: 62, bearing: 0, minZoom: OVERVIEW_MINZOOM, maxPitch: 85 };
     S.mapTarget = { ...S.INIT };
   } else {
     if (!S.TRACKS.some(tr => tr.reg === S.subject)) S.subject = S.TRACKS[0].reg;
@@ -256,7 +256,7 @@ function fitBoundsView(tracks: Track[]): ViewStateLike {
   const fracX = Math.max(1e-6, (maxLon - minLon) / 360);
   const fracY = Math.max(1e-6, Math.abs(merc(maxLat) - merc(minLat)) / (2 * Math.PI));
   const zoom = clampv(Math.min(Math.log2(W / (256 * fracX)), Math.log2(H / (256 * fracY))), MINZ, MAXZ);
-  return { longitude: lon, latitude: lat, zoom, pitch: 55, bearing: 0, maxPitch: 85 };
+  return { longitude: lon, latitude: lat, zoom, pitch: 55, bearing: 0, minZoom: OVERVIEW_MINZOOM, maxPitch: 85 };
 }
 
 // Field-agnostic geoid/datum offset: median of (GNSS altitude − DEM elevation)
