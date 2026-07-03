@@ -15,6 +15,22 @@ export type GraphMode = 'off' | 'hist' | 'histfut' | 'rolling';
 export type TrafficMode = 'off' | 'radar' | 'directional';
 export type Lang = 'fr' | 'en' | 'de' | 'es' | 'it';
 
+/** Developer-mode options (enabled with ?dev=1). Tuners only take effect while
+ *  `on` is true, so normal users are unaffected. */
+export interface DevOpts {
+  on: boolean;
+  wireframe: boolean;   // draw the terrain mesh as wireframe
+  noTexture: boolean;   // bare shaded relief (no imagery)
+  skirts: boolean;      // draw the crack-hiding tile skirts
+  tileBounds: boolean;  // outline each tile + label its z/x/y
+  fps: boolean;         // FPS / frame-time overlay
+  counters: boolean;    // live cache counters overlay
+  maxRequests: number;  // terrain tile concurrency
+  gridN: number;        // terrain mesh grid resolution per tile
+  farKm: number;        // first-person/chase far plane (km)
+  deckCache: number;    // deck decoded-tile LRU size
+}
+
 /** One track parsed from an imported file (IGC/GPX/KML), before render prep. */
 export interface ImportedTrack {
   name: string;          // human label (track/placemark name or glider type)
@@ -120,6 +136,7 @@ export interface AppState {
   ready: boolean;
   exo: number;
   groundZoom: number;   // imagery/terrain detail ceiling (max tile zoom)
+  dev: DevOpts;
   // Geoid/datum offset (m) subtracted from raw GNSS (ellipsoidal) altitudes so
   // aircraft sit on the orthometric terrain instead of floating ~N metres above.
   altOffset: number;

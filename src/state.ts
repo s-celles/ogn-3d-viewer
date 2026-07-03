@@ -3,7 +3,7 @@
 // module reads/writes the same live values (ES module imports are read-only
 // bindings, so plain `let` exports could not be reassigned across files).
 import type { AppState, Lang } from './types';
-import { MODEL_SCALE, GROUND_ZOOM_DEFAULT } from './config';
+import { MODEL_SCALE, GROUND_ZOOM_DEFAULT, TERRAIN_N, FAR_PLANE, DECK_CACHE } from './config';
 import { pickSettings, applyStored } from './settings';
 
 const INIT = { longitude: 2.4, latitude: 46.6, zoom: 4.6, pitch: 0, bearing: 0, maxPitch: 85 };
@@ -29,6 +29,11 @@ export const S: AppState = {
   // current UI language (fr/en/de/es/it), auto-detected from the browser
   lang: ((): Lang => { const l = (navigator.language || '').toLowerCase();
     return l.startsWith('fr') ? 'fr' : l.startsWith('de') ? 'de' : l.startsWith('es') ? 'es' : l.startsWith('it') ? 'it' : 'en'; })(),
+  // developer mode (enabled with ?dev=1); tuners default to the normal values
+  dev: {
+    on: false, wireframe: false, noTexture: false, skirts: true, tileBounds: false,
+    fps: false, counters: false, maxRequests: 12, gridN: TERRAIN_N, farKm: Math.round(FAR_PLANE / 1000), deckCache: DECK_CACHE,
+  },
   // current terrain TileLayer instance (rebuilt when exaggeration changes)
   terrainInst: null,
 };
@@ -38,3 +43,7 @@ export const S: AppState = {
 // runs at module load, before the UI reads S, so controls init to stored values.
 export const DEFAULT_SETTINGS = pickSettings(S);
 applyStored(S);
+// ?dev=1 enables developer mode (?dev=0 disables); otherwise the persisted value
+// stands, so it stays on across reloads once turned on.
+const devParam = typeof location !== 'undefined' ? new URLSearchParams(location.search).get('dev') : null;
+if (devParam != null) S.dev.on = devParam !== '0';

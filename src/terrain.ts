@@ -6,7 +6,7 @@
 import UPNG from 'upng-js';
 import { S } from './state';
 import { TERRAIN, TEXTURE, TERRAIN_N, DECK_CACHE, ELEV_CACHE, DEM_MAXZOOM } from './config';
-import { TileLayer, SimpleMeshLayer, COORDINATE_SYSTEM } from './deck';
+import { TileLayer, SimpleMeshLayer, PathLayer, TextLayer, COORDINATE_SYSTEM } from './deck';
 import type { DecodedTile } from './types';
 
 interface BBox { west: number; east: number; north: number; south: number; }
@@ -27,7 +27,8 @@ export function tileBBox(x: number, y: number, z: number): BBox {
  * so the photo-res imagery drapes over the (interpolated) coarser elevation. */
 export function buildTerrainMesh(t: DecodedTile, west: number, south: number, east: number, north: number,
                                  su0 = 0, sv0 = 0, sf = 1) {
-  const { rgba, w, h } = t, cols = TERRAIN_N, rows = TERRAIN_N, k = S.exo;
+  const N = S.dev.on ? S.dev.gridN : TERRAIN_N;
+  const { rgba, w, h } = t, cols = N, rows = N, k = S.exo;
   const positions: number[] = [], normals: number[] = [], texCoords: number[] = [], indices: number[] = [];
   const heights = new Float32Array(cols * rows);
   const mPerLat = 111320, mPerLng = 111320 * Math.cos((south + north) / 2 * Math.PI / 180);
@@ -71,10 +72,12 @@ export function buildTerrainMesh(t: DecodedTile, west: number, south: number, ea
       indices.push(a, b, sb, a, sb, sa, a, sb, b, a, sa, sb);   // double-sided (cull-agnostic)
     }
   };
-  const top: number[] = [], bot: number[] = [], left: number[] = [], right: number[] = [];
-  for (let c = 0; c < cols; c++) { top.push(c); bot.push((rows - 1) * cols + c); }
-  for (let r = 0; r < rows; r++) { left.push(r * cols); right.push(r * cols + cols - 1); }
-  border(top); border(bot); border(left); border(right);
+  if (!S.dev.on || S.dev.skirts) {   // dev mode can hide skirts to inspect the raw grid
+    const top: number[] = [], bot: number[] = [], left: number[] = [], right: number[] = [];
+    for (let c = 0; c < cols; c++) { top.push(c); bot.push((rows - 1) * cols + c); }
+    for (let r = 0; r < rows; r++) { left.push(r * cols); right.push(r * cols + cols - 1); }
+    border(top); border(bot); border(left); border(right);
+  }
   return {
     attributes: {
       POSITION: { value: new Float32Array(positions), size: 3 },
@@ -83,6 +86,26 @@ export function buildTerrainMesh(t: DecodedTile, west: number, south: number, ea
     },
     indices: { value: new Uint32Array(indices), size: 1 }, mode: 4,
   };
+}
+
+// Grid-line polylines for a tile (dev wireframe): N row lines + N column lines
+// sampled from the DEM, so the terrain draws as a see-through mesh with no
+// imagery. Same DEM sub-window mapping as buildTerrainMesh.
+export function buildTerrainWire(t: DecodedTile, west: number, south: number, east: number, north: number,
+                                 su0 = 0, sv0 = 0, sf = 1, N = 48): number[][][] {
+  const { rgba, w, h } = t, k = S.exo, H = new Float32Array(N * N);
+  const elevAt = (px: number, py: number) => { const i = (py * w + px) * 4; return rgba[i] * 256 + rgba[i + 1] + rgba[i + 2] / 256 - 32768; };
+  for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
+    const u = c / (N - 1), v = r / (N - 1);
+    const px = Math.min(w - 1, Math.max(0, Math.round((su0 + u * sf) * (w - 1))));
+    const py = Math.min(h - 1, Math.max(0, Math.round((sv0 + (1 - v) * sf) * (h - 1))));
+    H[r * N + c] = elevAt(px, py);
+  }
+  const P = (c: number, r: number): number[] => [west + (east - west) * (c / (N - 1)), south + (north - south) * (r / (N - 1)), H[r * N + c] * k];
+  const paths: number[][][] = [];
+  for (let r = 0; r < N; r++) { const line: number[][] = []; for (let c = 0; c < N; c++) line.push(P(c, r)); paths.push(line); }
+  for (let c = 0; c < N; c++) { const line: number[][] = []; for (let r = 0; r < N; r++) line.push(P(c, r)); paths.push(line); }
+  return paths;
 }
 
 // Decoded-tile elevation cache, populated as tiles stream in (see getTileData).
@@ -137,20 +160,25 @@ export function terrainElevAt(lon: number, lat: number): number | null {
 
 const TERRAIN_ANCHOR = [{}];
 
+/** Number of DEM tiles currently held in the elevation cache (dev counter). */
+export function terrainCacheSize(): number { return TILE_CACHE.size; }
+
 /** Build the streaming terrain TileLayer (rebuilt whenever exaggeration changes). */
 export function makeTerrain() {
+  const dev = S.dev;
   return new TileLayer({
     // maxZoom = the ground-detail setting. Up to the DEM ceiling (15) each tile
     // is a normal DEM tile textured with its own Esri image; BEYOND 15 the tile
     // takes its DEM elevation from the coarser z15 ancestor while still fetching
     // full-resolution Esri imagery at its own zoom — so the photo keeps sharpening.
-    id: 'terrain', data: TERRAIN, minZoom: 0, maxZoom: S.groundZoom, tileSize: 256, maxCacheSize: DECK_CACHE,
+    id: 'terrain', data: TERRAIN, minZoom: 0, maxZoom: S.groundZoom, tileSize: 256,
+    maxCacheSize: dev.on ? dev.deckCache : DECK_CACHE,
     // In first-person/chase the tilted frustum sees a wide swathe to the horizon,
     // so many tiles are in flight at once. The default 6 concurrent requests drain
     // the queue too slowly (background stays blurry/holey); raise it. 'best-available'
     // keeps a coarse ancestor tile drawn while its children load, so gaps read as
     // blur that sharpens rather than sky showing through the ground.
-    maxRequests: 12, refinementStrategy: 'best-available',
+    maxRequests: dev.on ? dev.maxRequests : 12, refinementStrategy: 'best-available',
     // Elevation band (metres, scaled by the exaggeration like the mesh z) used to
     // build each tile's 3D bounding box for frustum culling. Without it deck
     // assumes tiles sit at sea level (z=0); in first-person/chase the camera flies
@@ -172,13 +200,31 @@ export function makeTerrain() {
       // Which fraction of the (possibly coarser) ancestor DEM this tile covers.
       const dz = Math.max(0, z - DEM_MAXZOOM), sf = 1 / (1 << dz);
       const su0 = (x - ((x >> dz) << dz)) * sf, sv0 = (y - ((y >> dz) << dz)) * sf;
-      return new SimpleMeshLayer({
-        id: String(props.id) + '-m', data: TERRAIN_ANCHOR, getPosition: () => [0, 0, 0],
-        _instanced: false, coordinateSystem: COORDINATE_SYSTEM.LNGLAT,
-        mesh: buildTerrainMesh(t, bb.west, bb.south, bb.east, bb.north, su0, sv0, sf) as any, texture: turl,
-        getColor: [255, 255, 255], pickable: false,
-        material: { ambient: 0.4, diffuse: 0.85, shininess: 6, specularColor: [30, 30, 30] },
-      } as any);
+      // Wireframe: draw the mesh grid as green see-through lines (no imagery).
+      // Otherwise a solid mesh — textured, or bare grey when noTexture is on.
+      const base = (dev.on && dev.wireframe)
+        ? new PathLayer({
+            id: String(props.id) + '-w', data: buildTerrainWire(t, bb.west, bb.south, bb.east, bb.north, su0, sv0, sf, dev.gridN),
+            getPath: (d: any) => d, getColor: [120, 220, 120], getWidth: 1, widthUnits: 'pixels', pickable: false,
+          } as any)
+        : new SimpleMeshLayer({
+            id: String(props.id) + '-m', data: TERRAIN_ANCHOR, getPosition: () => [0, 0, 0],
+            _instanced: false, coordinateSystem: COORDINATE_SYSTEM.LNGLAT,
+            mesh: buildTerrainMesh(t, bb.west, bb.south, bb.east, bb.north, su0, sv0, sf) as any,
+            texture: (dev.on && dev.noTexture) ? undefined : turl,
+            getColor: (dev.on && dev.noTexture) ? [150, 155, 160] : [255, 255, 255], pickable: false,
+            material: { ambient: 0.4, diffuse: 0.85, shininess: 6, specularColor: [30, 30, 30] },
+          } as any);
+      if (!dev.on || !dev.tileBounds) return base;
+      // Debug overlay: outline the tile and label its z/x/y (near the mid elevation).
+      const cLon = (bb.west + bb.east) / 2, cLat = (bb.south + bb.north) / 2;
+      const midE = (terrainElevAt(cLon, cLat) || 0) * S.exo;
+      const ring = [[bb.west, bb.south, midE], [bb.east, bb.south, midE], [bb.east, bb.north, midE], [bb.west, bb.north, midE], [bb.west, bb.south, midE]];
+      return [
+        base,
+        new PathLayer({ id: String(props.id) + '-b', data: [ring], getPath: (d: any) => d, getColor: [255, 230, 0], getWidth: 1.5, widthUnits: 'pixels', parameters: { depthTest: false } } as any),
+        new TextLayer({ id: String(props.id) + '-t', data: [{ p: [cLon, cLat, midE], s: `${z}/${x}/${y}` }], getPosition: (d: any) => d.p, getText: (d: any) => d.s, getSize: 12, getColor: [255, 230, 0], background: true, getBackgroundColor: [0, 0, 0, 160], parameters: { depthTest: false } } as any),
+      ];
     },
   } as any);
 }
