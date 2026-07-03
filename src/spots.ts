@@ -7,7 +7,7 @@
 import { S } from './state';
 import { t } from './i18n';
 import { icaoEl, loadBtn, discoverBtn } from './dom';
-import { gotoSpot } from './ui';
+import { gotoSpot, updateFbLink } from './ui';
 import spotsCsv from '../data/spots.csv' with { type: 'text' };
 import type { Lang } from './types';
 
@@ -52,11 +52,14 @@ function open(): void {
 }
 function close(): void { if (overlay) overlay.style.display = 'none'; discoverBtn.classList.remove('on'); }
 
-// On FlightBook → reuse the whole load flow (leaves live, loads flights, syncs
-// the URL/FlightBook link). Not on FlightBook → just fly the terrain there.
+// Always put the code in the airfield field so the whole app (today/yesterday,
+// FlightBook link, share URL…) refers to it. On FlightBook → run the normal load
+// flow (which reads the field). Not on FlightBook → just fly the terrain there.
 function pick(s: Spot): void {
   close();
-  if (s.checked) { icaoEl.value = s.code; loadBtn.click(); }
+  icaoEl.value = s.code;
+  updateFbLink();
+  if (s.checked) loadBtn.click();
   else gotoSpot(s.lat, s.lon);
 }
 
