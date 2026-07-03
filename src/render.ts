@@ -99,15 +99,19 @@ function rayShadow(lon: number, lat: number, alt: number, dir: number[], k: numb
 // apparent elevation angle (with the vertical exaggeration k, to match what's
 // rendered) against the body's. Uses only already-loaded tiles (far, unloaded
 // samples are skipped → a distant unknown ridge won't wrongly hide it).
+// MARGIN ≈ the disc's on-screen angular radius: the disc is all-or-nothing (an
+// HTML overlay can't be clipped), so only hide it when a ridge covers it well
+// past its centre — a body resting ON a ridge still peeks above it.
+const BODY_OCCLUDE_MARGIN = 0.05;                                   // rad (~3°)
 function bodyOccluded(toward: [number, number, number], eyeLon: number, eyeLat: number, eyeAlt: number, k: number): boolean {
   const horiz = Math.hypot(toward[0], toward[1]);
   if (horiz < 1e-3) return false;                                   // ~overhead → never occluded
-  const tanElev = toward[2] / horiz, dE = toward[0] / horiz, dN = toward[1] / horiz;
+  const tanElev = toward[2] / horiz + BODY_OCCLUDE_MARGIN, dE = toward[0] / horiz, dN = toward[1] / horiz;
   const mLng = 111320 * Math.cos(eyeLat * Math.PI / 180), mLat = 111320;
-  for (let s = 150; s <= 30000; s += Math.max(60, s * 0.06)) {      // fine near, coarser far
+  for (let s = 150; s <= 18000; s += Math.max(60, s * 0.06)) {      // nearby skyline ridges, fine near / coarser far
     const terr = terrainElevAt(eyeLon + s * dE / mLng, eyeLat + s * dN / mLat);
     if (terr == null) continue;
-    if ((terr - eyeAlt) * k > s * tanElev + 1) return true;         // ridge rises above the line of sight
+    if ((terr - eyeAlt) * k > s * tanElev + 1) return true;         // ridge clearly above the line of sight
   }
   return false;
 }
