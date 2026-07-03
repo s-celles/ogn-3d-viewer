@@ -16,7 +16,7 @@
 <div id="sun"></div>
 <div id="moon"></div>
 <div id="labels"></div>
-<div id="attribution" data-i18n-html="mapAttribution"></div>
+<div id="attribution"></div>
 
 <div id="panel" class="card">
   <div class="row spread hdr" style="margin-top:0">
@@ -128,6 +128,10 @@
     <div class="row" style="flex-direction:column;align-items:stretch">
       <label class="lbl"><span data-i18n="groundZoom">Résolution du sol :</span> <b id="groundval">z15</b></label>
       <input id="ground" type="range" min="13" max="18" value="15" step="1">
+    </div>
+    <div class="row spread">
+      <label class="lbl" style="margin:0" data-i18n="basemapLabel">Fond de carte</label>
+      <select id="basemap" style="width:auto;flex:0 0 auto"></select>
     </div>
     <div class="row" style="flex-direction:column;align-items:stretch">
       <label class="lbl"><span data-i18n="cacheScale">Taille du cache :</span> <b id="cacheszval">×1</b></label>

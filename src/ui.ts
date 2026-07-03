@@ -1,11 +1,11 @@
 // ============ UI controllers ============
 import { S, DEFAULT_SETTINGS } from './state';
 import { t, I18N } from './i18n';
-import { API_BASE, REPO_URL, MINZ, MAXZ, PMIN, PMAX, CHASE, clampv } from './config';
+import { API_BASE, REPO_URL, MINZ, MAXZ, PMIN, PMAX, CHASE, clampv, BASEMAPS } from './config';
 import { APP_VERSION, GIT_HASH } from './version';
 import {
   subjEl, viewsEl, cammodeEl, traceEl, trailFxEl, smoothBtn, compBtn, bankBtn, soundBtn, trafficModeEl, graphModeEl, graphClose, winEl, winval, playBtn, segEl,
-  exoEl, exval, groundEl, groundval, cacheEl, cacheval, acscaleEl, acscaleval, coneBtn, finesseEl, finval, safetyEl, safeval, coneRadEl, coneradval, labelsBtn, labelFieldsEl, shadowsEl, curtainBtn, attrBtn, pitchEl, pitchval, scrub, scrubMin, scrubMax, clkEl, lglist, rose, altsl, icaoEl, fblink, acEl,
+  exoEl, exval, groundEl, groundval, cacheEl, cacheval, acscaleEl, acscaleval, coneBtn, finesseEl, finval, safetyEl, safeval, coneRadEl, coneradval, labelsBtn, labelFieldsEl, shadowsEl, basemapEl, attribEl, curtainBtn, attrBtn, pitchEl, pitchval, scrub, scrubMin, scrubMax, clkEl, lglist, rose, altsl, icaoEl, fblink, acEl,
   dateEl, loadBtn, langEl, discEl, infoBtn, copyBtn, collapseBtn, liveBtn, igcBtn, igcInput, mapDiv, prevAc, nextAc, resetSettingsBtn, afInfo,
 } from './dom';
 import { codeFlag } from './flags';
@@ -211,6 +211,7 @@ export function syncControls(): void {
   traceEl.value = S.trace; trailFxEl.value = S.trailFx;
   trafficModeEl.value = S.trafficMode; graphModeEl.value = S.graphMode;
   shadowsEl.value = S.shadowMode; langEl.value = S.lang;
+  if (BASEMAPS[S.basemap]) basemapEl.value = S.basemap;
   exoEl.value = String(S.exo); exval.textContent = S.exo.toFixed(1) + '×';
   groundEl.value = String(S.groundZoom); groundval.textContent = 'z' + S.groundZoom;
   cacheEl.value = String(S.cacheScale); cacheval.textContent = '×' + S.cacheScale;
@@ -278,6 +279,22 @@ LABEL_FIELDS.forEach(([f, k]) => {
   .forEach(([v, k]) => { const o = document.createElement('option'); o.value = v; o.dataset.k = k; shadowsEl.appendChild(o); });
 shadowsEl.value = S.shadowMode;
 shadowsEl.addEventListener('change', e => { S.shadowMode = (e.target as HTMLSelectElement).value as ShadowMode; render(); });
+// ---- base map draped over the terrain (Esri / OpenTopoMap / OpenStreetMap) ----
+for (const [k, bm] of Object.entries(BASEMAPS)) { const o = document.createElement('option'); o.value = k; o.textContent = bm.label; basemapEl.appendChild(o); }
+if (!BASEMAPS[S.basemap]) S.basemap = 'esri';
+basemapEl.value = S.basemap;
+basemapEl.addEventListener('change', e => {
+  S.basemap = (e.target as HTMLSelectElement).value;
+  S.terrainInst = makeTerrain(); updateMapCredit(); render();
+});
+// Imagery credit (per base map) + shared terrain credit, kept in sync in BOTH
+// the on-map overlay and the ⓘ info panel (the latter isn't rebuilt on a
+// base-map switch, so update its copy directly).
+export function updateMapCredit(): void {
+  const html = `${(BASEMAPS[S.basemap] || BASEMAPS.esri).credit} · ${t('terrainCredit')}`;
+  attribEl.innerHTML = html;
+  const mc = discEl.querySelector('.mapcredit'); if (mc) mc.innerHTML = html;
+}
 curtainBtn.onclick = () => {
   S.altCurtain = !S.altCurtain;
   curtainBtn.textContent = S.altCurtain ? t('on') : t('off'); curtainBtn.classList.toggle('on', S.altCurtain); render();
@@ -480,6 +497,7 @@ export function applyI18n(): void {
   [...graphModeEl.options].forEach(o => o.textContent = t(o.dataset.k!));
   refreshGraphTabs();
   playBtn.textContent = S.playing ? t('pause') : t('play');
+  updateMapCredit();
   renderDisc();
   syncGuide();
   if (S.ready) buildLegend(); if (S.mode === 'fpv') updateHUD();
@@ -490,7 +508,7 @@ function renderDisc(): void {
     ? GIT_HASH
     : `<a href="${REPO_URL}/commit/${GIT_HASH}" target="_blank" rel="noopener" style="color:var(--accent)">${GIT_HASH}</a>`;
   discEl.innerHTML = '<b>' + t('disclaimerTitle') + '</b><ul>' + arr.map(x => '<li>' + x + '</li>').join('') + '</ul>' +
-    `<div class="mapcredit" style="margin-top:6px;color:var(--mut)">${t('mapAttribution')}</div>` +
+    `<div class="mapcredit" style="margin-top:6px;color:var(--mut)">${(BASEMAPS[S.basemap] || BASEMAPS.esri).credit} · ${t('terrainCredit')}</div>` +
     `<div style="margin-top:6px">${t('sourceCode')} : ` +
     `<a href="${REPO_URL}" target="_blank" rel="noopener" style="color:var(--accent)">github.com/s-celles/ogn-3d-viewer</a></div>` +
     `<div style="margin-top:4px;color:var(--mut)">${t('version')} ${APP_VERSION} · ${commit}</div>` +

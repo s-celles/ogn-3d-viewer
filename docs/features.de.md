@@ -13,6 +13,7 @@
 ## Die Szene
 
 - **3D-Gelände** mit Satellitenbildern und einstellbarer vertikaler Überhöhung.
+- **Grundkarte** — Wahl der über das Gelände gelegten Ebene: **Esri**-Satellit, **OpenTopoMap** oder **OpenStreetMap** (die Wahl wird gespeichert).
 - **Bodenauflösung** — einstellbarer Detailgrad der Satellitenbilder (z13 bis z18).
 - **Drei Ansichten** — Übersicht (von oben), Cockpit (Egoperspektive, der Horizont neigt sich in Kurven) und eine Verfolgerkamera.
 - **Cockpit-Kamera** — Kurs folgen oder freie Sicht.

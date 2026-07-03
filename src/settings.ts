@@ -15,7 +15,7 @@ export const SETTING_KEYS = [
   'trace', 'trailFx', 'modelScale', 'windowMin', 'spline', 'compensated', 'sound',
   'trafficMode', 'graphMode',
   'glideCone', 'glideRatio', 'safetyHeight', 'coneRadiusKm',
-  'labels', 'labelFields', 'shadowMode', 'altCurtain', 'showAttribution', 'lang',
+  'labels', 'labelFields', 'shadowMode', 'altCurtain', 'showAttribution', 'basemap', 'lang',
 ] as const;
 
 const clone = <T>(v: T): T => JSON.parse(JSON.stringify(v));

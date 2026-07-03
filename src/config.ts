@@ -11,7 +11,31 @@ export const PALETTE: RGB[] = [
 ];
 
 export const TERRAIN = 'https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png';
-export const TEXTURE = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
+
+// Base map draped over the 3D terrain. Each provider must serve CORS-enabled
+// tiles (we fetch + decode them into a WebGL texture). `imgMax` caps the request
+// zoom to the provider's deepest level (beyond it deck keeps a coarser parent).
+// `credit` is the imagery attribution HTML shown next to the terrain credit.
+export interface Basemap { url: string; label: string; imgMax: number; credit: string; }
+export const BASEMAPS: Record<string, Basemap> = {
+  esri: {
+    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    label: 'Esri (satellite)', imgMax: 19,
+    credit: "<a href='https://www.arcgis.com/home/item.html?id=10df2279f9684e4a9f6a7f08febac2a9' target='_blank' rel='noopener'>Esri World Imagery</a> (Esri, Maxar, Earthstar Geographics)",
+  },
+  opentopo: {
+    url: 'https://a.tile.opentopomap.org/{z}/{x}/{y}.png',
+    label: 'OpenTopoMap', imgMax: 17,
+    credit: "© <a href='https://opentopomap.org/' target='_blank' rel='noopener'>OpenTopoMap</a> (CC-BY-SA) · © <a href='https://www.openstreetmap.org/copyright' target='_blank' rel='noopener'>OpenStreetMap</a> contributors",
+  },
+  osm: {
+    url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+    label: 'OpenStreetMap', imgMax: 19,
+    credit: "© <a href='https://www.openstreetmap.org/copyright' target='_blank' rel='noopener'>OpenStreetMap</a> contributors",
+  },
+};
+export const DEFAULT_BASEMAP = 'esri';
+export const TEXTURE = BASEMAPS.esri.url;   // Esri stays the source for the Discover-spots preview map
 
 export const TERRAIN_N = 96; // grid resolution per tile
 

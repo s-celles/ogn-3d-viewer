@@ -13,6 +13,7 @@
 ## The scene
 
 - **3D terrain** with satellite imagery and adjustable vertical exaggeration.
+- **Base map** — choose the layer draped over the terrain: **Esri** satellite, **OpenTopoMap** or **OpenStreetMap** (the choice is saved).
 - **Ground resolution** — adjustable satellite-imagery detail level (z13 to z18).
 - **Three views** — top-down overview, cockpit (first-person, the horizon banks in turns) and a chase camera following the glider.
 - **Cockpit camera** — lock-to-heading or free look.

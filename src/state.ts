@@ -3,7 +3,7 @@
 // module reads/writes the same live values (ES module imports are read-only
 // bindings, so plain `let` exports could not be reassigned across files).
 import type { AppState, Lang } from './types';
-import { MODEL_SCALE, GROUND_ZOOM_DEFAULT, TERRAIN_N, FAR_PLANE, DECK_CACHE, OVERVIEW_MINZOOM } from './config';
+import { MODEL_SCALE, GROUND_ZOOM_DEFAULT, TERRAIN_N, FAR_PLANE, DECK_CACHE, OVERVIEW_MINZOOM, DEFAULT_BASEMAP } from './config';
 import { pickSettings, applyStored } from './settings';
 
 const INIT = { longitude: 2.4, latitude: 46.6, zoom: 6, pitch: 0, bearing: 0, minZoom: OVERVIEW_MINZOOM, maxPitch: 85 };
@@ -17,7 +17,7 @@ export const S: AppState = {
   trace: 'window', trailFx: 'basic', modelScale: { ...MODEL_SCALE }, windowMin: 10, spline: true, compensated: true, sound: true, trafficMode: 'directional', graphMode: 'off',
   glideCone: false, glideRatio: 10, safetyHeight: 0, coneRadiusKm: 25,
   labels: false, labelFields: { reg: true, alt: true, speed: false, vario: false, hdg: false },
-  shadowMode: 'off', altCurtain: false, showAttribution: true,
+  shadowMode: 'off', altCurtain: false, showAttribution: true, basemap: DEFAULT_BASEMAP,
   live: false, liveTimer: null,
   INIT: { ...INIT },
   mapVS: { ...INIT },

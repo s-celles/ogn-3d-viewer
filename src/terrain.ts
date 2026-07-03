@@ -5,7 +5,7 @@
 // with UPNG (a pure-JS PNG decoder) on the main thread.
 import UPNG from 'upng-js';
 import { S } from './state';
-import { TERRAIN, TEXTURE, TERRAIN_N, DECK_CACHE, ELEV_CACHE, DEM_MAXZOOM, ramCacheFactor } from './config';
+import { TERRAIN, BASEMAPS, TERRAIN_N, DECK_CACHE, ELEV_CACHE, DEM_MAXZOOM, ramCacheFactor } from './config';
 import { TileLayer, SimpleMeshLayer, PathLayer, TextLayer, COORDINATE_SYSTEM } from './deck';
 import type { DecodedTile } from './types';
 
@@ -182,9 +182,14 @@ const TERRAIN_ANCHOR = [{}];
 export function terrainCacheSize(): number { return TILE_CACHE.size; }
 
 /** Build the streaming terrain TileLayer (rebuilt whenever exaggeration changes). */
+const basemap = () => BASEMAPS[S.basemap] || BASEMAPS.esri;
+const texUrl = (z: number | string, x: number | string, y: number | string): string =>
+  basemap().url.replace('{z}', String(z)).replace('{x}', String(x)).replace('{y}', String(y));
+
 export function makeTerrain() {
   const dev = S.dev;
   const deckCache = dev.on ? dev.deckCache : Math.round(DECK_CACHE * ramCacheFactor(S.cacheScale));
+  const gm = Math.min(S.groundZoom, basemap().imgMax);   // don't request imagery deeper than the provider serves
   // Two stacked layers so cold starts never show white/holes: a COARSE BASE
   // (few, lightest tiles, its own request queue → loads first and always covers
   // the whole view, textured) UNDER the full-detail layer. The base uses a coarse
@@ -192,9 +197,13 @@ export function makeTerrain() {
   // the fine DEM — so it must be sunk generously (metres, exaggeration-independent)
   // or it pokes through detail as flat low-res patches. It only needs to peek
   // through gaps the detail hasn't filled yet, so a deep sink is harmless.
+  // Suffix the layer ids with the base map: switching it changes the ids, so
+  // deck drops the old cached (Esri-textured) tiles and refetches from the new
+  // provider — a full refresh, not just newly-panned tiles.
+  const bm = S.basemap;
   return [
-    tileLayer(dev, 'terrain-base', Math.min(9, S.groundZoom), 12, 96, 140),
-    tileLayer(dev, 'terrain', S.groundZoom, deckCache, dev.on ? dev.maxRequests : 12, 0),
+    tileLayer(dev, `terrain-base-${bm}`, Math.min(9, gm), 12, 96, 140),
+    tileLayer(dev, `terrain-${bm}`, gm, deckCache, dev.on ? dev.maxRequests : 12, 0),
   ];
 }
 
@@ -226,7 +235,7 @@ function tileLayer(dev: typeof S.dev, id: string, maxZoom: number, maxCacheSize:
       // it never appears as an untextured white patch (deck keeps the textured
       // parent tile meanwhile).
       const dz = Math.max(0, z - DEM_MAXZOOM);
-      const turl = TEXTURE.replace('{z}', z).replace('{x}', x).replace('{y}', y);
+      const turl = texUrl(z, x, y);
       const [dem, image] = await Promise.all([
         fetchDEM(z - dz, x >> dz, y >> dz, tile.signal),
         fetchImage(turl, tile.signal),
@@ -236,7 +245,7 @@ function tileLayer(dev: typeof S.dev, id: string, maxZoom: number, maxCacheSize:
     renderSubLayers: (props: any) => {
       const t = props.data as DecodedTile | null; if (!t) return null;
       const { x, y, z } = props.tile.index, bb = tileBBox(x, y, z);
-      const turl = TEXTURE.replace('{z}', z).replace('{x}', x).replace('{y}', y);
+      const turl = texUrl(z, x, y);
       // Which fraction of the (possibly coarser) ancestor DEM this tile covers.
       const dz = Math.max(0, z - DEM_MAXZOOM), sf = 1 / (1 << dz);
       const su0 = (x - ((x >> dz) << dz)) * sf, sv0 = (y - ((y >> dz) << dz)) * sf;

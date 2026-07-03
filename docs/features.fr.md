@@ -13,6 +13,7 @@ Rejeu 3D des vols de planeurs de l'[Open Glider Network](http://wiki.glidernet.o
 ## La scène
 
 - **Relief 3D** avec imagerie satellite et exagération verticale réglable.
+- **Fond de carte** — choix de la couche drapée sur le relief : satellite **Esri**, **OpenTopoMap** ou **OpenStreetMap** (le choix est enregistré).
 - **Résolution du sol** — niveau de détail de l'imagerie satellite réglable (z13 à z18).
 - **Trois vues** — vue d'ensemble (dessus), vue cockpit (subjective, l'horizon s'incline dans les virages) et caméra poursuite qui suit le planeur.
 - **Caméra cockpit** — suivi du cap ou regard libre.

@@ -189,6 +189,8 @@ export interface AppState {
   // Show the cartographic attribution overlay (imagery/terrain credit) on the
   // map. Default on; kept visible in the info panel regardless.
   showAttribution: boolean;
+  // Key into BASEMAPS: which base map is draped over the terrain.
+  basemap: string;
   windowMin: number;
   spline: boolean;
   compensated: boolean;
