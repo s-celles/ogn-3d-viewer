@@ -1,0 +1,50 @@
+code,name,country,continent,lat,lon,flightbook_checked,blurb
+LFMX,Saint-Auban,FR,Europe,44.06,5.99,2026-07-03,France's national gliding centre — Southern Alps wave and thermals.
+LFNA,Gap-Tallard,FR,Europe,44.45,6.04,2026-07-03,Busy Alpine gliding and skydiving field in the Hautes-Alpes.
+LFNF,Vinon-sur-Verdon,FR,Europe,43.74,5.78,2026-07-03,Provençal soaring by the Verdon, thermals and nearby ridges.
+LFMF,Fayence-Tourrettes,FR,Europe,43.61,6.70,2026-07-03,One of Europe's largest gliding aerodromes above the Riviera.
+LOWZ,Zell am See,AT,Europe,47.29,12.79,2026-07-03,Mountain soaring in the heart of the Austrian Alps.
+LOGO,Niederöblarn,AT,Europe,47.48,14.01,2026-07-03,Alpine gliding centre in Styria.
+LJBL,Lesce-Bled,SI,Europe,46.36,14.17,2026-07-03,Gliding field at the foot of the Julian Alps.
+EPLS,Leszno,PL,Europe,51.83,16.52,2026-07-03,Poland's gliding capital and a championship host.
+LIQN,Rieti,IT,Europe,42.43,12.85,2026-07-03,Historic venue of Italian soaring competitions.
+LECI,Santa Cilia,ES,Europe,42.57,-0.75,2026-07-03,Pyrenean wave and thermals on the Spanish side.
+EGHL,Lasham,GB,Europe,51.19,-1.03,2026-07-03,One of the world's largest gliding clubs, in southern England.
+LEFM,Fuentemilanos,ES,Europe,40.90,-4.23,2026-07-03,Renowned Spanish soaring near Segovia — thermals and wave.
+LILC,Varese-Venegono,IT,Europe,45.74,8.89,2026-07-03,Gliding at the southern edge of the Alps in Lombardy.
+LSZX,Schänis,CH,Europe,47.17,9.03,2026-07-03,Swiss Alpine soaring by the Walensee.
+LKZB,Zbraslavice,CZ,Europe,49.78,15.20,2026-07-03,Long-standing Czech gliding centre in Bohemia.
+LZZI,Žilina,SK,Europe,49.23,18.61,2026-07-03,Gliding under the mountains of northern Slovakia.
+LJCL,Celje,SI,Europe,46.24,15.23,2026-07-03,Slovenian soaring between the Alps and the Pannonian plain.
+EPZR,Żar,PL,Europe,49.79,19.21,2026-07-03,Hilltop winch launches into the Polish Beskids.
+EYPR,Pociūnai,LT,Europe,54.85,23.98,2026-07-03,Lithuania's main gliding centre by the Nemunas.
+KMEV,Minden-Tahoe,US,North America,39.00,-119.75,2026-07-03,Sierra Nevada wave — a classic for altitude records.
+KTRK,Truckee-Tahoe,US,North America,39.32,-120.14,2026-07-03,High Sierra soaring near Lake Tahoe.
+0E0,Moriarty,US,North America,34.98,-106.05,2026-07-03,New Mexico thermals and big cross-country flights.
+U14,Nephi,US,North America,39.74,-111.87,2026-07-03,Utah valley and mountain soaring.
+1L9,Parowan,US,North America,37.86,-112.82,,Popular Utah soaring-week venue.
+FABL,Bloemfontein,ZA,Africa,-29.09,26.30,,South African highveld plains and long distances.
+NZOM,Omarama,NZ,Oceania,-44.49,169.98,,World mecca of wave soaring in New Zealand's Southern Alps.
+YTOC,Tocumwal,AU,Oceania,-35.81,145.61,2026-07-03,Australian plains — distance and speed flying.
+YNAR,Narromine,AU,Oceania,-32.22,148.22,,Record-setting site in New South Wales.
+YBLA,Benalla,AU,Oceania,-36.55,145.99,2026-07-03,Victorian gliding and world-championship host.
+SAZY,Chapelco,AR,South America,-40.08,-71.14,,Patagonian wave — long-distance record country.
+SAWC,El Calafate,AR,South America,-50.28,-72.05,,Launch site of the stratospheric Perlan project.
+KBIH,Bishop,US,North America,37.37,-118.36,,Sierra and White Mountains wave in California.
+KHOB,Hobbs,US,North America,32.69,-103.22,,New Mexico flatland — distance records and US Nationals.
+KUVA,Uvalde,US,North America,29.21,-99.74,2026-07-03,Texas plains — World Championships and speed records.
+LFEK,Issoudun,FR,Europe,46.86,2.03,2026-07-03,Major French gliding centre and national contests.
+LFNS,Sisteron,FR,Europe,44.29,5.93,2026-07-03,Mountain soaring in the Southern French Alps.
+LEOC,Ocaña,ES,Europe,39.94,-3.50,2026-07-03,Central-Spain thermals and national contests.
+EDPA,Aalen-Elchingen,DE,Europe,48.78,10.26,2026-07-03,Hilltop soaring on the Swabian Alb.
+EDCI,Klix,DE,Europe,51.34,14.53,2026-07-03,Flatland gliding and contests in Saxony.
+LZPE,Prievidza,SK,Europe,48.77,18.59,2026-07-03,Slovak gliding centre in the Upper Nitra valley.
+EPJG,Jelenia Góra,PL,Europe,50.90,15.79,,Karkonosze wave and mountain soaring.
+LHUD,Szeged,HU,Europe,46.25,20.09,2026-07-03,Hungarian plains gliding on the Tisza.
+EHTL,Terlet,NL,Europe,52.06,5.92,2026-07-03,The Netherlands' national gliding centre.
+EKAB,Arnborg,DK,Europe,55.98,8.98,2026-07-03,Denmark's central gliding site on the Jutland heath.
+YWKI,Waikerie,AU,Oceania,-34.19,139.99,2026-07-03,Riverland Australia — a World Championships venue.
+YGAW,Gawler,AU,Oceania,-34.60,138.74,2026-07-03,Adelaide Soaring Club, South Australia.
+YKRY,Kingaroy,AU,Oceania,-26.58,151.84,2026-07-03,Queensland contests and cross-country flying.
+NZMA,Matamata,NZ,Oceania,-37.74,175.75,2026-07-03,North Island soaring below the Kaimai Range.
+FAWC,Worcester,ZA,Africa,-33.65,19.45,2026-07-03,Western Cape soaring in the Breede valley.

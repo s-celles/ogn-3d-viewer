@@ -83,4 +83,5 @@ export const copyBtn    = $<HTMLButtonElement>('copyBtn');
 export const collapseBtn= $<HTMLButtonElement>('collapseBtn');
 export const liveBtn    = $<HTMLButtonElement>('liveBtn');
 export const igcBtn     = $<HTMLButtonElement>('igcBtn');
+export const discoverBtn = $<HTMLButtonElement>('discoverBtn');
 export const igcInput   = $<HTMLInputElement>('igcInput');

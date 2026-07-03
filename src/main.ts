@@ -7,6 +7,7 @@ import { loadFlights } from './data';
 import { initGraphs } from './graphs';
 import { initAnalytics } from './analytics';
 import { initDev, devFrame } from './dev';
+import './spots';   // registers the "Discover spots" button + overlay
 import { postCacheCap } from './sw-cache';
 
 const todayStr = new Date().toISOString().slice(0, 10);

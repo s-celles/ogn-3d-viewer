@@ -52,6 +52,14 @@ export function setMode(m: Mode): void {
   syncAcScale();   // reflect this view's aircraft-size setting
   render(); syncUI();
 }
+// Fly the overview camera to a lat/lon. Used by "Discover" for sites that aren't
+// on the FlightBook: no traffic to load, but you still get the site's 3D terrain.
+export function gotoSpot(lat: number, lon: number): void {
+  setMode('over');
+  const vs = { longitude: lon, latitude: lat, zoom: 11, pitch: 55, bearing: 0, maxPitch: 85 };
+  S.mapVS = { ...vs }; S.mapTarget = { ...vs };
+  render();
+}
 export function applyFollowClass(): void {
   document.body.classList.toggle('follow', S.fpvFollow);
   document.body.classList.toggle('free', !S.fpvFollow);
