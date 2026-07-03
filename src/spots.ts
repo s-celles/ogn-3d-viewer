@@ -210,15 +210,14 @@ function renderHot(): void {
     d.onmouseenter = () => highlightHot(i, true); d.onmouseleave = () => highlightHot(i, false);
     d.onclick = () => pickZone(z);
     const info = zoneInfo(z);
-    const title = info.name || info.code || '—';
-    const sub = [info.name ? info.code : '', info.country].filter(Boolean).join(' · ');
     d.innerHTML = `<b style="color:#ff5a3c;min-width:28px;text-align:right" title="${z.count} ${t('discoverGliders')}">${z.count}</b>`
       + `<span style="font-size:16px">${info.flag || '📍'}</span>`
-      + `<div style="flex:1;min-width:0"><b>${title}</b>${sub ? ` <span style="color:var(--mut)">· ${sub}</span>` : ''}</div>`;
+      + `<div data-nm style="flex:1;min-width:0">${hotRowText(info)}</div>`;
     hotItems.set(i, d); listEl!.appendChild(d);
   });
   tickHot();                                   // wire the refresh button now
   if (!hotTimer) hotTimer = setInterval(tickHot, 5000) as unknown as number;   // keep the age label live
+  void enrichHotNames();                        // resolve airfield names in the background
 }
 interface ZoneInfo { code: string; name: string; country: string; flag: string; }
 function nearestSpot(lat: number, lon: number): Spot | null {   // a known spot sharing this grid cell, if any
@@ -230,11 +229,40 @@ function nearestSpot(lat: number, lon: number): Spot | null {   // a known spot 
   }
   return best;
 }
+const nameCache = new Map<string, string>();   // ICAO code → airfield name ('' = resolved, unknown)
+async function resolveName(code: string): Promise<string> {   // ask the OGN FlightBook for an airfield name
+  if (nameCache.has(code)) return nameCache.get(code)!;
+  try {
+    const list = await fetch(`${API_BASE}/api/autocomp/${encodeURIComponent(code)}`).then(r => r.json()) as Array<{ code: string; name?: string }>;
+    const name = list.find(a => a.code?.toUpperCase() === code)?.name || '';
+    nameCache.set(code, name); return name;
+  } catch { nameCache.set(code, ''); return ''; }
+}
 function zoneInfo(z: HotZone): ZoneInfo {   // resolve a name / country / flag for a hot zone
   const sp = nearestSpot(z.lat, z.lon);
   if (sp) return { code: sp.code, name: sp.name, country: sp.country, flag: isoFlag(sp.country) || codeFlag(sp.code) };
   const icao = /^[A-Z]{4}$/.test(z.label);
-  return { code: z.label, name: '', country: icao ? codeCountry(z.label) : '', flag: icao ? codeFlag(z.label) : '' };
+  return { code: z.label, name: icao ? (nameCache.get(z.label) || '') : '', country: icao ? codeCountry(z.label) : '', flag: icao ? codeFlag(z.label) : '' };
+}
+function hotRowText(info: ZoneInfo): string {
+  const title = info.name || info.code || '—';
+  const sub = [info.name ? info.code : '', info.country].filter(Boolean).join(' · ');
+  return `<b>${title}</b>${sub ? ` <span style="color:var(--mut)">· ${sub}</span>` : ''}`;
+}
+function patchHotRow(i: number): void {   // refresh a row + marker once its name has been resolved
+  const z = hotZones[i]; if (!z) return;
+  const info = zoneInfo(z);
+  const nm = hotItems.get(i)?.querySelector('[data-nm]') as HTMLElement | null;
+  if (nm) nm.innerHTML = hotRowText(info);
+  const dot = hotDots.get(i); if (dot) dot.title = `${info.flag} ${info.name || info.code} · ${z.count}`;
+}
+async function enrichHotNames(): Promise<void> {   // fill in airfield names for ICAO receivers, progressively
+  for (const [i, z] of hotZones.entries()) {
+    if (nearestSpot(z.lat, z.lon) || !/^[A-Z]{4}$/.test(z.label) || nameCache.has(z.label)) continue;
+    const name = await resolveName(z.label);
+    if (active !== 'hot') return;                  // user left the tab
+    if (name) patchHotRow(i);
+  }
 }
 function pickZone(z: HotZone): void {
   close();
