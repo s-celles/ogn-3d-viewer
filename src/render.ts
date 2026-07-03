@@ -94,6 +94,24 @@ function rayShadow(lon: number, lat: number, alt: number, dir: number[], k: numb
   return null;
 }
 
+// Is a celestial body (direction `toward` = ENU unit vector) hidden behind the
+// terrain as seen from the eye? March along its azimuth and compare each ridge's
+// apparent elevation angle (with the vertical exaggeration k, to match what's
+// rendered) against the body's. Uses only already-loaded tiles (far, unloaded
+// samples are skipped → a distant unknown ridge won't wrongly hide it).
+function bodyOccluded(toward: [number, number, number], eyeLon: number, eyeLat: number, eyeAlt: number, k: number): boolean {
+  const horiz = Math.hypot(toward[0], toward[1]);
+  if (horiz < 1e-3) return false;                                   // ~overhead → never occluded
+  const tanElev = toward[2] / horiz, dE = toward[0] / horiz, dN = toward[1] / horiz;
+  const mLng = 111320 * Math.cos(eyeLat * Math.PI / 180), mLat = 111320;
+  for (let s = 150; s <= 30000; s += Math.max(60, s * 0.06)) {      // fine near, coarser far
+    const terr = terrainElevAt(eyeLon + s * dE / mLng, eyeLat + s * dN / mLat);
+    if (terr == null) continue;
+    if ((terr - eyeAlt) * k > s * tanElev + 1) return true;         // ridge rises above the line of sight
+  }
+  return false;
+}
+
 // Ground point where a point at [lon, lat, alt] casts its shadow: straight down
 // (nadir), or — when useSun — ray-marched along the sun direction onto the
 // terrain (with a flat-ground single-step fallback). Returns [lon,lat,z*k]|null.
@@ -549,6 +567,15 @@ function updateCelestial(): void {
       : new MapView({ id: 'main' }).makeViewport({ width, height, viewState: S.mapVS as any });
   } catch (e) { hideSun(); hideMoon(); return; }
   if (!vp || !vp.viewProjectionMatrix) { hideSun(); hideMoon(); return; }
+  // Eye-level views: hide a body sitting behind a terrain ridge (the disc is an
+  // HTML overlay, so it can't be depth-occluded by the 3D terrain — test it).
+  let eye: { lon: number; lat: number; alt: number } | null = null;
+  if (S.mode === 'fpv' || S.mode === 'chase') {
+    const tr = subjectTrack();
+    if (tr) { const ep = posAt(tr, clampCur(tr)); eye = { lon: ep[0], lat: ep[1], alt: groundClamp(ep) }; }
+  }
+  const occluded = (toward: [number, number, number]): boolean =>
+    !!eye && bodyOccluded(toward, eye.lon, eye.lat, eye.alt, S.exo);
   const u = (vp.distanceScales && vp.distanceScales.unitsPerMeter) || [1, 1, 1];
   const m = vp.viewProjectionMatrix;                                       // column-major
   // Project a direction at infinity (w = 0) to screen px; null if behind/off-screen.
@@ -561,7 +588,7 @@ function updateCelestial(): void {
     return [((nx * 0.5 + 0.5) * vp.width).toFixed(0), ((0.5 - ny * 0.5) * vp.height).toFixed(0)];
   };
   if (sun.up) {
-    const p = project(sun.toward);
+    const p = occluded(sun.toward) ? null : project(sun.toward);
     if (!p) hideSun();
     else {
       const c = sun.disc.join(',');
@@ -571,7 +598,7 @@ function updateCelestial(): void {
     }
   }
   if (moon.up && moon.fraction > 0.04) {                                   // hide a ~new (invisible) moon
-    const p = project(moon.toward);
+    const p = occluded(moon.toward) ? null : project(moon.toward);
     if (!p) hideMoon();
     else {
       const key = Math.round(moon.fraction * 100) + (moon.waxing ? 'w' : 'n') + moon.disc.join(',');
