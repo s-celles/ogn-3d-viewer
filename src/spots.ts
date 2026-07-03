@@ -295,25 +295,36 @@ function nearestSpot(lat: number, lon: number): Spot | null {   // a known spot 
   return best;
 }
 interface AfHit { name: string; code: string; }
-const nameCache = new Map<string, AfHit>();   // receiver code → resolved airfield (name + canonical code)
-async function resolveName(code: string): Promise<AfHit> {   // ask the OGN FlightBook for the airfield
-  if (nameCache.has(code)) return nameCache.get(code)!;
-  let hit: AfHit = { name: '', code };
+const nameCache = new Map<string, AfHit>();   // receiver label → resolved airfield (name + canonical code)
+// An OGN receiver is usually an ICAO code, sometimes with a trailing index
+// (LFNA, LKDK, edka4, EDFA2). Derive the 4-letter ICAO to look the airfield up.
+function icaoOf(label: string): string {
+  const m = (label || '').toUpperCase().match(/^([A-Z]{4})[0-9]*$/);
+  return m ? m[1] : '';
+}
+async function fbAirfield(q: string): Promise<AfHit | null> {   // best FlightBook match for a code
   try {
-    const list = await fetch(`${API_BASE}/api/autocomp/${encodeURIComponent(code)}`).then(r => r.json()) as Array<{ code: string; name?: string }>;
-    // the receiver name (e.g. LKDK) is often a prefix of the real airfield code (LKDKH) — accept the best match
-    const m = list.find(a => a.code?.toUpperCase() === code) || list.find(a => (a.code || '').toUpperCase().startsWith(code));
-    if (m) hit = { name: m.name || '', code: (m.code || code).toUpperCase() };
-  } catch { /* keep the raw code */ }
-  nameCache.set(code, hit); return hit;
+    const list = await fetch(`${API_BASE}/api/autocomp/${encodeURIComponent(q)}`).then(r => r.json()) as Array<{ code: string; name?: string }>;
+    const m = list.find(a => a.code?.toUpperCase() === q) || list.find(a => (a.code || '').toUpperCase().startsWith(q));
+    return m ? { name: m.name || '', code: (m.code || q).toUpperCase() } : null;
+  } catch { return null; }
+}
+async function resolveName(label: string): Promise<AfHit> {   // resolve a receiver label to its airfield
+  if (nameCache.has(label)) return nameCache.get(label)!;
+  const cand = icaoOf(label), up = label.toUpperCase();
+  const tries = cand && cand !== up ? [up, cand] : [up];   // try the raw label, then the derived ICAO (edka4 → EDKA)
+  let hit: AfHit = { name: '', code: cand || label };
+  for (const q of tries) { const m = await fbAirfield(q); if (m) { hit = m; break; } }
+  nameCache.set(label, hit); return hit;
 }
 function zoneInfo(z: HotZone): ZoneInfo {   // resolve a name / country / flag for a hot zone
   const sp = nearestSpot(z.lat, z.lon);
   if (sp) return { code: sp.code, name: sp.name, country: sp.country, flag: isoFlag(sp.country) || codeFlag(sp.code) };
-  const icao = /^[A-Z]{4}$/.test(z.label);
-  const hit = icao ? nameCache.get(z.label) : undefined;
+  const cand = icaoOf(z.label);
+  const hit = cand ? nameCache.get(z.label) : undefined;
   const code = hit?.code || z.label;                 // canonical airfield code once resolved (LKDK → LKDKH)
-  return { code, name: hit?.name || '', country: icao ? codeCountry(code) : '', flag: icao ? codeFlag(code) : '' };
+  const iso = hit?.code || cand;                     // for flag/country: resolved code, else the derived ICAO
+  return { code, name: hit?.name || '', country: iso ? codeCountry(iso) : '', flag: iso ? codeFlag(iso) : '' };
 }
 function hotRowText(info: ZoneInfo): string {
   const title = info.name || info.code || '—';
@@ -329,7 +340,7 @@ function patchHotRow(i: number): void {   // refresh a row + marker once its nam
 }
 async function enrichHotNames(): Promise<void> {   // fill in airfield names for ICAO receivers, progressively
   for (const [i, z] of hotZones.entries()) {
-    if (nearestSpot(z.lat, z.lon) || !/^[A-Z]{4}$/.test(z.label) || nameCache.has(z.label)) continue;
+    if (nearestSpot(z.lat, z.lon) || !icaoOf(z.label) || nameCache.has(z.label)) continue;
     const hit = await resolveName(z.label);
     if (active !== 'hot') return;                  // user left the tab
     if (hit.name || hit.code !== z.label) patchHotRow(i);
@@ -341,10 +352,11 @@ function pickZone(z: HotZone): void {
   const sp = nearestSpot(z.lat, z.lon);
   if (sp) { pick(sp); return; }                             // known spot → reuse its full loading path (name propagates)
   const info = zoneInfo(z);
-  if (/^[A-Z]{4,}$/.test(info.code)) {                      // an airfield code (possibly resolved, e.g. LKDK → LKDKH) → load its day
-    icaoEl.value = info.code; updateFbLink(); loadBtn.click();
-    setPlace(info.name || info.country || info.code, info.flag);   // immediate feedback; FlightBook overrides with the real name if found
-  } else { gotoSpot(z.lat, z.lon); setPlace(info.name || info.code || t('discoverHot'), info.flag); }
+  const loadCode = info.name ? info.code : icaoOf(z.label);   // resolved airfield, or the derived ICAO (edka4 → EDKA)
+  if (loadCode) {                                             // load that airfield's day → replaces any previous flight (coherent)
+    icaoEl.value = loadCode; updateFbLink(); loadBtn.click();
+    if (info.name) setPlace(info.name, info.flag);            // known name up front; otherwise let the FlightBook name show
+  } else { gotoSpot(z.lat, z.lon); setPlace(info.name || z.label || t('discoverHot'), info.flag); }
 }
 
 function open(): void {
