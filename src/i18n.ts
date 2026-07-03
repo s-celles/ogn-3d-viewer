@@ -49,7 +49,7 @@ export const I18N: Record<Lang, Strings> = {
     tiltTop: 'Redresser (vue du dessus)', tiltGround: 'Incliner (vue rasante)',
     zoomOut: 'Reculer (dézoomer)', zoomIn: 'Avancer (zoomer)',
     hdg: 'Cap', alt: 'Altitude', vario: 'Vario', landed: 'posé', beforeTk: 'décollage à venir', min: 'min',
-    info: 'Limites / à propos', disclaimerTitle: "Limites d'affichage", sourceCode: 'Code source', version: 'Version', flightbook: 'Carnet FlightBook', copyLink: "Copier le lien (instant + aéronef)", resetSettings: 'Réinitialiser les réglages',
+    info: 'Limites / à propos', disclaimerTitle: "Limites d'affichage", sourceCode: 'Code source', version: 'Version', flightbook: 'Carnet FlightBook', copyLink: "Copier le lien (instant + aéronef)", resetSettings: 'Réinitialiser les réglages', cacheLabel: 'Cache carte', cacheTiles: 'tuiles', cacheUnit: 'Mo',
     guide: 'Guide / aide', guideClose: 'Fermer le guide',
     mapAttribution: "Imagerie satellite : <a href='https://www.arcgis.com/home/item.html?id=10df2279f9684e4a9f6a7f08febac2a9' target='_blank' rel='noopener'>Esri World Imagery</a> (Esri, Maxar, Earthstar Geographics) · Relief : <a href='https://registry.opendata.aws/terrain-tiles/' target='_blank' rel='noopener'>tuiles d'élévation AWS Terrain</a> (Mapzen · SRTM/NASA, USGS et al.)",
     disc: [
@@ -104,7 +104,7 @@ export const I18N: Record<Lang, Strings> = {
     tiltTop: 'Level out (top-down)', tiltGround: 'Tilt (oblique)',
     zoomOut: 'Zoom out', zoomIn: 'Zoom in',
     hdg: 'Heading', alt: 'Altitude', vario: 'Vario', landed: 'landed', beforeTk: 'before takeoff', min: 'min',
-    info: 'Limitations / about', disclaimerTitle: 'Display limitations', sourceCode: 'Source code', version: 'Version', flightbook: 'OGN FlightBook', copyLink: 'Copy link (moment + aircraft)', resetSettings: 'Reset settings to defaults',
+    info: 'Limitations / about', disclaimerTitle: 'Display limitations', sourceCode: 'Source code', version: 'Version', flightbook: 'OGN FlightBook', copyLink: 'Copy link (moment + aircraft)', resetSettings: 'Reset settings to defaults', cacheLabel: 'Map cache', cacheTiles: 'tiles', cacheUnit: 'MB',
     guide: 'Guide / help', guideClose: 'Close guide',
     mapAttribution: "Satellite imagery: <a href='https://www.arcgis.com/home/item.html?id=10df2279f9684e4a9f6a7f08febac2a9' target='_blank' rel='noopener'>Esri World Imagery</a> (Esri, Maxar, Earthstar Geographics) · Terrain: <a href='https://registry.opendata.aws/terrain-tiles/' target='_blank' rel='noopener'>AWS Terrain Tiles</a> (Mapzen · SRTM/NASA, USGS et al.)",
     disc: [
@@ -159,7 +159,7 @@ export const I18N: Record<Lang, Strings> = {
     tiltTop: 'Aufrichten (Draufsicht)', tiltGround: 'Neigen (flache Sicht)',
     zoomOut: 'Herauszoomen', zoomIn: 'Hineinzoomen',
     hdg: 'Kurs', alt: 'Höhe', vario: 'Vario', landed: 'gelandet', beforeTk: 'vor dem Start', min: 'Min.',
-    info: 'Grenzen / Über', disclaimerTitle: 'Anzeigegrenzen', sourceCode: 'Quellcode', version: 'Version', flightbook: 'OGN FlightBook', copyLink: 'Link kopieren (Moment + Luftfahrzeug)', resetSettings: 'Einstellungen zurücksetzen',
+    info: 'Grenzen / Über', disclaimerTitle: 'Anzeigegrenzen', sourceCode: 'Quellcode', version: 'Version', flightbook: 'OGN FlightBook', copyLink: 'Link kopieren (Moment + Luftfahrzeug)', resetSettings: 'Einstellungen zurücksetzen', cacheLabel: 'Kartencache', cacheTiles: 'Kacheln', cacheUnit: 'MB',
     guide: 'Anleitung / Hilfe', guideClose: 'Anleitung schließen',
     mapAttribution: "Satellitenbilder: <a href='https://www.arcgis.com/home/item.html?id=10df2279f9684e4a9f6a7f08febac2a9' target='_blank' rel='noopener'>Esri World Imagery</a> (Esri, Maxar, Earthstar Geographics) · Gelände: <a href='https://registry.opendata.aws/terrain-tiles/' target='_blank' rel='noopener'>AWS Terrain Tiles</a> (Mapzen · SRTM/NASA, USGS u. a.)",
     disc: [
@@ -214,7 +214,7 @@ export const I18N: Record<Lang, Strings> = {
     tiltTop: 'Enderezar (vista cenital)', tiltGround: 'Inclinar (vista rasante)',
     zoomOut: 'Alejar', zoomIn: 'Acercar',
     hdg: 'Rumbo', alt: 'Altitud', vario: 'Vario', landed: 'aterrizado', beforeTk: 'antes del despegue', min: 'min',
-    info: 'Límites / acerca de', disclaimerTitle: 'Límites de visualización', sourceCode: 'Código fuente', version: 'Versión', flightbook: 'Cuaderno FlightBook', copyLink: 'Copiar el enlace (momento + aeronave)', resetSettings: 'Restablecer los ajustes',
+    info: 'Límites / acerca de', disclaimerTitle: 'Límites de visualización', sourceCode: 'Código fuente', version: 'Versión', flightbook: 'Cuaderno FlightBook', copyLink: 'Copiar el enlace (momento + aeronave)', resetSettings: 'Restablecer los ajustes', cacheLabel: 'Caché del mapa', cacheTiles: 'teselas', cacheUnit: 'MB',
     guide: 'Guía / ayuda', guideClose: 'Cerrar la guía',
     mapAttribution: "Imágenes satelitales: <a href='https://www.arcgis.com/home/item.html?id=10df2279f9684e4a9f6a7f08febac2a9' target='_blank' rel='noopener'>Esri World Imagery</a> (Esri, Maxar, Earthstar Geographics) · Relieve: <a href='https://registry.opendata.aws/terrain-tiles/' target='_blank' rel='noopener'>AWS Terrain Tiles</a> (Mapzen · SRTM/NASA, USGS et al.)",
     disc: [
@@ -269,7 +269,7 @@ export const I18N: Record<Lang, Strings> = {
     tiltTop: "Raddrizza (vista dall'alto)", tiltGround: 'Inclina (vista radente)',
     zoomOut: 'Riduci zoom', zoomIn: 'Aumenta zoom',
     hdg: 'Prua', alt: 'Altitudine', vario: 'Vario', landed: 'atterrato', beforeTk: 'prima del decollo', min: 'min',
-    info: 'Limiti / info', disclaimerTitle: 'Limiti di visualizzazione', sourceCode: 'Codice sorgente', version: 'Versione', flightbook: 'FlightBook OGN', copyLink: 'Copia il link (momento + aeromobile)', resetSettings: 'Ripristina le impostazioni',
+    info: 'Limiti / info', disclaimerTitle: 'Limiti di visualizzazione', sourceCode: 'Codice sorgente', version: 'Versione', flightbook: 'FlightBook OGN', copyLink: 'Copia il link (momento + aeromobile)', resetSettings: 'Ripristina le impostazioni', cacheLabel: 'Cache mappa', cacheTiles: 'tessere', cacheUnit: 'MB',
     guide: 'Guida / aiuto', guideClose: 'Chiudi la guida',
     mapAttribution: "Immagini satellitari: <a href='https://www.arcgis.com/home/item.html?id=10df2279f9684e4a9f6a7f08febac2a9' target='_blank' rel='noopener'>Esri World Imagery</a> (Esri, Maxar, Earthstar Geographics) · Rilievo: <a href='https://registry.opendata.aws/terrain-tiles/' target='_blank' rel='noopener'>AWS Terrain Tiles</a> (Mapzen · SRTM/NASA, USGS et al.)",
     disc: [

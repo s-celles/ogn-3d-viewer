@@ -461,7 +461,21 @@ function renderDisc(): void {
     `<div class="mapcredit" style="margin-top:6px;color:var(--mut)">${t('mapAttribution')}</div>` +
     `<div style="margin-top:6px">${t('sourceCode')} : ` +
     `<a href="${REPO_URL}" target="_blank" rel="noopener" style="color:var(--accent)">github.com/s-celles/ogn-3d-viewer</a></div>` +
-    `<div style="margin-top:4px;color:var(--mut)">${t('version')} ${APP_VERSION} · ${commit}</div>`;
+    `<div style="margin-top:4px;color:var(--mut)">${t('version')} ${APP_VERSION} · ${commit}</div>` +
+    `<div id="cacheInfo" style="margin-top:4px;color:var(--mut)">${t('cacheLabel')} : …</div>`;
+}
+
+// Fill the #cacheInfo line with the persistent map-tile cache size: the tile
+// count in the service-worker cache, plus the origin's on-disk usage estimate
+// (dominated by tiles once the user has browsed). Refreshed when the panel opens.
+async function updateCacheInfo(): Promise<void> {
+  const el = document.getElementById('cacheInfo'); if (!el) return;
+  let tiles = 0, bytes = 0;
+  try { if ('caches' in window) tiles = (await (await caches.open('ogn-tiles-v1')).keys()).length; } catch { /* ignore */ }
+  try { const e = await navigator.storage?.estimate?.(); bytes = e?.usage || 0; } catch { /* ignore */ }
+  const mb = bytes ? bytes / 1048576 : tiles * 30 / 1024;   // fall back to ~30 KB/tile
+  const mbStr = mb >= 10 ? Math.round(mb).toString() : mb.toFixed(1);
+  el.textContent = `${t('cacheLabel')} : ${tiles} ${t('cacheTiles')} · ~${mbStr} ${t('cacheUnit')}`;
 }
 
 // The FlightBook link next to the airfield label — points at the OGN FlightBook
@@ -480,7 +494,7 @@ export function updateFbLink(): void {
     fblink.style.display = 'none';
   }
 }
-infoBtn.onclick = () => { const open = discEl.style.display !== 'none'; discEl.style.display = open ? 'none' : 'block'; infoBtn.classList.toggle('on', !open); };
+infoBtn.onclick = () => { const open = discEl.style.display !== 'none'; discEl.style.display = open ? 'none' : 'block'; infoBtn.classList.toggle('on', !open); if (!open) updateCacheInfo(); };
 
 // ---- shareable deep link (current moment + selected aircraft) ----
 // The address bar already carries icao/date/mode (syncUrl); here we add the
