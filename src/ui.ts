@@ -156,7 +156,7 @@ AUDIO_EVENTS.forEach(ev => window.addEventListener(ev, unlockAudio));
 
 // ---- play / speed ----
 playBtn.onclick = () => { if (!S.ready) return; S.playing = !S.playing; playBtn.textContent = S.playing ? t('pause') : t('play'); playBtn.classList.toggle('on', S.playing); };
-[1, 8, 30, 120].forEach(s => {
+[1, 4, 8, 30, 120].forEach(s => {
   const b = document.createElement('button'); b.textContent = s + '×'; if (s === S.speed) b.classList.add('on');
   b.onclick = () => { S.speed = s; [...segEl.children].forEach(c => c.classList.remove('on')); b.classList.add('on'); }; segEl.appendChild(b);
 });
