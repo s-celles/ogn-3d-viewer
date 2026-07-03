@@ -8,6 +8,15 @@
 // Marker fields: lat,lon,cn,reg,alt,time,ddf,track,speed,vz,TYPE,RECEIVER,fid,crc
 
 export interface HotZone { lat: number; lon: number; count: number; label: string; }
+export interface HotResult { zones: HotZone[]; at: number; }
+
+// Minimum delay between two live scans of the whole world — the OGN network is
+// shared, so we throttle hard and reuse the last result within this window.
+export const HOT_MIN_INTERVAL = 900_000;   // 15 min
+
+let cache: HotResult | null = null;
+export function hotCache(): HotResult | null { return cache; }
+export function hotFresh(): boolean { return !!cache && Date.now() - cache.at < HOT_MIN_INTERVAL; }
 
 const OGN = 'https://live.glidernet.org/lxml.php';
 // World tiles as [latMax, latMin, lonMax, lonMin] (the endpoint's b,c,d,e).
@@ -17,7 +26,8 @@ const TILES: [number, number, number, number][] = [
 ];
 const GRID = 0.3;   // ~33 km cells
 
-export async function fetchHotZones(topN = 30): Promise<HotZone[]> {
+export async function fetchHotZones(topN = 30, force = false): Promise<HotResult> {
+  if (!force && hotFresh()) return cache!;   // reuse the recent scan unless a forced refresh is asked
   const texts = await Promise.all(TILES.map(([b, c, d, e]) =>
     fetch(`${OGN}?a=full&b=${b}&c=${c}&d=${d}&e=${e}`).then(r => r.text()).catch(() => '')));
   interface Cell { lat: number; lon: number; n: number; rec: Map<string, number>; }
@@ -37,8 +47,10 @@ export async function fetchHotZones(topN = 30): Promise<HotZone[]> {
       const r = t[11] || ''; if (r) z.rec.set(r, (z.rec.get(r) || 0) + 1);
     }
   }
-  return [...cells.values()]
+  const zones = [...cells.values()]
     .map(z => ({ lat: z.lat / z.n, lon: z.lon / z.n, count: z.n, label: [...z.rec.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] || '' }))
     .sort((a, b) => b.count - a.count)
     .slice(0, topN);
+  cache = { zones, at: Date.now() };
+  return cache;
 }

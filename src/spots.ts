@@ -11,7 +11,7 @@ import { TEXTURE, API_BASE } from './config';
 import { icaoEl, loadBtn, discoverBtn } from './dom';
 import { gotoSpot, updateFbLink, setPlace } from './ui';
 import { codeCountry, codeFlag, flag as isoFlag } from './flags';
-import { fetchHotZones, type HotZone } from './hotspots';
+import { fetchHotZones, hotCache, hotFresh, type HotZone } from './hotspots';
 import spotsCsv from '../data/spots.csv' with { type: 'text' };
 import type { Lang } from './types';
 
@@ -87,6 +87,8 @@ let view = { x0: 0, y0: 0, d: 1 };   // visible world rect (mercator 0..1), d = 
 const dots = new Map<string, HTMLElement>();
 const items = new Map<string, HTMLElement>();
 let hotZones: HotZone[] = [];   // live hot-spots mode (active === 'hot')
+let hotAt = 0;                  // timestamp of the displayed scan
+let hotTimer = 0;              // interval refreshing the "updated … ago" header
 const hotDots = new Map<number, HTMLElement>();
 const hotItems = new Map<number, HTMLElement>();
 
@@ -134,6 +136,12 @@ function fromMap(s: Spot): void {
 function clearHot(): void {
   if (mapEl) mapEl.querySelectorAll('[data-hot]').forEach(n => n.remove());
   hotDots.clear(); hotItems.clear(); hotZones = [];
+  if (hotTimer) { clearInterval(hotTimer); hotTimer = 0; }
+}
+function fmtAge(ms: number): string {
+  if (ms < 15_000) return t('discoverJustNow');
+  if (ms < 60_000) return `${Math.round(ms / 1000)} s`;
+  return `${Math.round(ms / 60_000)} min`;
 }
 function positionHot(): void {
   for (const [i, el] of hotDots) {
@@ -151,15 +159,32 @@ function highlightHot(i: number, on: boolean): void {
   if (it) it.style.background = on ? 'rgba(255,255,255,.12)' : '';
   if (on && it) it.scrollIntoView({ block: 'nearest' });
 }
-async function showHot(): Promise<void> {
+async function showHot(force = false): Promise<void> {
   if (!listEl || !mapEl) return;
   for (const el of dots.values()) el.remove(); dots.clear();   // hide spot markers while in hot mode
   clearHot();
+  const cached = hotCache();
+  if (!force && cached && hotFresh()) { hotZones = cached.zones; hotAt = cached.at; renderHot(); return; }   // reuse the recent scan
   listEl.innerHTML = `<div style="padding:16px;color:var(--mut)">${t('discoverLoading')} …</div>`;
-  const zones = await fetchHotZones(30).catch(() => [] as HotZone[]);
+  const res = await fetchHotZones(30, force).catch(() => null);
   if (active !== 'hot') return;                                 // user switched tabs during the fetch
-  hotZones = zones;
+  if (res) { hotZones = res.zones; hotAt = res.at; }
   renderHot();
+}
+function hotHeader(): string {                                  // "Updated … ago" + a rate-limited refresh button
+  const age = Date.now() - hotAt;
+  const canRefresh = !hotFresh();
+  return `<div style="display:flex;align-items:center;gap:8px;padding:2px 4px 8px;font-size:12px;color:var(--mut)">`
+    + `<span>${t('discoverUpdated')} · ${fmtAge(age)}</span>`
+    + `<button data-hotref ${canRefresh ? '' : 'disabled'} title="${t('discoverRefresh')}" `
+    + `style="margin-left:auto;padding:3px 9px;border-radius:7px;cursor:${canRefresh ? 'pointer' : 'default'};opacity:${canRefresh ? '1' : '.4'}">↻</button></div>`;
+}
+function tickHot(): void {                                      // keep the age label / button state live
+  if (active !== 'hot' || !listEl) return;
+  const head = listEl.querySelector('[data-hothead]') as HTMLElement | null;
+  if (head) head.innerHTML = hotHeader();
+  const btn = listEl.querySelector('[data-hotref]') as HTMLButtonElement | null;
+  if (btn) btn.onclick = () => { if (!hotFresh()) void showHot(true); };
 }
 function renderHot(): void {
   if (!listEl || !mapEl) return;
@@ -175,7 +200,9 @@ function renderHot(): void {
   });
   positionHot();
   listEl.innerHTML = ''; hotItems.clear();
-  if (!hotZones.length) { listEl.innerHTML = `<div style="padding:16px;color:var(--mut)">${t('discoverHotNone')}</div>`; return; }
+  const head = document.createElement('div'); head.dataset.hothead = ''; head.innerHTML = hotHeader();
+  listEl.appendChild(head);
+  if (!hotZones.length) { listEl.insertAdjacentHTML('beforeend', `<div style="padding:16px;color:var(--mut)">${t('discoverHotNone')}</div>`); }
   hotZones.forEach((z, i) => {
     const d = document.createElement('div');
     d.style.cssText = 'padding:8px 10px;border-radius:8px;cursor:pointer;display:flex;gap:10px;align-items:center';
@@ -185,6 +212,8 @@ function renderHot(): void {
       + `<div><b>${z.label || '—'}</b> <span style="color:var(--mut)">· ${t('discoverGliders')}</span></div>`;
     hotItems.set(i, d); listEl!.appendChild(d);
   });
+  tickHot();                                   // wire the refresh button now
+  if (!hotTimer) hotTimer = setInterval(tickHot, 5000) as unknown as number;   // keep the age label live
 }
 function pickZone(z: HotZone): void {
   close();
@@ -198,7 +227,10 @@ function open(): void {
   renderTabs(); renderList(); setView(null);
   overlay!.style.display = 'flex'; discoverBtn.classList.add('on');
 }
-function close(): void { if (overlay) overlay.style.display = 'none'; discoverBtn.classList.remove('on'); }
+function close(): void {
+  if (overlay) overlay.style.display = 'none'; discoverBtn.classList.remove('on');
+  if (hotTimer) { clearInterval(hotTimer); hotTimer = 0; }   // stop the age ticker while hidden
+}
 
 function pick(s: Spot): void {
   close();

@@ -5,7 +5,7 @@
 ## Daten laden
 
 - **Spots entdecken** — die Schaltfläche „🌍 Spots entdecken“ öffnet einen Explorer berühmter Segelfluggebiete weltweit (Rekorde, Meisterschaften), nach **Kontinent-Tabs** gruppiert; ein Klick lädt den Ort. Orte ohne FlightBook-Abdeckung sind abgedunkelt, aber weiterhin **nur als Gelände** erkundbar (über ihre Koordinaten).
-- **Hotspots (live)** — der **🔥**-Tab durchsucht das OGN-Live-Netz weltweit und ordnet die Gebiete, in denen *gerade jetzt* die meisten Segelflugzeuge in der Luft sind — als Liste und als größenskalierte Punkte auf der Weltkarte; ein Klick fliegt Sie dorthin (oder lädt den Flugplatz). Es werden nur aggregierte Zählungen je Gebiet verwendet, niemals einzelne Luftfahrzeuge.
+- **Hotspots (live)** — der **🔥**-Tab durchsucht das OGN-Live-Netz weltweit und ordnet die Gebiete, in denen *gerade jetzt* die meisten Segelflugzeuge in der Luft sind — als Liste und als größenskalierte Punkte auf der Weltkarte; ein Klick fliegt Sie dorthin (oder lädt den Flugplatz). Der Scan ist gedrosselt (gemeinsames Netz): die Kopfzeile zeigt, wie lange er zurückliegt, und die **↻**-Schaltfläche scannt erst nach 15 Minuten erneut. Es werden nur aggregierte Zählungen je Gebiet verwendet, niemals einzelne Luftfahrzeuge.
 - **Flugplatzsuche** — nach Code (ICAO oder nationale/FAA-Kennung) mit Autovervollständigung, für ein bestimmtes Datum.
 - **Live-Modus** — Echtzeitansicht, an die aktuelle Uhrzeit gebunden, aktualisiert aktive Segelflugzeuge alle 20 s (aktuelle Baken farbig, ältere abgedunkelt).
 - **Lokaler Datei-Import** — ziehen Sie eigene **IGC- / GPX- / KML**-Tracks auf die Karte (oder wählen Sie sie aus), um sie ebenso abzuspielen, ohne OGN.

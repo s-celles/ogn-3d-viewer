@@ -5,7 +5,7 @@
 ## Loading data
 
 - **Discover spots** — the "🌍 Discover spots" button opens an explorer of famous gliding sites worldwide (records, championships), grouped by **continent tabs**; a click loads the site. Sites not covered by the FlightBook are dimmed but still explorable as **terrain only** (via their coordinates).
-- **Hot spots (live)** — the **🔥** tab scans the OGN live network worldwide and ranks the areas where the most gliders are airborne *right now*, shown both as a list and as sized dots on the world map; click one to fly there (or load its airfield). Only aggregate counts per area are used, never individual aircraft.
+- **Hot spots (live)** — the **🔥** tab scans the OGN live network worldwide and ranks the areas where the most gliders are airborne *right now*, shown both as a list and as sized dots on the world map; click one to fly there (or load its airfield). The scan is throttled (a shared network): the header shows how long ago it ran and the **↻** button only re-scans after 15 minutes. Only aggregate counts per area are used, never individual aircraft.
 - **Airfield search** — by code (ICAO, or a national/FAA identifier) with autocomplete, for a given date.
 - **Live mode** — a real-time view pinned to the current time, refreshing active gliders every 20 s (recent fixes in full colour, older ones dimmed).
 - **Local file import** — drop or pick your own **IGC / GPX / KML** tracks to replay them the same way, without going through OGN.
