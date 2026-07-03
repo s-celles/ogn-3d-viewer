@@ -26,7 +26,7 @@ export function tileBBox(x: number, y: number, z: number): BBox {
  * DEM zoom) it's the fraction of the coarser ancestor DEM under this finer tile,
  * so the photo-res imagery drapes over the (interpolated) coarser elevation. */
 export function buildTerrainMesh(t: DecodedTile, west: number, south: number, east: number, north: number,
-                                 su0 = 0, sv0 = 0, sf = 1, skirtM = 30) {
+                                 su0 = 0, sv0 = 0, sf = 1, skirtM = 30, zShift = 0) {
   const N = S.dev.on ? S.dev.gridN : TERRAIN_N;
   const { rgba, w, h } = t, cols = N, rows = N, k = S.exo;
   const positions: number[] = [], normals: number[] = [], texCoords: number[] = [], indices: number[] = [];
@@ -39,7 +39,7 @@ export function buildTerrainMesh(t: DecodedTile, west: number, south: number, ea
     const py = Math.min(h - 1, Math.max(0, Math.round((sv0 + (1 - v) * sf) * (h - 1))));
     const e = elevAt(px, py), idx = r * cols + c;
     heights[idx] = e;
-    positions.push(west + (east - west) * u, south + (north - south) * v, e * k);
+    positions.push(west + (east - west) * u, south + (north - south) * v, (e - zShift) * k);
     texCoords.push(u, 1 - v);
   }
   const dx = (east - west) * mPerLng / (cols - 1), dy = (north - south) * mPerLat / (rows - 1);
@@ -184,19 +184,31 @@ export function terrainCacheSize(): number { return TILE_CACHE.size; }
 /** Build the streaming terrain TileLayer (rebuilt whenever exaggeration changes). */
 export function makeTerrain() {
   const dev = S.dev;
+  const deckCache = dev.on ? dev.deckCache : Math.round(DECK_CACHE * ramCacheFactor(S.cacheScale));
+  // Two stacked layers so cold starts never show white/holes: a COARSE BASE
+  // (few, lightest tiles, its own request queue → loads first and always covers
+  // the whole view, textured) UNDER the full-detail layer. The base is sunk a few
+  // metres so wherever detail has loaded it wins; the base only peeks through the
+  // gaps the detail hasn't filled yet.
+  return [
+    tileLayer(dev, 'terrain-base', Math.min(9, S.groundZoom), 12, 96, 15),
+    tileLayer(dev, 'terrain', S.groundZoom, deckCache, dev.on ? dev.maxRequests : 12, 0),
+  ];
+}
+
+function tileLayer(dev: typeof S.dev, id: string, maxZoom: number, maxCacheSize: number, maxRequests: number, zShiftM: number) {
   return new TileLayer({
     // maxZoom = the ground-detail setting. Up to the DEM ceiling (15) each tile
     // is a normal DEM tile textured with its own Esri image; BEYOND 15 the tile
     // takes its DEM elevation from the coarser z15 ancestor while still fetching
     // full-resolution Esri imagery at its own zoom — so the photo keeps sharpening.
-    id: 'terrain', data: TERRAIN, minZoom: 0, maxZoom: S.groundZoom, tileSize: 256,
-    maxCacheSize: dev.on ? dev.deckCache : Math.round(DECK_CACHE * ramCacheFactor(S.cacheScale)),
+    id, data: TERRAIN, minZoom: 0, maxZoom, tileSize: 256, maxCacheSize,
     // In first-person/chase the tilted frustum sees a wide swathe to the horizon,
     // so many tiles are in flight at once. The default 6 concurrent requests drain
     // the queue too slowly (background stays blurry/holey); raise it. 'best-available'
     // keeps a coarse ancestor tile drawn while its children load, so gaps read as
     // blur that sharpens rather than sky showing through the ground.
-    maxRequests: dev.on ? dev.maxRequests : 12, refinementStrategy: 'best-available',
+    maxRequests, refinementStrategy: 'best-available',
     // Elevation band (metres, scaled by the exaggeration like the mesh z) used to
     // build each tile's 3D bounding box for frustum culling. Without it deck
     // assumes tiles sit at sea level (z=0); in first-person/chase the camera flies
@@ -240,7 +252,7 @@ export function makeTerrain() {
         : new SimpleMeshLayer({
             id: String(props.id) + '-m', data: TERRAIN_ANCHOR, getPosition: () => [0, 0, 0],
             _instanced: false, coordinateSystem: COORDINATE_SYSTEM.LNGLAT,
-            mesh: buildTerrainMesh(t, bb.west, bb.south, bb.east, bb.north, su0, sv0, sf, skirtM) as any,
+            mesh: buildTerrainMesh(t, bb.west, bb.south, bb.east, bb.north, su0, sv0, sf, skirtM, zShiftM) as any,
             texture: (dev.on && dev.noTexture) ? undefined : (t.image || turl),
             getColor: (dev.on && dev.noTexture) ? [150, 155, 160] : [255, 255, 255], pickable: false,
             material: { ambient: 0.4, diffuse: 0.85, shininess: 6, specularColor: [30, 30, 30] },
