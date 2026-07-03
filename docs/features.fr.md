@@ -4,13 +4,15 @@ Rejeu 3D des vols de planeurs de l'[Open Glider Network](http://wiki.glidernet.o
 
 ## Chargement des données
 
-- **Recherche d'aérodrome** — par code OACI avec autocomplétion, pour une date donnée.
+- **Découvrir des spots** — le bouton « 🌍 Découvrir des spots » ouvre un explorateur des sites de vol à voile réputés du monde (records, championnats), classés par **onglets de continent** ; un clic charge le site. Les sites hors couverture FlightBook sont grisés mais restent explorables en **terrain seul** (via leurs coordonnées).
+- **Recherche d'aérodrome** — par code (OACI ou identifiant national/FAA) avec autocomplétion, pour une date donnée.
 - **Mode direct** — vue temps réel épinglée à l'heure courante, rafraîchissant les planeurs actifs toutes les 20 s (balises récentes en couleur, plus anciennes atténuées).
 - **Import de fichiers locaux** — glissez ou choisissez vos propres traces **IGC / GPX / KML** pour les rejouer de la même façon, sans passer par OGN.
 
 ## La scène
 
 - **Relief 3D** avec imagerie satellite et exagération verticale réglable.
+- **Résolution du sol** — niveau de détail de l'imagerie satellite réglable (z13 à z18).
 - **Trois vues** — vue d'ensemble (dessus), vue cockpit (subjective, l'horizon s'incline dans les virages) et caméra poursuite qui suit le planeur.
 - **Caméra cockpit** — suivi du cap ou regard libre.
 - **Affichage tête haute (HUD)** — cap, altitude et vario du planeur suivi.
@@ -21,7 +23,7 @@ Rejeu 3D des vols de planeurs de l'[Open Glider Network](http://wiki.glidernet.o
 
 ## Lecture
 
-- **Lecture temporelle** — curseur d'heure de la journée et vitesses 1× / 8× / 30× / 120×.
+- **Lecture temporelle** — curseur d'heure de la journée et vitesses 1× / 4× / 8× / 30× / 120×.
 - **Modes de trace** — historique, historique + futur, ou fenêtre glissante.
 - **Effets de trace** — basique, néon, contrail ou bloom.
 - **Lissage des traces** — interpolation spline Catmull-Rom pour des trajectoires fluides.
@@ -34,6 +36,17 @@ Rejeu 3D des vols de planeurs de l'[Open Glider Network](http://wiki.glidernet.o
 - **Vario compensé** — vario à énergie totale par défaut (désactivable pour la vitesse verticale brute).
 - **Son du vario** — une tonalité de montée/descente optionnelle pour le planeur suivi.
 - **Conscience du trafic** — un radar cap-en-haut des aéronefs proches, ou un indicateur directionnel anti-collision.
+
+## Réglages & performance
+
+- **Réglages mémorisés** — vos préférences (vues, effets, exagération, langue, etc.) sont enregistrées localement et restaurées à la prochaine visite ; le bouton **↺** les remet aux valeurs par défaut.
+- **Taille du cache** — un multiplicateur (×0,5 à ×4) sur les caches mémoire **et** disque ; l'estimation d'occupation est affichée dans le panneau **ⓘ**. Les valeurs par défaut s'adaptent déjà à la mémoire de l'appareil (plus généreuses sur ordinateur).
+- **Application installable (PWA)** — installable et utilisable **hors ligne** ; les tuiles déjà visitées sont conservées entre les sessions.
+- **Langues** — français, anglais, allemand, espagnol, italien (détection automatique).
+
+## Mode développeur
+
+Ajoutez `?dev=1` à l'URL pour un panneau technique : **fil de fer** du relief, **relief nu** (sans imagerie), overlay **FPS**, **compteurs de cache**, et réglages de streaming (nombre de requêtes, densité du maillage, taille des caches, distance de vue). `?dev=0` le désactive.
 
 ## Raccourcis clavier
 

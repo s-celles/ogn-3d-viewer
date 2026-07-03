@@ -35,47 +35,13 @@ matching FlightBook page.
 
 ## Features
 
-**Loading data**
+- **Loading** — airfield search (ICAO or national/FAA code), real-time **live mode**, **IGC / GPX / KML** import, and **spot discovery** of famous gliding sites worldwide by continent (records, championships) — the list is a [Tabular Data Package](data/spots.csv) kept current by `just check-spots`.
+- **3D scene** — terrain with satellite imagery (adjustable resolution), three views (overview, cockpit, chase), HUD, final-glide cone, ground shadows, altitude curtain, per-aircraft labels.
+- **Playback** — time-of-day scrubber and 1× / 4× / 8× / 30× / 120× speeds, track modes, trail effects (neon / contrail / bloom), spline smoothing, graphs.
+- **Instruments & traffic** — estimated attitude, total-energy vario, vario audio, track-up radar or directional anti-collision.
+- **App** — **5-language** UI (en / fr / de / es / it), deep links `?icao=…&date=…`, **persisted settings** (localStorage + reset), **offline PWA** with an adjustable tile cache, keyboard shortcuts, and a **developer mode** (`?dev=1`: wireframe, FPS, cache counters…).
 
-- **Airfield search** by ICAO code with autocomplete, for a given date.
-- **Live mode** — a real-time view pinned to the current time that auto-refreshes active gliders every 20 s (online fixes full-colour, stale ones dimmed like the FlightBook live map).
-- **Local file import** — drop (or pick) your own **IGC / GPX / KML** tracks to replay them the same way, no OGN round-trip.
-
-**Scene**
-
-- **3D terrain** with satellite imagery and adjustable vertical exaggeration.
-- **Three views:** top-down overview, cockpit (first-person — the horizon banks in turns) and a chase cam following the glider.
-- **Cockpit camera modes:** lock-to-heading or free look.
-- **Head-up display (HUD):** heading, altitude and vario for the followed glider.
-- **Final-glide cone:** an optional reachability cone around the airfield (adjustable glide ratio, arrival safety height and radius) — an aircraft above the surface can reach the field.
-- **Ground shadows:** a blob/line under each glider, cast straight down (position indicator) or along the sun direction, to read height over the ground.
-- **Altitude curtain:** a translucent drape from each track down to its ground projection for a strong sense of height.
-- **Per-aircraft labels** with selectable fields (registration, altitude, speed, vario, heading).
-
-**Playback**
-
-- **Time playback** with a time-of-day scrubber and 1× / 8× / 30× / 120× speeds.
-- **Track display modes:** history, history + future, or a rolling time window.
-- **Trail effects:** basic, glow (neon), contrail or bloom.
-- **Track smoothing:** Catmull-Rom spline interpolation between beacons for fluid trajectories (on by default, toggle in the panel).
-- **Reception-loss gaps:** intervals with no OGN beacons are interpolated and drawn dashed.
-- **Time-series graphs** drawer — altitude, speed and heading, following the same history / history + future / rolling modes.
-
-**Flight instruments & traffic**
-
-- **Estimated attitude:** each glider is drawn as a wing/fuselage marker that banks in turns (from turn rate × ground speed) and pitches with airspeed, capped at sane max angles.
-- **Compensated vario:** the HUD shows a total-energy vario by default (toggle off for the raw climb rate). True airspeed isn't available from GPS, so ground speed is used as a proxy — exact only in still air.
-- **Vario audio:** an optional climb/sink tone for the followed glider.
-- **Traffic awareness** (focus views): a track-up **radar** of nearby airborne aircraft, or a **directional** anti-collision indicator with alert/warn threat levels by horizontal and vertical separation.
-
-**UI & app**
-
-- **Trilingual UI** (English / French / German), auto-detected from the browser.
-- **Deep linking** via `?icao=…&date=…` URL parameters, kept in sync as you load.
-- **Persisted settings:** your display/replay preferences are saved in `localStorage`, with one-click reset to defaults.
-- **Installable PWA** — a web-app manifest plus a service worker that keeps the app shell available offline and caches map tiles persistently (sized to device RAM) so revisits are instant.
-- **Map attribution** overlay (Esri imagery, AWS terrain), toggleable on the map.
-- **Keyboard shortcuts:** `V` switch view, `1/2/3` pick a glider, `J/K` previous/next glider, `Space` play/pause, arrows to orbit/tilt/zoom.
+📖 **Full feature guide:** the **📖** button in the app, or [`docs/features.en.md`](docs/features.en.md).
 
 ## How it works
 

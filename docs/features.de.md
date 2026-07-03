@@ -4,13 +4,15 @@
 
 ## Daten laden
 
-- **Flugplatzsuche** — nach ICAO-Code mit Autovervollständigung, für ein bestimmtes Datum.
+- **Spots entdecken** — die Schaltfläche „🌍 Spots entdecken“ öffnet einen Explorer berühmter Segelfluggebiete weltweit (Rekorde, Meisterschaften), nach **Kontinent-Tabs** gruppiert; ein Klick lädt den Ort. Orte ohne FlightBook-Abdeckung sind abgedunkelt, aber weiterhin **nur als Gelände** erkundbar (über ihre Koordinaten).
+- **Flugplatzsuche** — nach Code (ICAO oder nationale/FAA-Kennung) mit Autovervollständigung, für ein bestimmtes Datum.
 - **Live-Modus** — Echtzeitansicht, an die aktuelle Uhrzeit gebunden, aktualisiert aktive Segelflugzeuge alle 20 s (aktuelle Baken farbig, ältere abgedunkelt).
 - **Lokaler Datei-Import** — ziehen Sie eigene **IGC- / GPX- / KML**-Tracks auf die Karte (oder wählen Sie sie aus), um sie ebenso abzuspielen, ohne OGN.
 
 ## Die Szene
 
 - **3D-Gelände** mit Satellitenbildern und einstellbarer vertikaler Überhöhung.
+- **Bodenauflösung** — einstellbarer Detailgrad der Satellitenbilder (z13 bis z18).
 - **Drei Ansichten** — Übersicht (von oben), Cockpit (Egoperspektive, der Horizont neigt sich in Kurven) und eine Verfolgerkamera.
 - **Cockpit-Kamera** — Kurs folgen oder freie Sicht.
 - **Head-up-Display (HUD)** — Kurs, Höhe und Vario des verfolgten Segelflugzeugs.
@@ -21,7 +23,7 @@
 
 ## Wiedergabe
 
-- **Zeitwiedergabe** — Tageszeit-Regler und Geschwindigkeiten 1× / 8× / 30× / 120×.
+- **Zeitwiedergabe** — Tageszeit-Regler und Geschwindigkeiten 1× / 4× / 8× / 30× / 120×.
 - **Spurmodi** — Verlauf, Verlauf + Zukunft, oder gleitendes Fenster.
 - **Spureffekte** — einfach, Neon, Kondensstreifen oder Bloom.
 - **Spurglättung** — Catmull-Rom-Spline-Interpolation für flüssige Bahnen.
@@ -34,6 +36,17 @@
 - **Kompensiertes Vario** — Gesamtenergie-Vario als Standard (abschaltbar für die rohe Steigrate).
 - **Vario-Ton** — ein optionaler Steig-/Sink-Ton für das verfolgte Segelflugzeug.
 - **Verkehrsbewusstsein** — ein kurs-oben-Radar naher Luftfahrzeuge oder eine direktionale Kollisionswarnung.
+
+## Einstellungen & Leistung
+
+- **Gespeicherte Einstellungen** — Ihre Präferenzen (Ansichten, Effekte, Überhöhung, Sprache usw.) werden lokal gespeichert und beim nächsten Besuch wiederhergestellt; die Schaltfläche **↺** setzt sie auf die Standardwerte zurück.
+- **Cache-Größe** — ein Faktor (×0,5 bis ×4) auf die Speicher- **und** Festplatten-Caches; die geschätzte Belegung wird im **ⓘ**-Panel angezeigt. Die Standardwerte richten sich bereits nach dem Gerätespeicher (großzügiger am Desktop).
+- **Installierbare App (PWA)** — installierbar und **offline** nutzbar; bereits besuchte Kacheln bleiben über Sitzungen hinweg erhalten.
+- **Sprachen** — Französisch, Englisch, Deutsch, Spanisch, Italienisch (automatisch erkannt).
+
+## Entwicklermodus
+
+Fügen Sie `?dev=1` zur URL hinzu für ein technisches Panel: Gelände-**Drahtgitter**, **nacktes Relief** (ohne Bilder), **FPS**-Overlay, **Cache-Zähler** und Streaming-Regler (Anfragenzahl, Netzdichte, Cache-Größen, Sichtweite). `?dev=0` schaltet ihn aus.
 
 ## Tastaturkürzel
 
