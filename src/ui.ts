@@ -62,6 +62,16 @@ export function gotoSpot(lat: number, lon: number): void {
   S.mapVS = { ...vs }; S.mapTarget = { ...vs };
   render();
 }
+// Drop any loaded flight so the scene is empty terrain — used when flying to a
+// hot spot that has no loadable airfield (a named OGN receiver).
+export function clearScene(): void {
+  stopLive();
+  S.RAW = []; S.TRACKS = []; S.ready = false; S.AF = null; S.CURAF = null;
+  S.solo = null; S.subject = null; S.focus = null;
+  icaoEl.value = ''; updateFbLink();
+  buildLegend();   // empties the legend list
+  render();
+}
 export function applyFollowClass(): void {
   document.body.classList.toggle('follow', S.fpvFollow);
   document.body.classList.toggle('free', !S.fpvFollow);

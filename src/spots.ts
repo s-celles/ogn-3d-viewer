@@ -9,7 +9,8 @@ import { S } from './state';
 import { t } from './i18n';
 import { TEXTURE, API_BASE } from './config';
 import { icaoEl, loadBtn, discoverBtn } from './dom';
-import { gotoSpot, updateFbLink, setPlace } from './ui';
+import { gotoSpot, updateFbLink, setPlace, clearScene } from './ui';
+import { setStatus } from './data';
 import { codeCountry, codeFlag, flag as isoFlag } from './flags';
 import { fetchHotZones, hotCache, hotFresh, type HotZone } from './hotspots';
 import spotsCsv from '../data/spots.csv' with { type: 'text' };
@@ -317,6 +318,15 @@ async function resolveName(label: string): Promise<AfHit> {   // resolve a recei
   for (const q of tries) { const m = await fbAirfield(q); if (m) { hit = m; break; } }
   nameCache.set(label, hit); return hit;
 }
+function nearestCountry(lat: number, lon: number): string {   // country of the closest known spot (≤ ~2°), for unnamed receivers
+  let best = '', bd = 2;
+  for (const s of allSpots()) {
+    if (!s.country || !Number.isFinite(s.lat) || !Number.isFinite(s.lon)) continue;
+    const d = Math.hypot(s.lat - lat, (s.lon - lon) * Math.cos(lat * Math.PI / 180));
+    if (d < bd) { bd = d; best = s.country; }
+  }
+  return best;
+}
 function zoneInfo(z: HotZone): ZoneInfo {   // resolve a name / country / flag for a hot zone
   const sp = nearestSpot(z.lat, z.lon);
   if (sp) return { code: sp.code, name: sp.name, country: sp.country, flag: isoFlag(sp.country) || codeFlag(sp.code) };
@@ -324,7 +334,9 @@ function zoneInfo(z: HotZone): ZoneInfo {   // resolve a name / country / flag f
   const hit = cand ? nameCache.get(z.label) : undefined;
   const code = hit?.code || z.label;                 // canonical airfield code once resolved (LKDK → LKDKH)
   const iso = hit?.code || cand;                     // for flag/country: resolved code, else the derived ICAO
-  return { code, name: hit?.name || '', country: iso ? codeCountry(iso) : '', flag: iso ? codeFlag(iso) : '' };
+  let country = iso ? codeCountry(iso) : '', flag = iso ? codeFlag(iso) : '';
+  if (!country) { country = nearestCountry(z.lat, z.lon); flag = isoFlag(country); }   // named receiver (UKDUN2) → country by location
+  return { code, name: hit?.name || '', country, flag };
 }
 function hotRowText(info: ZoneInfo): string {
   const title = info.name || info.code || '—';
@@ -356,7 +368,11 @@ function pickZone(z: HotZone): void {
   if (loadCode) {                                             // load that airfield's day → replaces any previous flight (coherent)
     icaoEl.value = loadCode; updateFbLink(); loadBtn.click();
     if (info.name) setPlace(info.name, info.flag);            // known name up front; otherwise let the FlightBook name show
-  } else { gotoSpot(z.lat, z.lon); setPlace(info.name || z.label || t('discoverHot'), info.flag); }
+  } else {                                                    // a named receiver with no airfield → clean terrain view at the zone
+    clearScene(); gotoSpot(z.lat, z.lon);
+    setPlace(info.name || z.label || t('discoverHot'), info.flag);
+    setStatus(`${z.count} ${t('discoverGliders')}`);
+  }
 }
 
 function open(): void {
