@@ -187,11 +187,13 @@ export function makeTerrain() {
   const deckCache = dev.on ? dev.deckCache : Math.round(DECK_CACHE * ramCacheFactor(S.cacheScale));
   // Two stacked layers so cold starts never show white/holes: a COARSE BASE
   // (few, lightest tiles, its own request queue → loads first and always covers
-  // the whole view, textured) UNDER the full-detail layer. The base is sunk a few
-  // metres so wherever detail has loaded it wins; the base only peeks through the
-  // gaps the detail hasn't filled yet.
+  // the whole view, textured) UNDER the full-detail layer. The base uses a coarse
+  // (z≤9) DEM that SMOOTHS valleys upward — its floor can sit tens of metres above
+  // the fine DEM — so it must be sunk generously (metres, exaggeration-independent)
+  // or it pokes through detail as flat low-res patches. It only needs to peek
+  // through gaps the detail hasn't filled yet, so a deep sink is harmless.
   return [
-    tileLayer(dev, 'terrain-base', Math.min(9, S.groundZoom), 12, 96, 15),
+    tileLayer(dev, 'terrain-base', Math.min(9, S.groundZoom), 12, 96, 140),
     tileLayer(dev, 'terrain', S.groundZoom, deckCache, dev.on ? dev.maxRequests : 12, 0),
   ];
 }
