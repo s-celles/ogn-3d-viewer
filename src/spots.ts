@@ -9,7 +9,8 @@ import { S } from './state';
 import { t } from './i18n';
 import { TEXTURE, API_BASE } from './config';
 import { icaoEl, loadBtn, discoverBtn } from './dom';
-import { gotoSpot, updateFbLink } from './ui';
+import { gotoSpot, updateFbLink, setPlace } from './ui';
+import { codeCountry, codeFlag, flag as isoFlag } from './flags';
 import spotsCsv from '../data/spots.csv' with { type: 'text' };
 import type { Lang } from './types';
 
@@ -54,7 +55,7 @@ const CONT_L: Record<string, Record<Lang, string>> = {
   'Oceania': { fr: 'Océanie', en: 'Oceania', de: 'Ozeanien', es: 'Oceanía', it: 'Oceania' },
 };
 const contLabel = (c: string): string => (CONT_L[c] && CONT_L[c][S.lang]) || c;
-const flag = (iso: string): string => iso ? iso.toUpperCase().replace(/./g, c => String.fromCodePoint(127397 + c.charCodeAt(0))) : '📍';
+const flag = (iso: string): string => isoFlag(iso) || '📍';
 
 // World locator: the whole-world z0 imagery tile (cached by the service worker);
 // spots placed by web-mercator projection as percentages, so the map is responsive.
@@ -137,8 +138,8 @@ function pick(s: Spot): void {
   close();
   icaoEl.value = s.code;
   updateFbLink();
-  if (s.checked || s.user) loadBtn.click();   // (likely) loadable → load flights
-  else gotoSpot(s.lat, s.lon);                 // built-in terrain-only site
+  if (s.checked || s.user) loadBtn.click();    // (likely) loadable → load flights (which shows the airfield name)
+  else { gotoSpot(s.lat, s.lon); setPlace(s.name, isoFlag(s.country) || codeFlag(s.code)); }   // terrain-only → show the spot's name/flag
 }
 
 function select(val: string): void { active = val; renderTabs(); renderList(); setView(val || null); }
@@ -238,16 +239,6 @@ function exportCsv(): void {
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 }
 
-// Rough ICAO-prefix → ISO-2 country (enough to prefill the common gliding
-// countries; unknown → left blank for the user). FAA-style codes have no prefix.
-const ICAO_ISO: Record<string, string> = {
-  LF: 'FR', LI: 'IT', LE: 'ES', LP: 'PT', LG: 'GR', LO: 'AT', LS: 'CH', LK: 'CZ', LZ: 'SK', LJ: 'SI', LH: 'HU', LR: 'RO', LB: 'BG', LT: 'TR', LM: 'MT', LC: 'CY',
-  ED: 'DE', ET: 'DE', EG: 'GB', EH: 'NL', EB: 'BE', EL: 'LU', EK: 'DK', EN: 'NO', ES: 'SE', EF: 'FI', EP: 'PL', EV: 'LV', EY: 'LT', EE: 'EE', EI: 'IE',
-  NZ: 'NZ', FA: 'ZA', FY: 'NA', SA: 'AR', SC: 'CL', SB: 'BR', RJ: 'JP',
-};
-function icaoCountry(code: string): string {
-  return ICAO_ISO[code.slice(0, 2)] || ({ K: 'US', Y: 'AU', C: 'CA', Z: 'CN' } as Record<string, string>)[code[0]] || '';
-}
 // Very rough continent from coordinates — a sensible default the user can adjust.
 function continentOf(lat: number, lon: number): string {
   if (lon <= -30) return lat >= 13 ? 'North America' : 'South America';
@@ -296,7 +287,7 @@ function openForm(host: HTMLElement, edit?: Spot): void {
         if (code.value.trim().toUpperCase() !== q || !af || !af.latlng) return;   // stale / not found
         lat.value = String(af.latlng[0]); lon.value = String(af.latlng[1]);
         if (!name.value.trim() && af.name) name.value = af.name;
-        if (!country.value.trim()) country.value = icaoCountry(q);
+        if (!country.value.trim()) country.value = codeCountry(q);
         cont.value = continentOf(af.latlng[0], af.latlng[1]);
         code.style.borderColor = 'var(--accent)';
       } catch { /* offline / not found — leave the fields for manual entry */ }

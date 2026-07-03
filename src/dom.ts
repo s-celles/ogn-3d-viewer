@@ -61,6 +61,7 @@ export const rose       = $<SVGGElement>('rose');
 export const altsl      = $<HTMLInputElement>('altsl');
 export const icaoEl     = $<HTMLInputElement>('icao');
 export const fblink     = $<HTMLAnchorElement>('fblink');
+export const afInfo     = $('afInfo');
 export const acEl       = $('aclist');
 export const dateEl     = $<HTMLInputElement>('date');
 export const loadBtn    = $<HTMLButtonElement>('load');

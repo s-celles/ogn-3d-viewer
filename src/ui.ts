@@ -6,8 +6,9 @@ import { APP_VERSION, GIT_HASH } from './version';
 import {
   subjEl, viewsEl, cammodeEl, traceEl, trailFxEl, smoothBtn, compBtn, bankBtn, soundBtn, trafficModeEl, graphModeEl, graphClose, winEl, winval, playBtn, segEl,
   exoEl, exval, groundEl, groundval, cacheEl, cacheval, acscaleEl, acscaleval, coneBtn, finesseEl, finval, safetyEl, safeval, coneRadEl, coneradval, labelsBtn, labelFieldsEl, shadowsEl, curtainBtn, attrBtn, pitchEl, pitchval, scrub, scrubMin, scrubMax, clkEl, lglist, rose, altsl, icaoEl, fblink, acEl,
-  dateEl, loadBtn, langEl, discEl, infoBtn, copyBtn, collapseBtn, liveBtn, igcBtn, igcInput, mapDiv, prevAc, nextAc, resetSettingsBtn,
+  dateEl, loadBtn, langEl, discEl, infoBtn, copyBtn, collapseBtn, liveBtn, igcBtn, igcInput, mapDiv, prevAc, nextAc, resetSettingsBtn, afInfo,
 } from './dom';
+import { codeFlag } from './flags';
 import { clearStored } from './settings';
 import { postCacheCap } from './sw-cache';
 import { subjectTrack, airborne, headingAt, clampCur, fmt, statsFor } from './flight-math';
@@ -374,11 +375,11 @@ icaoEl.addEventListener('input', () => {
 document.addEventListener('click', e => { if (!(e.target as Element).closest('.ac')) acEl.classList.remove('open'); });
 icaoEl.addEventListener('keydown', e => { if (e.key === 'Enter') { acEl.classList.remove('open'); loadBtn.click(); } });
 dateEl.addEventListener('input', updateFbLink);
-loadBtn.onclick = () => { stopLive(); loadFlights(icaoEl.value.trim().toUpperCase(), dateEl.value); };
+loadBtn.onclick = () => { setPlace(null); stopLive(); loadFlights(icaoEl.value.trim().toUpperCase(), dateEl.value); };
 
 // ---- quick date (today / yesterday) ----
 function quickDate(daysAgo: number): void {
-  stopLive(); const d = new Date(); d.setDate(d.getDate() - daysAgo);
+  setPlace(null); stopLive(); const d = new Date(); d.setDate(d.getDate() - daysAgo);
   dateEl.value = d.toISOString().slice(0, 10);
   if (icaoEl.value.trim().length >= 2) loadFlights(icaoEl.value.trim().toUpperCase(), dateEl.value);
 }
@@ -396,6 +397,7 @@ function stopLive(): void {
 }
 export async function setLive(): Promise<void> {
   if (S.live) { stopLive(); return; }
+  setPlace(null);
   S.live = true; document.body.classList.add('live'); liveBtn.classList.add('on'); liveBtn.title = t('liveExit');
   dateEl.value = new Date().toISOString().slice(0, 10);
   await loadFlights(icaoEl.value.trim().toUpperCase(), dateEl.value);
@@ -500,7 +502,22 @@ async function updateCacheInfo(): Promise<void> {
 // The FlightBook link next to the airfield label — points at the OGN FlightBook
 // page for the currently typed/loaded airfield + date (round-trip with the
 // ?icao=…&date=… deep link). Updated live as the inputs change.
+// The place shown under the code (flag + name), so you can tell where a site is.
+// Comes from the loaded FlightBook airfield, or from a picked terrain-only spot.
+let place: { name: string; flag: string } | null = null;
+let lastAfKey = '';
+/** Show a discovered spot's name/flag (for terrain-only picks); null clears it. */
+export function setPlace(name: string | null, flag = ''): void { place = name ? { name, flag } : null; renderPlace(); }
+function renderPlace(): void {
+  const p = place || (S.AF && S.AF.name ? { name: S.AF.name, flag: codeFlag(S.AF.code) } : null);
+  const key = p ? p.flag + '|' + p.name : '';
+  if (key === lastAfKey) return;
+  lastAfKey = key;
+  if (p) { afInfo.innerHTML = `${p.flag} <b>${p.name}</b>`.trim(); afInfo.style.display = ''; }
+  else { afInfo.textContent = ''; afInfo.style.display = 'none'; }
+}
 export function updateFbLink(): void {
+  renderPlace();   // dirty-checked; cheap to call each frame
   // Share-link button: only when there's a loaded OGN session to deep-link to.
   copyBtn.style.display = (S.ready && S.source !== 'file') ? '' : 'none';
   if (S.source === 'file') { fblink.style.display = 'none'; return; }   // no FlightBook for local files
