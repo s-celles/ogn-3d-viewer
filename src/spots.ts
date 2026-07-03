@@ -58,17 +58,58 @@ const flag = (iso: string): string => iso ? iso.toUpperCase().replace(/./g, c =>
 
 // World locator: the whole-world z0 imagery tile (cached by the service worker);
 // spots placed by web-mercator projection as percentages, so the map is responsive.
-const WORLD_TILE = TEXTURE.replace('{z}', '0').replace('{x}', '0').replace('{y}', '0');
+// Esri MapServer "export" endpoint: a single sharp image of any bbox, so a
+// continent view isn't the z0 world tile stretched (pixelated). Cached by the SW.
+const ESRI_EXPORT = TEXTURE.replace(/\/tile\/.*$/, '/export');
+const MERC_E = 20037508.342789244;   // half web-mercator extent (metres)
 const merX = (lon: number): number => (lon + 180) / 360;
 const merY = (lat: number): number => {
   const s = Math.sin(Math.max(-85, Math.min(85, lat)) * Math.PI / 180);
   return 0.5 - Math.log((1 + s) / (1 - s)) / (4 * Math.PI);
 };
+// Rough continent bounding boxes (deg) used to recenter the locator map on the
+// selected continent (the overlay opens on the whole world).
+const CONT_BBOX: Record<string, { n: number, s: number, w: number, e: number }> = {
+  'Europe': { n: 62, s: 35, w: -11, e: 32 },
+  'North America': { n: 60, s: 24, w: -125, e: -64 },
+  'South America': { n: 13, s: -55, w: -82, e: -34 },
+  'Africa': { n: 37, s: -35, w: -18, e: 52 },
+  'Asia': { n: 55, s: 5, w: 25, e: 146 },
+  'Oceania': { n: -8, s: -47, w: 110, e: 179 },
+  'Antarctica': { n: -60, s: -85, w: -179, e: 179 },
+};
 
-let overlay: HTMLElement | null = null, listEl: HTMLElement | null = null, tabsEl: HTMLElement | null = null, mapEl: HTMLElement | null = null, fileInput: HTMLInputElement | null = null;
+let overlay: HTMLElement | null = null, listEl: HTMLElement | null = null, tabsEl: HTMLElement | null = null, mapEl: HTMLElement | null = null, bgEl: HTMLElement | null = null, fileInput: HTMLInputElement | null = null;
 let active = '';
+let view = { x0: 0, y0: 0, d: 1 };   // visible world rect (mercator 0..1), d = side
 const dots = new Map<string, HTMLElement>();
 const items = new Map<string, HTMLElement>();
+
+// Recenter the map on a continent (null = whole world). Pans/zooms the imagery
+// background and repositions the (constant-size) markers accordingly.
+function setView(cont: string | null): void {
+  const bb = cont ? CONT_BBOX[cont] : null;
+  if (bb) {
+    const x0 = merX(bb.w), x1 = merX(bb.e), y0 = merY(bb.n), y1 = merY(bb.s);
+    const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2, d = Math.min(1, Math.max(x1 - x0, y1 - y0) * 1.3);
+    view = { x0: Math.max(0, Math.min(1 - d, cx - d / 2)), y0: Math.max(0, Math.min(1 - d, cy - d / 2)), d };
+  } else view = { x0: 0, y0: 0, d: 1 };
+  if (bgEl) {
+    const mx = (f: number) => ((f * 2 - 1) * MERC_E).toFixed(0), my = (f: number) => ((1 - f * 2) * MERC_E).toFixed(0);
+    const bbox = `${mx(view.x0)},${my(view.y0 + view.d)},${mx(view.x0 + view.d)},${my(view.y0)}`;
+    bgEl.style.backgroundImage = `url("${ESRI_EXPORT}?bbox=${bbox}&bboxSR=3857&imageSR=3857&size=512,512&format=jpg&f=image")`;
+  }
+  positionDots();
+}
+function positionDots(): void {
+  for (const s of allSpots()) {
+    const el = dots.get(s.code); if (!el) continue;
+    const sx = (merX(s.lon) - view.x0) / view.d, sy = (merY(s.lat) - view.y0) / view.d;
+    const vis = sx >= -0.02 && sx <= 1.02 && sy >= -0.02 && sy <= 1.02;
+    el.style.display = vis ? 'block' : 'none';
+    el.style.left = (sx * 100).toFixed(2) + '%'; el.style.top = (sy * 100).toFixed(2) + '%';
+  }
+}
 const present = (): string[] => CONTS.filter(c => allSpots().some(s => s.continent === c));
 const isOpen = (): boolean => !!overlay && overlay.style.display === 'flex';
 
@@ -80,14 +121,14 @@ function highlight(code: string, on: boolean): void {
   if (on && it) it.scrollIntoView({ block: 'nearest' });
 }
 function fromMap(s: Spot): void {
-  if (s.continent !== active) { active = s.continent; renderTabs(); renderList(); }
+  if (active && s.continent !== active) { active = s.continent; renderTabs(); renderList(); }   // world view keeps all spots listed
   highlight(s.code, true);
 }
 
 function open(): void {
   if (!overlay) build();
-  active = present()[0] || '';
-  renderTabs(); renderList();
+  active = '';                                  // start on the whole world (all spots)
+  renderTabs(); renderList(); setView(null);
   overlay!.style.display = 'flex'; discoverBtn.classList.add('on');
 }
 function close(): void { if (overlay) overlay.style.display = 'none'; discoverBtn.classList.remove('on'); }
@@ -100,17 +141,25 @@ function pick(s: Spot): void {
   else gotoSpot(s.lat, s.lon);                 // built-in terrain-only site
 }
 
+function select(val: string): void { active = val; renderTabs(); renderList(); setView(val || null); }
 function renderTabs(): void {
   if (!tabsEl) return; tabsEl.innerHTML = '';
-  for (const c of present()) {
-    const b = document.createElement('button'); b.textContent = contLabel(c); b.classList.toggle('on', c === active);
-    b.onclick = () => { active = c; renderTabs(); renderList(); };
+  for (const [val, label] of [['', '🌍 ' + t('discoverWorldTab')] as const, ...present().map(c => [c, contLabel(c)] as const)]) {
+    const b = document.createElement('button'); b.textContent = label; b.classList.toggle('on', val === active);
+    b.onclick = () => select(val);
     tabsEl.appendChild(b);
   }
 }
+// active === '' → world (all spots, grouped by continent); else that continent.
 function renderList(): void {
   if (!listEl) return; listEl.innerHTML = ''; items.clear();
-  for (const s of allSpots().filter(sp => sp.continent === active)) {
+  for (const c of (active ? [active] : present())) {
+    if (!active) {   // world view: a small continent divider before its spots
+      const hdr = document.createElement('div'); hdr.textContent = contLabel(c);
+      hdr.style.cssText = 'padding:8px 10px 2px;color:var(--mut);font-size:11px;text-transform:uppercase;letter-spacing:.5px';
+      listEl.appendChild(hdr);
+    }
+    for (const s of allSpots().filter(sp => sp.continent === c)) {
     const on = !!s.checked || !!s.user;   // clickable-to-load (built-in FlightBook, or user spot)
     const d = document.createElement('div');
     d.style.cssText = 'padding:8px 10px;border-radius:8px;cursor:pointer;display:flex;gap:10px;align-items:baseline;' + (on ? '' : 'opacity:.55');
@@ -135,6 +184,7 @@ function renderList(): void {
     }
     items.set(s.code, d);
     listEl.appendChild(d);
+    }
   }
 }
 function rebuildDots(): void {
@@ -144,9 +194,9 @@ function rebuildDots(): void {
     if (!Number.isFinite(s.lat) || !Number.isFinite(s.lon)) continue;   // no coords → no map marker
     const on = !!s.checked || !!s.user;
     const dot = document.createElement('div'); dot.dataset.dot = s.code;
-    dot.style.cssText = `position:absolute;left:${(merX(s.lon) * 100).toFixed(2)}%;top:${(merY(s.lat) * 100).toFixed(2)}%;` +
-      `width:10px;height:10px;border-radius:50%;transform:translate(-50%,-50%);cursor:pointer;transition:transform .1s;` +
-      `border:1px solid rgba(0,0,0,.7);background:${s.user ? '#4ea1ff' : on ? 'var(--accent)' : '#9aa6b2'}`;
+    dot.style.cssText = `position:absolute;width:10px;height:10px;border-radius:50%;transform:translate(-50%,-50%);` +
+      `cursor:pointer;transition:transform .1s,left .35s,top .35s;border:1px solid rgba(0,0,0,.7);` +
+      `background:${s.user ? '#4ea1ff' : on ? 'var(--accent)' : '#9aa6b2'}`;
     dot.title = `${s.name} · ${s.code}`;
     dot.onmouseenter = () => fromMap(s);
     dot.onmouseleave = () => highlight(s.code, false);
@@ -154,6 +204,7 @@ function rebuildDots(): void {
     dots.set(s.code, dot);
     mapEl.appendChild(dot);
   }
+  positionDots();
 }
 
 // ---- add / import / export ----
@@ -275,7 +326,12 @@ function build(): void {
   body.style.cssText = 'display:flex;gap:16px;padding:8px 16px;flex:1;min-height:0;overflow:hidden';
   mapEl = document.createElement('div');
   mapEl.style.cssText = `position:relative;flex:0 0 auto;align-self:flex-start;width:min(46vw,72vh,560px);aspect-ratio:1;border-radius:8px;` +
-    `background:#0a1016 url('${WORLD_TILE}') center/cover no-repeat;border:1px solid rgba(255,255,255,.12)`;
+    `overflow:hidden;background:#0a1016;border:1px solid rgba(255,255,255,.12);cursor:pointer`;
+  mapEl.title = t('discoverWorld');
+  mapEl.onclick = e => { if (e.target === mapEl || e.target === bgEl) select(''); };   // click the map → back to world (tab + list too)
+  bgEl = document.createElement('div');   // sharp imagery of the current view; markers sit on top at constant size
+  bgEl.style.cssText = 'position:absolute;inset:0;background-position:center;background-size:100% 100%;background-repeat:no-repeat';
+  mapEl.appendChild(bgEl);
   listEl = document.createElement('div');
   listEl.style.cssText = 'flex:1 1 auto;min-width:0;overflow-y:auto;display:flex;flex-direction:column;gap:2px;padding-right:4px';
   body.append(mapEl, listEl);
