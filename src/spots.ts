@@ -91,6 +91,12 @@ let hotAt = 0;                  // timestamp of the displayed scan
 let hotTimer = 0;              // interval refreshing the "updated … ago" header
 const hotDots = new Map<number, HTMLElement>();
 const hotItems = new Map<number, HTMLElement>();
+const hotHidden = new Set<number>();            // zone indices filtered out of the current view
+let hotRowsEl: HTMLElement | null = null;       // container holding just the ranked rows
+interface HotFilter { country: string; sort: 'count' | 'name' | 'country'; q: string; }
+const HOT_FILTER_KEY = 'ogn.hotFilter';
+const hotFilterDefault: HotFilter = { country: '', sort: 'count', q: '' };
+let hotFilter: HotFilter = readHotFilter();     // persisted country / sort / search, reset on demand
 
 // Recenter the map on a continent (null = whole world). Pans/zooms the imagery
 // background and repositions the (constant-size) markers accordingly.
@@ -135,9 +141,13 @@ function fromMap(s: Spot): void {
 // -------- live "hot spots": where gliders are flying right now --------
 function clearHot(): void {
   if (mapEl) mapEl.querySelectorAll('[data-hot]').forEach(n => n.remove());
-  hotDots.clear(); hotItems.clear(); hotZones = [];
+  hotDots.clear(); hotItems.clear(); hotZones = []; hotHidden.clear(); hotRowsEl = null;
   if (hotTimer) { clearInterval(hotTimer); hotTimer = 0; }
 }
+function readHotFilter(): HotFilter {
+  try { return { ...hotFilterDefault, ...JSON.parse(localStorage.getItem(HOT_FILTER_KEY) || '{}') }; } catch { return { ...hotFilterDefault }; }
+}
+function writeHotFilter(): void { try { localStorage.setItem(HOT_FILTER_KEY, JSON.stringify(hotFilter)); } catch { /* ignore */ } }
 function fmtAge(ms: number): string {
   if (ms < 15_000) return t('discoverJustNow');
   if (ms < 60_000) return `${Math.round(ms / 1000)} s`;
@@ -146,6 +156,7 @@ function fmtAge(ms: number): string {
 function positionHot(): void {
   for (const [i, el] of hotDots) {
     const z = hotZones[i]; if (!z) continue;
+    if (hotHidden.has(i)) { el.style.display = 'none'; continue; }   // filtered out
     const sx = (merX(z.lon) - view.x0) / view.d, sy = (merY(z.lat) - view.y0) / view.d;
     const vis = sx >= -0.02 && sx <= 1.02 && sy >= -0.02 && sy <= 1.02;
     el.style.display = vis ? 'block' : 'none';
@@ -186,7 +197,7 @@ function tickHot(): void {                                      // keep the age 
   const btn = listEl.querySelector('[data-hotref]') as HTMLButtonElement | null;
   if (btn) btn.onclick = () => { if (!hotFresh()) void showHot(true); };
 }
-function renderHot(): void {
+function renderHot(): void {   // build the markers + the static shell (header, controls, rows container)
   if (!listEl || !mapEl) return;
   const max = hotZones[0]?.count || 1;
   hotZones.forEach((z, i) => {
@@ -199,25 +210,79 @@ function renderHot(): void {
     el.onclick = () => pickZone(z);
     hotDots.set(i, el); mapEl!.appendChild(el);
   });
-  positionHot();
-  listEl.innerHTML = ''; hotItems.clear();
+  listEl.innerHTML = '';
   const head = document.createElement('div'); head.dataset.hothead = ''; head.innerHTML = hotHeader();
   listEl.appendChild(head);
-  if (!hotZones.length) { listEl.insertAdjacentHTML('beforeend', `<div style="padding:16px;color:var(--mut)">${t('discoverHotNone')}</div>`); }
-  hotZones.forEach((z, i) => {
+  if (hotZones.length) listEl.appendChild(buildHotControls());
+  hotRowsEl = document.createElement('div'); listEl.appendChild(hotRowsEl);
+  renderHotRows();
+  tickHot();                                   // wire the refresh button now
+  if (!hotTimer) hotTimer = setInterval(tickHot, 5000) as unknown as number;   // keep the age label live
+  void enrichHotNames();                        // resolve airfield names in the background
+}
+function hotView(infos: ZoneInfo[]): number[] {   // indices after country/search filter + sort
+  const q = hotFilter.q.trim().toLowerCase();
+  const view = hotZones.map((_, i) => i).filter(i => {
+    const inf = infos[i];
+    if (hotFilter.country && inf.country !== hotFilter.country) return false;
+    if (q && !`${inf.name} ${inf.code} ${inf.country}`.toLowerCase().includes(q)) return false;
+    return true;
+  });
+  if (hotFilter.sort === 'name') view.sort((a, b) => (infos[a].name || infos[a].code).localeCompare(infos[b].name || infos[b].code));
+  else if (hotFilter.sort === 'country') view.sort((a, b) => infos[a].country.localeCompare(infos[b].country) || hotZones[b].count - hotZones[a].count);
+  else view.sort((a, b) => hotZones[b].count - hotZones[a].count);
+  return view;
+}
+function renderHotRows(): void {   // rebuild just the ranked rows (leaves the controls, so search keeps focus)
+  if (!hotRowsEl) return;
+  const infos = hotZones.map(zoneInfo);
+  const view = hotView(infos);
+  hotHidden.clear(); const shown = new Set(view);
+  hotZones.forEach((_, i) => { if (!shown.has(i)) hotHidden.add(i); });
+  positionHot();
+  hotRowsEl.innerHTML = ''; hotItems.clear();
+  if (!hotZones.length) { hotRowsEl.innerHTML = `<div style="padding:16px;color:var(--mut)">${t('discoverHotNone')}</div>`; return; }
+  if (!view.length) { hotRowsEl.innerHTML = `<div style="padding:16px;color:var(--mut)">${t('discoverHotNoMatch')}</div>`; return; }
+  for (const i of view) {
+    const z = hotZones[i], info = infos[i];
     const d = document.createElement('div');
     d.style.cssText = 'padding:8px 10px;border-radius:8px;cursor:pointer;display:flex;gap:10px;align-items:center';
     d.onmouseenter = () => highlightHot(i, true); d.onmouseleave = () => highlightHot(i, false);
     d.onclick = () => pickZone(z);
-    const info = zoneInfo(z);
     d.innerHTML = `<b style="color:#ff5a3c;min-width:28px;text-align:right" title="${z.count} ${t('discoverGliders')}">${z.count}</b>`
       + `<span style="font-size:16px">${info.flag || '📍'}</span>`
       + `<div data-nm style="flex:1;min-width:0">${hotRowText(info)}</div>`;
-    hotItems.set(i, d); listEl!.appendChild(d);
-  });
-  tickHot();                                   // wire the refresh button now
-  if (!hotTimer) hotTimer = setInterval(tickHot, 5000) as unknown as number;   // keep the age label live
-  void enrichHotNames();                        // resolve airfield names in the background
+    hotItems.set(i, d); hotRowsEl.appendChild(d);
+  }
+}
+function buildHotControls(): HTMLElement {   // country filter + search + sort + reset (persisted)
+  const wrap = document.createElement('div');
+  wrap.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px;padding:0 4px 10px';
+  const css = 'padding:4px 7px;border-radius:7px;background:rgba(255,255,255,.06);color:inherit;border:1px solid rgba(255,255,255,.15);font-size:12px';
+  const counts = new Map<string, number>();
+  for (const z of hotZones) { const c = zoneInfo(z).country; if (c) counts.set(c, (counts.get(c) || 0) + 1); }
+  if (hotFilter.country && !counts.has(hotFilter.country)) counts.set(hotFilter.country, 0);   // keep the persisted filter visible even with no match
+  const country = document.createElement('select'); country.style.cssText = css;
+  country.innerHTML = `<option value="">${t('discoverAllCountries')}</option>`
+    + [...counts.keys()].sort().map(c => `<option value="${c}"${c === hotFilter.country ? ' selected' : ''}>${c} (${counts.get(c)})</option>`).join('');
+  country.onchange = () => { hotFilter.country = country.value; writeHotFilter(); renderHotRows(); };
+  const sort = document.createElement('select'); sort.style.cssText = css;
+  sort.innerHTML = ([['count', t('discoverSortActivity')], ['name', t('discoverSortName')], ['country', t('discoverSortCountry')]] as const)
+    .map(([v, l]) => `<option value="${v}"${v === hotFilter.sort ? ' selected' : ''}>${l}</option>`).join('');
+  sort.onchange = () => { hotFilter.sort = sort.value as HotFilter['sort']; writeHotFilter(); renderHotRows(); };
+  const search = document.createElement('input');
+  search.type = 'search'; search.placeholder = t('discoverSearch'); search.value = hotFilter.q;
+  search.style.cssText = css + ';flex:1;min-width:90px';
+  search.oninput = () => { hotFilter.q = search.value; writeHotFilter(); renderHotRows(); };
+  const reset = document.createElement('button');
+  reset.textContent = '↺'; reset.title = t('discoverReset'); reset.style.cssText = css + ';cursor:pointer';
+  reset.onclick = () => {
+    hotFilter = { ...hotFilterDefault }; writeHotFilter();
+    country.value = ''; sort.value = 'count'; search.value = '';
+    renderHotRows();
+  };
+  wrap.append(country, search, sort, reset);
+  return wrap;
 }
 interface ZoneInfo { code: string; name: string; country: string; flag: string; }
 function nearestSpot(lat: number, lon: number): Spot | null {   // a known spot sharing this grid cell, if any
@@ -229,20 +294,26 @@ function nearestSpot(lat: number, lon: number): Spot | null {   // a known spot 
   }
   return best;
 }
-const nameCache = new Map<string, string>();   // ICAO code → airfield name ('' = resolved, unknown)
-async function resolveName(code: string): Promise<string> {   // ask the OGN FlightBook for an airfield name
+interface AfHit { name: string; code: string; }
+const nameCache = new Map<string, AfHit>();   // receiver code → resolved airfield (name + canonical code)
+async function resolveName(code: string): Promise<AfHit> {   // ask the OGN FlightBook for the airfield
   if (nameCache.has(code)) return nameCache.get(code)!;
+  let hit: AfHit = { name: '', code };
   try {
     const list = await fetch(`${API_BASE}/api/autocomp/${encodeURIComponent(code)}`).then(r => r.json()) as Array<{ code: string; name?: string }>;
-    const name = list.find(a => a.code?.toUpperCase() === code)?.name || '';
-    nameCache.set(code, name); return name;
-  } catch { nameCache.set(code, ''); return ''; }
+    // the receiver name (e.g. LKDK) is often a prefix of the real airfield code (LKDKH) — accept the best match
+    const m = list.find(a => a.code?.toUpperCase() === code) || list.find(a => (a.code || '').toUpperCase().startsWith(code));
+    if (m) hit = { name: m.name || '', code: (m.code || code).toUpperCase() };
+  } catch { /* keep the raw code */ }
+  nameCache.set(code, hit); return hit;
 }
 function zoneInfo(z: HotZone): ZoneInfo {   // resolve a name / country / flag for a hot zone
   const sp = nearestSpot(z.lat, z.lon);
   if (sp) return { code: sp.code, name: sp.name, country: sp.country, flag: isoFlag(sp.country) || codeFlag(sp.code) };
   const icao = /^[A-Z]{4}$/.test(z.label);
-  return { code: z.label, name: icao ? (nameCache.get(z.label) || '') : '', country: icao ? codeCountry(z.label) : '', flag: icao ? codeFlag(z.label) : '' };
+  const hit = icao ? nameCache.get(z.label) : undefined;
+  const code = hit?.code || z.label;                 // canonical airfield code once resolved (LKDK → LKDKH)
+  return { code, name: hit?.name || '', country: icao ? codeCountry(code) : '', flag: icao ? codeFlag(code) : '' };
 }
 function hotRowText(info: ZoneInfo): string {
   const title = info.name || info.code || '—';
@@ -259,20 +330,21 @@ function patchHotRow(i: number): void {   // refresh a row + marker once its nam
 async function enrichHotNames(): Promise<void> {   // fill in airfield names for ICAO receivers, progressively
   for (const [i, z] of hotZones.entries()) {
     if (nearestSpot(z.lat, z.lon) || !/^[A-Z]{4}$/.test(z.label) || nameCache.has(z.label)) continue;
-    const name = await resolveName(z.label);
+    const hit = await resolveName(z.label);
     if (active !== 'hot') return;                  // user left the tab
-    if (name) patchHotRow(i);
+    if (hit.name || hit.code !== z.label) patchHotRow(i);
   }
+  if (active === 'hot' && hotFilter.sort === 'name') renderHotRows();   // reorder now that names are known
 }
 function pickZone(z: HotZone): void {
   close();
   const sp = nearestSpot(z.lat, z.lon);
   if (sp) { pick(sp); return; }                             // known spot → reuse its full loading path (name propagates)
   const info = zoneInfo(z);
-  if (/^[A-Z]{4}$/.test(info.code)) {                       // receiver is an ICAO airfield → load its day
+  if (/^[A-Z]{4,}$/.test(info.code)) {                      // an airfield code (possibly resolved, e.g. LKDK → LKDKH) → load its day
     icaoEl.value = info.code; updateFbLink(); loadBtn.click();
-    setPlace(info.country || info.code, info.flag);         // show country/flag right away (FlightBook overrides with the real name if found)
-  } else { gotoSpot(z.lat, z.lon); setPlace(info.code || t('discoverHot'), info.flag); }
+    setPlace(info.name || info.country || info.code, info.flag);   // immediate feedback; FlightBook overrides with the real name if found
+  } else { gotoSpot(z.lat, z.lon); setPlace(info.name || info.code || t('discoverHot'), info.flag); }
 }
 
 function open(): void {
