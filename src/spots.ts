@@ -349,9 +349,8 @@ function pickZone(z: HotZone): void {
 
 function open(): void {
   if (!overlay) build();
-  active = '';                                  // start on the whole world (all spots)
-  renderTabs(); renderList(); setView(null);
   overlay!.style.display = 'flex'; discoverBtn.classList.add('on');
+  select(active);                               // reopen on the last-used tab (world '', a continent, or 'hot')
 }
 function close(): void {
   if (overlay) overlay.style.display = 'none'; discoverBtn.classList.remove('on');
