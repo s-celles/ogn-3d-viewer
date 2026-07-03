@@ -120,6 +120,23 @@ function cacheTile(z: number, x: number, y: number, t: CachedTile): void {
   if (TILE_CACHE.size > limit) TILE_CACHE.delete(TILE_CACHE.keys().next().value as string);
 }
 
+// Fetch + decode the imagery tile to an ImageBitmap so the mesh can be textured
+// the moment it appears (no white flash while a URL-texture streams in). Retries
+// once; returns null on failure (rare — the mesh then shows white briefly).
+async function fetchImage(url: string, signal: AbortSignal): Promise<ImageBitmap | null> {
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const r = await fetch(url, { signal });
+      if (!r.ok) throw new Error('http ' + r.status);
+      return await createImageBitmap(await r.blob());
+    } catch (e) {
+      if (signal?.aborted) return null;
+      await new Promise(res => setTimeout(res, 200 * (attempt + 1)));
+    }
+  }
+  return null;
+}
+
 // Fetch + decode one Terrarium DEM tile, reusing the cache (many overzoomed
 // imagery tiles share the same coarser ancestor DEM, so this fetches it once).
 // Retries transient failures with backoff; gives up quietly once aborted.
@@ -191,8 +208,16 @@ export function makeTerrain() {
       const { x, y, z } = tile.index || tile;
       // Take the DEM from this tile's zoom, or — when overzoomed past the DEM
       // ceiling — from its z15 ancestor (cached, so siblings share one fetch).
+      // Fetch the imagery in parallel and hold the tile until BOTH are ready, so
+      // it never appears as an untextured white patch (deck keeps the textured
+      // parent tile meanwhile).
       const dz = Math.max(0, z - DEM_MAXZOOM);
-      return fetchDEM(z - dz, x >> dz, y >> dz, tile.signal);
+      const turl = TEXTURE.replace('{z}', z).replace('{x}', x).replace('{y}', y);
+      const [dem, image] = await Promise.all([
+        fetchDEM(z - dz, x >> dz, y >> dz, tile.signal),
+        fetchImage(turl, tile.signal),
+      ]);
+      return dem ? { ...dem, image } : null;
     },
     renderSubLayers: (props: any) => {
       const t = props.data as DecodedTile | null; if (!t) return null;
@@ -216,7 +241,7 @@ export function makeTerrain() {
             id: String(props.id) + '-m', data: TERRAIN_ANCHOR, getPosition: () => [0, 0, 0],
             _instanced: false, coordinateSystem: COORDINATE_SYSTEM.LNGLAT,
             mesh: buildTerrainMesh(t, bb.west, bb.south, bb.east, bb.north, su0, sv0, sf, skirtM) as any,
-            texture: (dev.on && dev.noTexture) ? undefined : turl,
+            texture: (dev.on && dev.noTexture) ? undefined : (t.image || turl),
             getColor: (dev.on && dev.noTexture) ? [150, 155, 160] : [255, 255, 255], pickable: false,
             material: { ambient: 0.4, diffuse: 0.85, shininess: 6, specularColor: [30, 30, 30] },
           } as any);

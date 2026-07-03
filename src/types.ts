@@ -124,6 +124,7 @@ export interface DecodedTile {
   rgba: Uint8Array;
   w: number;
   h: number;
+  image?: ImageBitmap | null;   // pre-fetched imagery, so the tile shows textured (no white flash)
 }
 
 /** The single shared mutable application state. */
