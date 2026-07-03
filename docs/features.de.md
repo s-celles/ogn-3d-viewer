@@ -44,6 +44,8 @@
 - **Installierbare App (PWA)** — installierbar und **offline** nutzbar; bereits besuchte Kacheln bleiben über Sitzungen hinweg erhalten.
 - **Sprachen** — Französisch, Englisch, Deutsch, Spanisch, Italienisch (automatisch erkannt).
 
+- **Teilbare Links** — die **🔗**-Schaltfläche kopiert einen Link, der den genauen Zustand wiederherstellt: Flugplatz, Datum, Live/Wiedergabe, **Ansicht** (Übersicht/Cockpit/Verfolger), verfolgtes Luftfahrzeug, Geschwindigkeit und **Zeitpunkt** der Wiedergabe.
+
 ## Entwicklermodus
 
 Fügen Sie `?dev=1` zur URL hinzu für ein technisches Panel: Gelände-**Drahtgitter**, **nacktes Relief** (ohne Bilder), **FPS**-Overlay, **Cache-Zähler** und Streaming-Regler (Anfragenzahl, Netzdichte, Cache-Größen, Sichtweite). `?dev=0` schaltet ihn aus.

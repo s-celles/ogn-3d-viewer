@@ -44,6 +44,8 @@
 - **Installable app (PWA)** — installable and usable **offline**; already-visited tiles persist across sessions.
 - **Languages** — French, English, German, Spanish, Italian (auto-detected).
 
+- **Shareable links** — the **🔗** button copies a link that reopens the exact state: airfield, date, live/replay, **view** (overview/cockpit/chase), followed aircraft, speed and the playback **moment**.
+
 ## Developer mode
 
 Add `?dev=1` to the URL for a technical panel: terrain **wireframe**, **bare relief** (no imagery), an **FPS** overlay, **cache counters**, and streaming tuners (request count, mesh density, cache sizes, view distance). `?dev=0` turns it off.

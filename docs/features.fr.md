@@ -44,6 +44,8 @@ Rejeu 3D des vols de planeurs de l'[Open Glider Network](http://wiki.glidernet.o
 - **Application installable (PWA)** — installable et utilisable **hors ligne** ; les tuiles déjà visitées sont conservées entre les sessions.
 - **Langues** — français, anglais, allemand, espagnol, italien (détection automatique).
 
+- **Liens partageables** — le bouton **🔗** copie un lien qui rouvre l'état exact : aérodrome, date, direct/rejeu, **vue** (ensemble/subjective/poursuite), aéronef suivi, vitesse et **instant** de lecture.
+
 ## Mode développeur
 
 Ajoutez `?dev=1` à l'URL pour un panneau technique : **fil de fer** du relief, **relief nu** (sans imagerie), overlay **FPS**, **compteurs de cache**, et réglages de streaming (nombre de requêtes, densité du maillage, taille des caches, distance de vue). `?dev=0` le désactive.

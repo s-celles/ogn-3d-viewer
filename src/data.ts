@@ -89,6 +89,7 @@ export function syncUrl(icao: string, date: string): void {
       u.searchParams.set('mode', 'replay');
       if (date) u.searchParams.set('date', date); else u.searchParams.delete('date');
     }
+    u.searchParams.set('view', S.mode);   // over / fpv / chase
     u.searchParams.delete('oaci');
     history.replaceState(null, '', u);
   } catch { /* non-browser / opaque origin */ }

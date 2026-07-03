@@ -40,7 +40,7 @@ d'info renvoie vers la page FlightBook correspondante.
 - **Scène 3D** — relief avec imagerie satellite (résolution réglable), trois vues (ensemble, cockpit, poursuite), HUD, cône de finesse, ombres au sol, rideau d'altitude, étiquettes par aéronef.
 - **Lecture** — curseur d'heure de la journée et vitesses 1× / 4× / 8× / 30× / 120×, modes de trace, effets (néon / contrail / bloom), lissage spline, graphes.
 - **Instruments & trafic** — attitude estimée, vario compensé (énergie totale), son du vario, radar cap-en-haut ou anti-collision directionnel.
-- **Application** — interface en **5 langues** (fr / en / de / es / it), liens profonds `?icao=…&date=…`, **réglages persistants** (localStorage + reset), **PWA hors ligne** avec cache de tuiles réglable, raccourcis clavier, et un **mode développeur** (`?dev=1` : fil de fer, FPS, compteurs de cache…).
+- **Application** — interface en **5 langues** (fr / en / de / es / it), liens partageables (site, date, vue, aéronef, vitesse, instant), **réglages persistants** (localStorage + reset), **PWA hors ligne** avec cache de tuiles réglable, raccourcis clavier, et un **mode développeur** (`?dev=1` : fil de fer, FPS, compteurs de cache…).
 
 📖 **Guide détaillé des fonctionnalités** : bouton **📖** dans l'application, ou [`docs/features.fr.md`](docs/features.fr.md).
 

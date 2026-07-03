@@ -52,6 +52,7 @@ export function setMode(m: Mode): void {
   if ((m === 'fpv' || m === 'chase') && from === 'over' && S.focus) { S.subject = S.focus; subjEl.value = S.focus; }
   syncAcScale();   // reflect this view's aircraft-size setting
   render(); syncUI();
+  if (S.ready && S.source !== 'file') syncUrl(icaoEl.value.trim().toUpperCase(), dateEl.value);   // keep ?view= current
 }
 // Fly the overview camera to a lat/lon. Used by "Discover" for sites that aren't
 // on the FlightBook: no traffic to load, but you still get the site's 3D terrain.
@@ -539,8 +540,11 @@ infoBtn.onclick = () => { const open = discEl.style.display !== 'none'; discEl.s
 // glider, a tug or a powered aircraft.
 function shareUrl(): string {
   const u = new URL(location.href);
-  if (S.subject) u.searchParams.set('reg', S.subject);
-  if (S.ready && !S.live) u.searchParams.set('t', fmt(S.cur).replace(/:/g, ''));
+  u.searchParams.set('view', S.mode);                                                    // over / fpv / chase
+  if (S.subject) u.searchParams.set('reg', S.subject); else u.searchParams.delete('reg');
+  if (S.mode === 'fpv' && !S.fpvFollow) u.searchParams.set('cam', 'free'); else u.searchParams.delete('cam');
+  if (S.speed !== 8) u.searchParams.set('speed', String(S.speed)); else u.searchParams.delete('speed');
+  if (S.ready && !S.live) u.searchParams.set('t', fmt(S.cur).replace(/:/g, '')); else u.searchParams.delete('t');
   return u.toString();
 }
 copyBtn.onclick = async () => {
@@ -558,8 +562,15 @@ copyBtn.onclick = async () => {
  */
 export function applyDeepLinkCursor(qp: URLSearchParams): void {
   if (!S.ready) return;
+  // View first: setMode(fpv/chase) from the overview adopts the centred glider,
+  // which would clobber ?reg — so pick the view, THEN force the shared subject.
+  const view = (qp.get('view') || '').trim();
+  if (view === 'over' || view === 'fpv' || view === 'chase') setMode(view);
   const reg = (qp.get('reg') || '').trim();
   if (reg && S.TRACKS.some(tr => tr.reg === reg)) { S.subject = reg; subjEl.value = reg; }
+  if (S.mode === 'fpv') setFollow((qp.get('cam') || '').trim() !== 'free');   // ?cam=free → free look
+  const speed = +(qp.get('speed') || '');
+  if ([1, 4, 8, 30, 120].includes(speed)) { S.speed = speed; [...segEl.children].forEach(c => asEl(c).classList.toggle('on', asEl(c).textContent === speed + '×')); }
   const digits = (qp.get('t') || '').replace(/\D/g, '');
   if (!S.live && digits.length >= 4) {
     const local = (+digits.slice(0, 2)) * 3600 + (+digits.slice(2, 4)) * 60 + (+digits.slice(4, 6) || 0);
