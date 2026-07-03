@@ -26,6 +26,11 @@ export const DEVICE_GB = (typeof navigator !== 'undefined' && (navigator as any)
 export const ROOMY = DEVICE_GB >= 8;
 export const DECK_CACHE = ROOMY ? 800 : 300;    // deck's decoded-tile LRU (render)
 export const ELEV_CACHE = ROOMY ? 1000 : 400;   // our elevation-lookup FIFO
+export const DISK_TILES_BASE = ROOMY ? 4000 : 800;  // service-worker tile cache (matches build.ts)
+// User cache-size multiplier (S.cacheScale) applied to the above. RAM caches are
+// ~256 KB/tile so they're capped to ×2 to avoid running the tab out of memory;
+// the disk cache (~30 KB/tile, browser-evicted under pressure) scales in full.
+export const ramCacheFactor = (scale: number): number => Math.min(scale, 2);
 export const FAR_PLANE = ROOMY ? 130000 : 70000; // first-person/chase frustum far (m)
 
 // The Terrarium elevation DEM (AWS) only exists up to zoom 15. The ground-detail

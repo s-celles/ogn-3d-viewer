@@ -11,7 +11,7 @@ const STORAGE_KEY = 'ogn3d.settings.v1';
 // labelFields) are merged over the current defaults on load, so a sub-key added
 // in a later version still picks up its default rather than being dropped.
 export const SETTING_KEYS = [
-  'exo', 'groundZoom', 'dev', 'speed', 'fpvPitch', 'bank',
+  'exo', 'groundZoom', 'cacheScale', 'dev', 'speed', 'fpvPitch', 'bank',
   'trace', 'trailFx', 'modelScale', 'windowMin', 'spline', 'compensated', 'sound',
   'trafficMode', 'graphMode',
   'glideCone', 'glideRatio', 'safetyHeight', 'coneRadiusKm',

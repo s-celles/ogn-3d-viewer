@@ -5,7 +5,7 @@
 // with UPNG (a pure-JS PNG decoder) on the main thread.
 import UPNG from 'upng-js';
 import { S } from './state';
-import { TERRAIN, TEXTURE, TERRAIN_N, DECK_CACHE, ELEV_CACHE, DEM_MAXZOOM } from './config';
+import { TERRAIN, TEXTURE, TERRAIN_N, DECK_CACHE, ELEV_CACHE, DEM_MAXZOOM, ramCacheFactor } from './config';
 import { TileLayer, SimpleMeshLayer, PathLayer, TextLayer, COORDINATE_SYSTEM } from './deck';
 import type { DecodedTile } from './types';
 
@@ -116,7 +116,8 @@ interface CachedTile { rgba: Uint8Array; w: number; h: number; }
 const TILE_CACHE = new Map<string, CachedTile>();
 function cacheTile(z: number, x: number, y: number, t: CachedTile): void {
   TILE_CACHE.set(z + '/' + x + '/' + y, t);
-  if (TILE_CACHE.size > ELEV_CACHE) TILE_CACHE.delete(TILE_CACHE.keys().next().value as string);
+  const limit = Math.round(ELEV_CACHE * ramCacheFactor(S.cacheScale));
+  if (TILE_CACHE.size > limit) TILE_CACHE.delete(TILE_CACHE.keys().next().value as string);
 }
 
 // Fetch + decode one Terrarium DEM tile, reusing the cache (many overzoomed
@@ -172,7 +173,7 @@ export function makeTerrain() {
     // takes its DEM elevation from the coarser z15 ancestor while still fetching
     // full-resolution Esri imagery at its own zoom — so the photo keeps sharpening.
     id: 'terrain', data: TERRAIN, minZoom: 0, maxZoom: S.groundZoom, tileSize: 256,
-    maxCacheSize: dev.on ? dev.deckCache : DECK_CACHE,
+    maxCacheSize: dev.on ? dev.deckCache : Math.round(DECK_CACHE * ramCacheFactor(S.cacheScale)),
     // In first-person/chase the tilted frustum sees a wide swathe to the horizon,
     // so many tiles are in flight at once. The default 6 concurrent requests drain
     // the queue too slowly (background stays blurry/holey); raise it. 'best-available'

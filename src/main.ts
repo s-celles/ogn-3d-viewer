@@ -7,6 +7,7 @@ import { loadFlights } from './data';
 import { initGraphs } from './graphs';
 import { initAnalytics } from './analytics';
 import { initDev, devFrame } from './dev';
+import { postCacheCap } from './sw-cache';
 
 const todayStr = new Date().toISOString().slice(0, 10);
 dateEl.value = todayStr; dateEl.max = todayStr;
@@ -15,6 +16,10 @@ dateEl.value = todayStr; dateEl.max = todayStr;
 // has no sw.js). Relative path so the scope is the GitHub Pages subpath.
 if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
   window.addEventListener('load', () => { navigator.serviceWorker.register('./sw.js').catch(() => {}); });
+  // Push the persistent tile-cache cap once a worker controls the page (and again
+  // if it changes), so the user's cache-size setting reaches the service worker.
+  navigator.serviceWorker.ready.then(postCacheCap).catch(() => {});
+  navigator.serviceWorker.addEventListener('controllerchange', postCacheCap);
 }
 
 // Privacy-respecting, cookieless usage stats (canonical deploy only; honours DNT/GPC).

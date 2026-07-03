@@ -136,6 +136,7 @@ export interface AppState {
   ready: boolean;
   exo: number;
   groundZoom: number;   // imagery/terrain detail ceiling (max tile zoom)
+  cacheScale: number;   // multiplier on the device-default cache sizes
   dev: DevOpts;
   // Geoid/datum offset (m) subtracted from raw GNSS (ellipsoidal) altitudes so
   // aircraft sit on the orthometric terrain instead of floating ~N metres above.

@@ -5,10 +5,11 @@ import { API_BASE, REPO_URL, MINZ, MAXZ, PMIN, PMAX, CHASE, clampv } from './con
 import { APP_VERSION, GIT_HASH } from './version';
 import {
   subjEl, viewsEl, cammodeEl, traceEl, trailFxEl, smoothBtn, compBtn, bankBtn, soundBtn, trafficModeEl, graphModeEl, graphClose, winEl, winval, playBtn, segEl,
-  exoEl, exval, groundEl, groundval, acscaleEl, acscaleval, coneBtn, finesseEl, finval, safetyEl, safeval, coneRadEl, coneradval, labelsBtn, labelFieldsEl, shadowsEl, curtainBtn, attrBtn, pitchEl, pitchval, scrub, scrubMin, scrubMax, clkEl, lglist, rose, altsl, icaoEl, fblink, acEl,
+  exoEl, exval, groundEl, groundval, cacheEl, cacheval, acscaleEl, acscaleval, coneBtn, finesseEl, finval, safetyEl, safeval, coneRadEl, coneradval, labelsBtn, labelFieldsEl, shadowsEl, curtainBtn, attrBtn, pitchEl, pitchval, scrub, scrubMin, scrubMax, clkEl, lglist, rose, altsl, icaoEl, fblink, acEl,
   dateEl, loadBtn, langEl, discEl, infoBtn, copyBtn, collapseBtn, liveBtn, igcBtn, igcInput, mapDiv, prevAc, nextAc, resetSettingsBtn,
 } from './dom';
 import { clearStored } from './settings';
+import { postCacheCap } from './sw-cache';
 import { subjectTrack, airborne, headingAt, clampCur, fmt, statsFor } from './flight-math';
 import { makeTerrain } from './terrain';
 import { render, updateHUD } from './render';
@@ -167,6 +168,14 @@ exoEl.addEventListener('input', e => { S.exo = parseFloat((e.target as HTMLInput
 // ---- ground resolution (imagery/terrain detail ceiling) ----
 groundEl.addEventListener('input', e => { S.groundZoom = parseInt((e.target as HTMLInputElement).value, 10); groundval.textContent = 'z' + S.groundZoom; S.terrainInst = makeTerrain(); render(); });
 
+// ---- cache size (multiplier on the device-default RAM + disk caches) ----
+cacheEl.addEventListener('input', e => {
+  S.cacheScale = parseFloat((e.target as HTMLInputElement).value); cacheval.textContent = '×' + S.cacheScale;
+  S.terrainInst = makeTerrain();   // apply the new deck (RAM) cache size
+  postCacheCap();                  // apply the new disk cap to the service worker
+  render();
+});
+
 // ---- aircraft size (per view, edits the current view's mesh scale) ----
 const fmtScale = (v: number) => (Number.isInteger(v) ? String(v) : v.toFixed(1)) + '×';
 export function syncAcScale(): void { const v = S.modelScale[S.mode]; acscaleEl.value = String(v); acscaleval.textContent = fmtScale(v); }
@@ -184,6 +193,7 @@ export function syncControls(): void {
   shadowsEl.value = S.shadowMode; langEl.value = S.lang;
   exoEl.value = String(S.exo); exval.textContent = S.exo.toFixed(1) + '×';
   groundEl.value = String(S.groundZoom); groundval.textContent = 'z' + S.groundZoom;
+  cacheEl.value = String(S.cacheScale); cacheval.textContent = '×' + S.cacheScale;
   winEl.value = String(S.windowMin); winval.textContent = String(S.windowMin);
   finesseEl.value = String(S.glideRatio); finval.textContent = String(S.glideRatio);
   safetyEl.value = String(S.safetyHeight); safeval.textContent = String(S.safetyHeight);
@@ -212,7 +222,8 @@ resetSettingsBtn.onclick = () => {
     const v = d[k]; (S as any)[k] = (v && typeof v === 'object') ? JSON.parse(JSON.stringify(v)) : v;
   }
   clearStored();
-  S.terrainInst = makeTerrain();   // exaggeration / ground resolution may have changed
+  S.terrainInst = makeTerrain();   // exaggeration / ground resolution / cache size may have changed
+  postCacheCap();                  // restore the default disk cap in the service worker
   syncControls(); applyI18n();
   if (S.ready) rebuild(null, null, true); else render();
 };
