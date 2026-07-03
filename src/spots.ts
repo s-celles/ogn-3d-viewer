@@ -193,7 +193,8 @@ function renderHot(): void {
     const el = document.createElement('div'); el.dataset.hot = String(i);
     const sz = 8 + Math.round(14 * z.count / max);
     el.style.cssText = `position:absolute;width:${sz}px;height:${sz}px;border-radius:50%;transform:translate(-50%,-50%);cursor:pointer;transition:transform .1s,left .35s,top .35s;border:1px solid rgba(0,0,0,.7);background:#ff5a3c;z-index:1`;
-    el.title = `${z.label} · ${z.count}`;
+    const ti = zoneInfo(z);
+    el.title = `${ti.flag} ${ti.name || ti.code} · ${z.count}`;
     el.onmouseenter = () => highlightHot(i, true); el.onmouseleave = () => highlightHot(i, false);
     el.onclick = () => pickZone(z);
     hotDots.set(i, el); mapEl!.appendChild(el);
@@ -208,17 +209,42 @@ function renderHot(): void {
     d.style.cssText = 'padding:8px 10px;border-radius:8px;cursor:pointer;display:flex;gap:10px;align-items:center';
     d.onmouseenter = () => highlightHot(i, true); d.onmouseleave = () => highlightHot(i, false);
     d.onclick = () => pickZone(z);
-    d.innerHTML = `<b style="color:#ff5a3c;min-width:30px;text-align:right">${z.count}</b>`
-      + `<div><b>${z.label || '—'}</b> <span style="color:var(--mut)">· ${t('discoverGliders')}</span></div>`;
+    const info = zoneInfo(z);
+    const title = info.name || info.code || '—';
+    const sub = [info.name ? info.code : '', info.country].filter(Boolean).join(' · ');
+    d.innerHTML = `<b style="color:#ff5a3c;min-width:28px;text-align:right" title="${z.count} ${t('discoverGliders')}">${z.count}</b>`
+      + `<span style="font-size:16px">${info.flag || '📍'}</span>`
+      + `<div style="flex:1;min-width:0"><b>${title}</b>${sub ? ` <span style="color:var(--mut)">· ${sub}</span>` : ''}</div>`;
     hotItems.set(i, d); listEl!.appendChild(d);
   });
   tickHot();                                   // wire the refresh button now
   if (!hotTimer) hotTimer = setInterval(tickHot, 5000) as unknown as number;   // keep the age label live
 }
+interface ZoneInfo { code: string; name: string; country: string; flag: string; }
+function nearestSpot(lat: number, lon: number): Spot | null {   // a known spot sharing this grid cell, if any
+  let best: Spot | null = null, bd = 0.3;
+  for (const s of allSpots()) {
+    if (!Number.isFinite(s.lat) || !Number.isFinite(s.lon)) continue;
+    const d = Math.abs(s.lat - lat) + Math.abs(s.lon - lon);
+    if (d < bd) { bd = d; best = s; }
+  }
+  return best;
+}
+function zoneInfo(z: HotZone): ZoneInfo {   // resolve a name / country / flag for a hot zone
+  const sp = nearestSpot(z.lat, z.lon);
+  if (sp) return { code: sp.code, name: sp.name, country: sp.country, flag: isoFlag(sp.country) || codeFlag(sp.code) };
+  const icao = /^[A-Z]{4}$/.test(z.label);
+  return { code: z.label, name: '', country: icao ? codeCountry(z.label) : '', flag: icao ? codeFlag(z.label) : '' };
+}
 function pickZone(z: HotZone): void {
   close();
-  if (/^[A-Z]{4}$/.test(z.label)) { icaoEl.value = z.label; updateFbLink(); loadBtn.click(); }   // receiver is an ICAO airfield → load its day
-  else { gotoSpot(z.lat, z.lon); setPlace(z.label || t('discoverHot'), ''); }                       // otherwise just fly to the cluster
+  const sp = nearestSpot(z.lat, z.lon);
+  if (sp) { pick(sp); return; }                             // known spot → reuse its full loading path (name propagates)
+  const info = zoneInfo(z);
+  if (/^[A-Z]{4}$/.test(info.code)) {                       // receiver is an ICAO airfield → load its day
+    icaoEl.value = info.code; updateFbLink(); loadBtn.click();
+    setPlace(info.country || info.code, info.flag);         // show country/flag right away (FlightBook overrides with the real name if found)
+  } else { gotoSpot(z.lat, z.lon); setPlace(info.code || t('discoverHot'), info.flag); }
 }
 
 function open(): void {
