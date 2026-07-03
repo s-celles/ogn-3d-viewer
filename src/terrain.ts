@@ -26,7 +26,7 @@ export function tileBBox(x: number, y: number, z: number): BBox {
  * DEM zoom) it's the fraction of the coarser ancestor DEM under this finer tile,
  * so the photo-res imagery drapes over the (interpolated) coarser elevation. */
 export function buildTerrainMesh(t: DecodedTile, west: number, south: number, east: number, north: number,
-                                 su0 = 0, sv0 = 0, sf = 1) {
+                                 su0 = 0, sv0 = 0, sf = 1, skirtM = 30) {
   const N = S.dev.on ? S.dev.gridN : TERRAIN_N;
   const { rgba, w, h } = t, cols = N, rows = N, k = S.exo;
   const positions: number[] = [], normals: number[] = [], texCoords: number[] = [], indices: number[] = [];
@@ -53,12 +53,12 @@ export function buildTerrainMesh(t: DecodedTile, west: number, south: number, ea
     const a = r * cols + c, b = a + 1, d = a + cols, e = d + 1;
     indices.push(a, d, b, b, d, e);
   }
-  // Skirt: a short vertical wall hanging below each border edge. Adjacent tiles
-  // don't share exact edge elevations, which would show as hairline cracks; the
-  // higher tile's skirt drops past the lower neighbour's edge and fills the gap.
-  // Kept small (cracks between same-LOD tiles are only a few tens of metres) so
-  // it isn't a visible curtain in the oblique cockpit/chase views. Scales with k.
-  const SKIRT = 30 * k;
+  // Skirt: a short vertical wall hanging below each border edge, to hide the
+  // hairline crack where adjacent tiles don't share exact edge elevations. Depth
+  // (skirtM) is set by the caller from the tile's zoom: tiny on fine near tiles
+  // (small cracks — and a deep skirt there would be an in-your-face curtain in
+  // oblique views), deeper only on coarse far tiles where LOD steps are large.
+  const SKIRT = skirtM * k;
   const drop = (gi: number): number => {
     const ni = positions.length / 3;
     positions.push(positions[gi * 3], positions[gi * 3 + 1], positions[gi * 3 + 2] - SKIRT);
@@ -200,6 +200,10 @@ export function makeTerrain() {
       // Which fraction of the (possibly coarser) ancestor DEM this tile covers.
       const dz = Math.max(0, z - DEM_MAXZOOM), sf = 1 / (1 << dz);
       const su0 = (x - ((x >> dz) << dz)) * sf, sv0 = (y - ((y >> dz) << dz)) * sf;
+      // Skirt depth scales with how coarse the tile is: ~8 m on the finest tiles
+      // (imperceptible up close) up to a clamp on distant coarse tiles where the
+      // LOD steps between neighbours are large. Halved every zoom level.
+      const skirtM = Math.min(160, Math.max(8, 8 * 2 ** (DEM_MAXZOOM - Math.min(z, DEM_MAXZOOM))));
       // Wireframe: draw the mesh grid as green see-through lines (no imagery).
       // Otherwise a solid mesh — textured, or bare grey when noTexture is on.
       const base = (dev.on && dev.wireframe)
@@ -210,7 +214,7 @@ export function makeTerrain() {
         : new SimpleMeshLayer({
             id: String(props.id) + '-m', data: TERRAIN_ANCHOR, getPosition: () => [0, 0, 0],
             _instanced: false, coordinateSystem: COORDINATE_SYSTEM.LNGLAT,
-            mesh: buildTerrainMesh(t, bb.west, bb.south, bb.east, bb.north, su0, sv0, sf) as any,
+            mesh: buildTerrainMesh(t, bb.west, bb.south, bb.east, bb.north, su0, sv0, sf, skirtM) as any,
             texture: (dev.on && dev.noTexture) ? undefined : turl,
             getColor: (dev.on && dev.noTexture) ? [150, 155, 160] : [255, 255, 255], pickable: false,
             material: { ambient: 0.4, diffuse: 0.85, shininess: 6, specularColor: [30, 30, 30] },
