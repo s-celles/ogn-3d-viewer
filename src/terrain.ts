@@ -5,7 +5,7 @@
 // with UPNG (a pure-JS PNG decoder) on the main thread.
 import UPNG from 'upng-js';
 import { S } from './state';
-import { TERRAIN, TEXTURE, TERRAIN_N, DECK_CACHE, ELEV_CACHE } from './config';
+import { TERRAIN, TEXTURE, TERRAIN_N, DECK_CACHE, ELEV_CACHE, DEM_MAXZOOM } from './config';
 import { TileLayer, SimpleMeshLayer, COORDINATE_SYSTEM } from './deck';
 import type { DecodedTile } from './types';
 
@@ -19,8 +19,14 @@ export function tileBBox(x: number, y: number, z: number): BBox {
   return { west: lng(x), east: lng(x + 1), north: lat(y), south: lat(y + 1) };
 }
 
-/** Build a textured, lit mesh (positions/normals/texCoords) from a decoded tile. */
-export function buildTerrainMesh(t: DecodedTile, west: number, south: number, east: number, north: number) {
+/** Build a textured, lit mesh (positions/normals/texCoords) from a decoded tile.
+ * (su0, sv0, sf) select the sub-window of the DEM this mesh covers: su0/sv0 are
+ * the west/north fractions [0..1] and sf the side length. For a tile at the DEM's
+ * own zoom this is the whole tile (0,0,1); for an OVERZOOMED tile (imagery zoom >
+ * DEM zoom) it's the fraction of the coarser ancestor DEM under this finer tile,
+ * so the photo-res imagery drapes over the (interpolated) coarser elevation. */
+export function buildTerrainMesh(t: DecodedTile, west: number, south: number, east: number, north: number,
+                                 su0 = 0, sv0 = 0, sf = 1) {
   const { rgba, w, h } = t, cols = TERRAIN_N, rows = TERRAIN_N, k = S.exo;
   const positions: number[] = [], normals: number[] = [], texCoords: number[] = [], indices: number[] = [];
   const heights = new Float32Array(cols * rows);
@@ -28,7 +34,9 @@ export function buildTerrainMesh(t: DecodedTile, west: number, south: number, ea
   const elevAt = (px: number, py: number) => { const i = (py * w + px) * 4; return rgba[i] * 256 + rgba[i + 1] + rgba[i + 2] / 256 - 32768; };
   for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
     const u = c / (cols - 1), v = r / (rows - 1);
-    const e = elevAt(Math.min(w - 1, Math.round(u * (w - 1))), Math.min(h - 1, Math.round((1 - v) * (h - 1)))), idx = r * cols + c;
+    const px = Math.min(w - 1, Math.max(0, Math.round((su0 + u * sf) * (w - 1))));
+    const py = Math.min(h - 1, Math.max(0, Math.round((sv0 + (1 - v) * sf) * (h - 1))));
+    const e = elevAt(px, py), idx = r * cols + c;
     heights[idx] = e;
     positions.push(west + (east - west) * u, south + (north - south) * v, e * k);
     texCoords.push(u, 1 - v);
@@ -88,10 +96,33 @@ function cacheTile(z: number, x: number, y: number, t: CachedTile): void {
   if (TILE_CACHE.size > ELEV_CACHE) TILE_CACHE.delete(TILE_CACHE.keys().next().value as string);
 }
 
+// Fetch + decode one Terrarium DEM tile, reusing the cache (many overzoomed
+// imagery tiles share the same coarser ancestor DEM, so this fetches it once).
+// Retries transient failures with backoff; gives up quietly once aborted.
+async function fetchDEM(z: number, x: number, y: number, signal: AbortSignal): Promise<DecodedTile | null> {
+  const hit = TILE_CACHE.get(z + '/' + x + '/' + y);
+  if (hit) return hit;
+  const url = TERRAIN.replace('{z}', String(z)).replace('{x}', String(x)).replace('{y}', String(y));
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const r = await fetch(url, { signal });
+      if (!r.ok) throw new Error('http ' + r.status);
+      const img = UPNG.decode(await r.arrayBuffer());
+      const dec = { rgba: new Uint8Array(UPNG.toRGBA8(img)[0]), w: img.width, h: img.height };
+      cacheTile(z, x, y, dec);
+      return dec;
+    } catch (e) {
+      if (signal?.aborted) return null;
+      await new Promise(res => setTimeout(res, 200 * (attempt + 1)));
+    }
+  }
+  return null;
+}
+
 // Ground elevation (m, orthometric) at a lng/lat from the highest-resolution
 // loaded tile covering it, or null if no covering tile is currently cached.
 export function terrainElevAt(lon: number, lat: number): number | null {
-  for (let z = 13; z >= 7; z--) {
+  for (let z = DEM_MAXZOOM; z >= 7; z--) {
     const n = 2 ** z, xf = (lon + 180) / 360 * n, latR = lat * Math.PI / 180;
     const yf = (1 - Math.log(Math.tan(latR) + 1 / Math.cos(latR)) / Math.PI) / 2 * n;
     const x = Math.floor(xf), y = Math.floor(yf), tile = TILE_CACHE.get(z + '/' + x + '/' + y);
@@ -109,7 +140,11 @@ const TERRAIN_ANCHOR = [{}];
 /** Build the streaming terrain TileLayer (rebuilt whenever exaggeration changes). */
 export function makeTerrain() {
   return new TileLayer({
-    id: 'terrain', data: TERRAIN, minZoom: 0, maxZoom: 13, tileSize: 256, maxCacheSize: DECK_CACHE,
+    // maxZoom = the ground-detail setting. Up to the DEM ceiling (15) each tile
+    // is a normal DEM tile textured with its own Esri image; BEYOND 15 the tile
+    // takes its DEM elevation from the coarser z15 ancestor while still fetching
+    // full-resolution Esri imagery at its own zoom — so the photo keeps sharpening.
+    id: 'terrain', data: TERRAIN, minZoom: 0, maxZoom: S.groundZoom, tileSize: 256, maxCacheSize: DECK_CACHE,
     // In first-person/chase the tilted frustum sees a wide swathe to the horizon,
     // so many tiles are in flight at once. The default 6 concurrent requests drain
     // the queue too slowly (background stays blurry/holey); raise it. 'best-available'
@@ -125,33 +160,22 @@ export function makeTerrain() {
     zRange: [0, 4500 * S.exo],
     getTileData: async (tile: any): Promise<DecodedTile | null> => {
       const { x, y, z } = tile.index || tile;
-      const url = TERRAIN.replace('{z}', z).replace('{x}', x).replace('{y}', y);
-      // Retry transient failures (network blips, S3 throttling under a load burst)
-      // with backoff — otherwise a single miss leaves that tile stuck as a coarse
-      // ancestor forever. Give up quietly once the tile has scrolled out of view.
-      for (let attempt = 0; attempt < 3; attempt++) {
-        try {
-          const r = await fetch(url, { signal: tile.signal });
-          if (!r.ok) throw new Error('http ' + r.status);
-          const img = UPNG.decode(await r.arrayBuffer());
-          const dec = { rgba: new Uint8Array(UPNG.toRGBA8(img)[0]), w: img.width, h: img.height };
-          cacheTile(z, x, y, dec);
-          return dec;
-        } catch (e) {
-          if (tile.signal?.aborted) return null;
-          await new Promise(res => setTimeout(res, 200 * (attempt + 1)));
-        }
-      }
-      return null;
+      // Take the DEM from this tile's zoom, or — when overzoomed past the DEM
+      // ceiling — from its z15 ancestor (cached, so siblings share one fetch).
+      const dz = Math.max(0, z - DEM_MAXZOOM);
+      return fetchDEM(z - dz, x >> dz, y >> dz, tile.signal);
     },
     renderSubLayers: (props: any) => {
       const t = props.data as DecodedTile | null; if (!t) return null;
       const { x, y, z } = props.tile.index, bb = tileBBox(x, y, z);
       const turl = TEXTURE.replace('{z}', z).replace('{x}', x).replace('{y}', y);
+      // Which fraction of the (possibly coarser) ancestor DEM this tile covers.
+      const dz = Math.max(0, z - DEM_MAXZOOM), sf = 1 / (1 << dz);
+      const su0 = (x - ((x >> dz) << dz)) * sf, sv0 = (y - ((y >> dz) << dz)) * sf;
       return new SimpleMeshLayer({
         id: String(props.id) + '-m', data: TERRAIN_ANCHOR, getPosition: () => [0, 0, 0],
         _instanced: false, coordinateSystem: COORDINATE_SYSTEM.LNGLAT,
-        mesh: buildTerrainMesh(t, bb.west, bb.south, bb.east, bb.north) as any, texture: turl,
+        mesh: buildTerrainMesh(t, bb.west, bb.south, bb.east, bb.north, su0, sv0, sf) as any, texture: turl,
         getColor: [255, 255, 255], pickable: false,
         material: { ambient: 0.4, diffuse: 0.85, shininess: 6, specularColor: [30, 30, 30] },
       } as any);

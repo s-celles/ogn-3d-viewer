@@ -28,6 +28,13 @@ export const DECK_CACHE = ROOMY ? 800 : 300;    // deck's decoded-tile LRU (rend
 export const ELEV_CACHE = ROOMY ? 1000 : 400;   // our elevation-lookup FIFO
 export const FAR_PLANE = ROOMY ? 130000 : 70000; // first-person/chase frustum far (m)
 
+// The Terrarium elevation DEM (AWS) only exists up to zoom 15. The ground-detail
+// setting (S.groundZoom) can go beyond that: the mesh geometry is capped at this
+// DEM ceiling, but the Esri imagery is sampled at the full requested zoom and
+// draped over the (overzoomed) mesh — so the photo keeps sharpening past z15.
+export const DEM_MAXZOOM = 15;
+export const GROUND_ZOOM_MIN = 13, GROUND_ZOOM_MAX = 18, GROUND_ZOOM_DEFAULT = 15;
+
 // Traffic-awareness radar (focus views): show other airborne aircraft within
 // `range` m of the subject, track-up. Threat levels by horizontal/vertical
 // separation — alert (close) and warn (proximate).

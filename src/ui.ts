@@ -5,7 +5,7 @@ import { API_BASE, REPO_URL, MINZ, MAXZ, PMIN, PMAX, CHASE, clampv } from './con
 import { APP_VERSION, GIT_HASH } from './version';
 import {
   subjEl, viewsEl, cammodeEl, traceEl, trailFxEl, smoothBtn, compBtn, bankBtn, soundBtn, trafficModeEl, graphModeEl, graphClose, winEl, winval, playBtn, segEl,
-  exoEl, exval, acscaleEl, acscaleval, coneBtn, finesseEl, finval, safetyEl, safeval, coneRadEl, coneradval, labelsBtn, labelFieldsEl, shadowsEl, curtainBtn, attrBtn, pitchEl, pitchval, scrub, scrubMin, scrubMax, clkEl, lglist, rose, altsl, icaoEl, fblink, acEl,
+  exoEl, exval, groundEl, groundval, acscaleEl, acscaleval, coneBtn, finesseEl, finval, safetyEl, safeval, coneRadEl, coneradval, labelsBtn, labelFieldsEl, shadowsEl, curtainBtn, attrBtn, pitchEl, pitchval, scrub, scrubMin, scrubMax, clkEl, lglist, rose, altsl, icaoEl, fblink, acEl,
   dateEl, loadBtn, langEl, discEl, infoBtn, copyBtn, collapseBtn, liveBtn, igcBtn, igcInput, mapDiv, prevAc, nextAc, resetSettingsBtn,
 } from './dom';
 import { clearStored } from './settings';
@@ -164,6 +164,9 @@ playBtn.onclick = () => { if (!S.ready) return; S.playing = !S.playing; playBtn.
 // ---- exaggeration & pitch ----
 exoEl.addEventListener('input', e => { S.exo = parseFloat((e.target as HTMLInputElement).value); exval.textContent = S.exo.toFixed(1) + '×'; S.terrainInst = makeTerrain(); render(); });
 
+// ---- ground resolution (imagery/terrain detail ceiling) ----
+groundEl.addEventListener('input', e => { S.groundZoom = parseInt((e.target as HTMLInputElement).value, 10); groundval.textContent = 'z' + S.groundZoom; S.terrainInst = makeTerrain(); render(); });
+
 // ---- aircraft size (per view, edits the current view's mesh scale) ----
 const fmtScale = (v: number) => (Number.isInteger(v) ? String(v) : v.toFixed(1)) + '×';
 export function syncAcScale(): void { const v = S.modelScale[S.mode]; acscaleEl.value = String(v); acscaleval.textContent = fmtScale(v); }
@@ -180,6 +183,7 @@ export function syncControls(): void {
   trafficModeEl.value = S.trafficMode; graphModeEl.value = S.graphMode;
   shadowsEl.value = S.shadowMode; langEl.value = S.lang;
   exoEl.value = String(S.exo); exval.textContent = S.exo.toFixed(1) + '×';
+  groundEl.value = String(S.groundZoom); groundval.textContent = 'z' + S.groundZoom;
   winEl.value = String(S.windowMin); winval.textContent = String(S.windowMin);
   finesseEl.value = String(S.glideRatio); finval.textContent = String(S.glideRatio);
   safetyEl.value = String(S.safetyHeight); safeval.textContent = String(S.safetyHeight);
@@ -208,6 +212,7 @@ resetSettingsBtn.onclick = () => {
     const v = d[k]; (S as any)[k] = (v && typeof v === 'object') ? JSON.parse(JSON.stringify(v)) : v;
   }
   clearStored();
+  S.terrainInst = makeTerrain();   // exaggeration / ground resolution may have changed
   syncControls(); applyI18n();
   if (S.ready) rebuild(null, null, true); else render();
 };

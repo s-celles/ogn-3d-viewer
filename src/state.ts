@@ -3,7 +3,7 @@
 // module reads/writes the same live values (ES module imports are read-only
 // bindings, so plain `let` exports could not be reassigned across files).
 import type { AppState, Lang } from './types';
-import { MODEL_SCALE } from './config';
+import { MODEL_SCALE, GROUND_ZOOM_DEFAULT } from './config';
 import { pickSettings, applyStored } from './settings';
 
 const INIT = { longitude: 2.4, latitude: 46.6, zoom: 4.6, pitch: 0, bearing: 0, maxPitch: 85 };
@@ -11,7 +11,7 @@ const INIT = { longitude: 2.4, latitude: 46.6, zoom: 4.6, pitch: 0, bearing: 0, 
 export const S: AppState = {
   // filled by loadData / rebuild
   AF: null, G0: 0, G1: 0, SPAN: 1, TRACKS: [], ready: false,
-  exo: 1.0, altOffset: 0, cur: 0, playing: false, speed: 8, solo: null,
+  exo: 1.0, groundZoom: GROUND_ZOOM_DEFAULT, altOffset: 0, cur: 0, playing: false, speed: 8, solo: null,
   mode: 'over', source: 'ogn', subject: null, focus: null, fpvPitch: 6, fpvFollow: true, bank: true, freeCam: { bearing: 0, pitch: 6 },
   chase: { az: 0, el: 17, dist: 25 },
   trace: 'window', trailFx: 'basic', modelScale: { ...MODEL_SCALE }, windowMin: 10, spline: true, compensated: true, sound: true, trafficMode: 'directional', graphMode: 'off',

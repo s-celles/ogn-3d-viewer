@@ -119,6 +119,7 @@ export interface AppState {
   TRACKS: RenderTrack[];
   ready: boolean;
   exo: number;
+  groundZoom: number;   // imagery/terrain detail ceiling (max tile zoom)
   // Geoid/datum offset (m) subtracted from raw GNSS (ellipsoidal) altitudes so
   // aircraft sit on the orthometric terrain instead of floating ~N metres above.
   altOffset: number;
