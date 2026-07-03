@@ -99,6 +99,22 @@ const HOT_FILTER_KEY = 'ogn.hotFilter';
 const hotFilterDefault: HotFilter = { country: '', sort: 'count', q: '' };
 let hotFilter: HotFilter = readHotFilter();     // persisted country / sort / search, reset on demand
 
+interface SpotFilter { country: string; q: string; }   // spots list: persisted country + text filter
+const SPOT_FILTER_KEY = 'ogn.spotFilter';
+const spotFilterDefault: SpotFilter = { country: '', q: '' };
+let spotFilter: SpotFilter = readSpotFilter();
+const spotHidden = new Set<string>();           // spot codes filtered out of the current view
+let spotRowsEl: HTMLElement | null = null;      // container holding just the spot rows
+function readSpotFilter(): SpotFilter {
+  try { return { ...spotFilterDefault, ...JSON.parse(localStorage.getItem(SPOT_FILTER_KEY) || '{}') }; } catch { return { ...spotFilterDefault }; }
+}
+function writeSpotFilter(): void { try { localStorage.setItem(SPOT_FILTER_KEY, JSON.stringify(spotFilter)); } catch { /* ignore */ } }
+function spotMatch(s: Spot): boolean {
+  if (spotFilter.country && s.country !== spotFilter.country) return false;
+  const q = spotFilter.q.trim().toLowerCase();
+  return !q || `${s.name} ${s.code} ${s.country} ${s.blurb}`.toLowerCase().includes(q);
+}
+
 // Recenter the map on a continent (null = whole world). Pans/zooms the imagery
 // background and repositions the (constant-size) markers accordingly.
 function setView(cont: string | null): void {
@@ -118,6 +134,7 @@ function setView(cont: string | null): void {
 function positionDots(): void {
   for (const s of allSpots()) {
     const el = dots.get(s.code); if (!el) continue;
+    if (spotHidden.has(s.code)) { el.style.display = 'none'; continue; }   // filtered out
     const sx = (merX(s.lon) - view.x0) / view.d, sy = (merY(s.lat) - view.y0) / view.d;
     const vis = sx >= -0.02 && sx <= 1.02 && sy >= -0.02 && sy <= 1.02;
     el.style.display = vis ? 'block' : 'none';
@@ -409,14 +426,50 @@ function renderTabs(): void {
 }
 // active === '' → world (all spots, grouped by continent); else that continent.
 function renderList(): void {
-  if (!listEl) return; listEl.innerHTML = ''; items.clear();
+  if (!listEl) return;
+  listEl.innerHTML = ''; items.clear();
+  listEl.appendChild(buildSpotControls());
+  spotRowsEl = document.createElement('div'); listEl.appendChild(spotRowsEl);
+  renderSpotRows();
+}
+function buildSpotControls(): HTMLElement {   // country filter + text search + reset (persisted)
+  const wrap = document.createElement('div');
+  wrap.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px;padding:6px 4px 8px';
+  const css = 'padding:4px 7px;border-radius:7px;background:rgba(255,255,255,.06);color:inherit;border:1px solid rgba(255,255,255,.15);font-size:12px';
+  const scope = allSpots().filter(s => !active || s.continent === active);
+  const counts = new Map<string, number>();
+  for (const s of scope) if (s.country) counts.set(s.country, (counts.get(s.country) || 0) + 1);
+  if (spotFilter.country && !counts.has(spotFilter.country)) counts.set(spotFilter.country, 0);
+  const country = document.createElement('select'); country.style.cssText = css;
+  country.innerHTML = `<option value="">${t('discoverAllCountries')}</option>`
+    + [...counts.keys()].sort().map(c => `<option value="${c}"${c === spotFilter.country ? ' selected' : ''}>${c} (${counts.get(c)})</option>`).join('');
+  country.onchange = () => { spotFilter.country = country.value; writeSpotFilter(); renderSpotRows(); };
+  const search = document.createElement('input');
+  search.type = 'search'; search.placeholder = t('discoverSearch'); search.value = spotFilter.q;
+  search.style.cssText = css + ';flex:1;min-width:90px';
+  search.oninput = () => { spotFilter.q = search.value; writeSpotFilter(); renderSpotRows(); };
+  const reset = document.createElement('button');
+  reset.textContent = '↺'; reset.title = t('discoverReset'); reset.style.cssText = css + ';cursor:pointer';
+  reset.onclick = () => { spotFilter = { ...spotFilterDefault }; writeSpotFilter(); country.value = ''; search.value = ''; renderSpotRows(); };
+  wrap.append(country, search, reset);
+  return wrap;
+}
+function renderSpotRows(): void {
+  if (!spotRowsEl) return;
+  spotRowsEl.innerHTML = ''; items.clear();
+  spotHidden.clear();
+  for (const s of allSpots()) if (!spotMatch(s)) spotHidden.add(s.code);   // hide non-matching map markers
+  positionDots();
+  let shown = 0;
   for (const c of (active ? [active] : present())) {
+    const list = allSpots().filter(sp => sp.continent === c && spotMatch(sp));
+    if (!list.length) continue;
     if (!active) {   // world view: a small continent divider before its spots
       const hdr = document.createElement('div'); hdr.textContent = contLabel(c);
       hdr.style.cssText = 'padding:8px 10px 2px;color:var(--mut);font-size:11px;text-transform:uppercase;letter-spacing:.5px';
-      listEl.appendChild(hdr);
+      spotRowsEl.appendChild(hdr);
     }
-    for (const s of allSpots().filter(sp => sp.continent === c)) {
+    for (const s of list) {
     const on = !!s.checked || !!s.user;   // clickable-to-load (built-in FlightBook, or user spot)
     const d = document.createElement('div');
     d.style.cssText = 'padding:8px 10px;border-radius:8px;cursor:pointer;display:flex;gap:10px;align-items:baseline;' + (on ? '' : 'opacity:.55');
@@ -440,9 +493,11 @@ function renderList(): void {
       (d.querySelector('[data-del]') as HTMLElement).onclick = e => { e.stopPropagation(); deleteSpot(s.code); };
     }
     items.set(s.code, d);
-    listEl.appendChild(d);
+    spotRowsEl.appendChild(d);
+    shown++;
     }
   }
+  if (!shown) spotRowsEl.innerHTML = `<div style="padding:16px;color:var(--mut)">${t('discoverNoMatch')}</div>`;
 }
 function rebuildDots(): void {
   if (!mapEl) return;
