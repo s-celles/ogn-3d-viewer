@@ -11,6 +11,7 @@ import { TEXTURE, API_BASE } from './config';
 import { icaoEl, loadBtn, discoverBtn } from './dom';
 import { gotoSpot, updateFbLink, setPlace } from './ui';
 import { codeCountry, codeFlag, flag as isoFlag } from './flags';
+import { fetchHotZones, type HotZone } from './hotspots';
 import spotsCsv from '../data/spots.csv' with { type: 'text' };
 import type { Lang } from './types';
 
@@ -85,6 +86,9 @@ let active = '';
 let view = { x0: 0, y0: 0, d: 1 };   // visible world rect (mercator 0..1), d = side
 const dots = new Map<string, HTMLElement>();
 const items = new Map<string, HTMLElement>();
+let hotZones: HotZone[] = [];   // live hot-spots mode (active === 'hot')
+const hotDots = new Map<number, HTMLElement>();
+const hotItems = new Map<number, HTMLElement>();
 
 // Recenter the map on a continent (null = whole world). Pans/zooms the imagery
 // background and repositions the (constant-size) markers accordingly.
@@ -100,7 +104,7 @@ function setView(cont: string | null): void {
     const bbox = `${mx(view.x0)},${my(view.y0 + view.d)},${mx(view.x0 + view.d)},${my(view.y0)}`;
     bgEl.style.backgroundImage = `url("${ESRI_EXPORT}?bbox=${bbox}&bboxSR=3857&imageSR=3857&size=512,512&format=jpg&f=image")`;
   }
-  positionDots();
+  positionDots(); positionHot();
 }
 function positionDots(): void {
   for (const s of allSpots()) {
@@ -126,6 +130,68 @@ function fromMap(s: Spot): void {
   highlight(s.code, true);
 }
 
+// -------- live "hot spots": where gliders are flying right now --------
+function clearHot(): void {
+  if (mapEl) mapEl.querySelectorAll('[data-hot]').forEach(n => n.remove());
+  hotDots.clear(); hotItems.clear(); hotZones = [];
+}
+function positionHot(): void {
+  for (const [i, el] of hotDots) {
+    const z = hotZones[i]; if (!z) continue;
+    const sx = (merX(z.lon) - view.x0) / view.d, sy = (merY(z.lat) - view.y0) / view.d;
+    const vis = sx >= -0.02 && sx <= 1.02 && sy >= -0.02 && sy <= 1.02;
+    el.style.display = vis ? 'block' : 'none';
+    el.style.left = (sx * 100).toFixed(2) + '%'; el.style.top = (sy * 100).toFixed(2) + '%';
+  }
+}
+function highlightHot(i: number, on: boolean): void {
+  const d = hotDots.get(i);
+  if (d) { d.style.zIndex = on ? '3' : '1'; d.style.boxShadow = on ? '0 0 0 2px #fff' : ''; d.style.filter = on ? 'brightness(1.3)' : ''; }
+  const it = hotItems.get(i);
+  if (it) it.style.background = on ? 'rgba(255,255,255,.12)' : '';
+  if (on && it) it.scrollIntoView({ block: 'nearest' });
+}
+async function showHot(): Promise<void> {
+  if (!listEl || !mapEl) return;
+  for (const el of dots.values()) el.remove(); dots.clear();   // hide spot markers while in hot mode
+  clearHot();
+  listEl.innerHTML = `<div style="padding:16px;color:var(--mut)">${t('discoverLoading')} …</div>`;
+  const zones = await fetchHotZones(30).catch(() => [] as HotZone[]);
+  if (active !== 'hot') return;                                 // user switched tabs during the fetch
+  hotZones = zones;
+  renderHot();
+}
+function renderHot(): void {
+  if (!listEl || !mapEl) return;
+  const max = hotZones[0]?.count || 1;
+  hotZones.forEach((z, i) => {
+    const el = document.createElement('div'); el.dataset.hot = String(i);
+    const sz = 8 + Math.round(14 * z.count / max);
+    el.style.cssText = `position:absolute;width:${sz}px;height:${sz}px;border-radius:50%;transform:translate(-50%,-50%);cursor:pointer;transition:transform .1s,left .35s,top .35s;border:1px solid rgba(0,0,0,.7);background:#ff5a3c;z-index:1`;
+    el.title = `${z.label} · ${z.count}`;
+    el.onmouseenter = () => highlightHot(i, true); el.onmouseleave = () => highlightHot(i, false);
+    el.onclick = () => pickZone(z);
+    hotDots.set(i, el); mapEl!.appendChild(el);
+  });
+  positionHot();
+  listEl.innerHTML = ''; hotItems.clear();
+  if (!hotZones.length) { listEl.innerHTML = `<div style="padding:16px;color:var(--mut)">${t('discoverHotNone')}</div>`; return; }
+  hotZones.forEach((z, i) => {
+    const d = document.createElement('div');
+    d.style.cssText = 'padding:8px 10px;border-radius:8px;cursor:pointer;display:flex;gap:10px;align-items:center';
+    d.onmouseenter = () => highlightHot(i, true); d.onmouseleave = () => highlightHot(i, false);
+    d.onclick = () => pickZone(z);
+    d.innerHTML = `<b style="color:#ff5a3c;min-width:30px;text-align:right">${z.count}</b>`
+      + `<div><b>${z.label || '—'}</b> <span style="color:var(--mut)">· ${t('discoverGliders')}</span></div>`;
+    hotItems.set(i, d); listEl!.appendChild(d);
+  });
+}
+function pickZone(z: HotZone): void {
+  close();
+  if (/^[A-Z]{4}$/.test(z.label)) { icaoEl.value = z.label; updateFbLink(); loadBtn.click(); }   // receiver is an ICAO airfield → load its day
+  else { gotoSpot(z.lat, z.lon); setPlace(z.label || t('discoverHot'), ''); }                       // otherwise just fly to the cluster
+}
+
 function open(): void {
   if (!overlay) build();
   active = '';                                  // start on the whole world (all spots)
@@ -142,10 +208,15 @@ function pick(s: Spot): void {
   else { gotoSpot(s.lat, s.lon); setPlace(s.name, isoFlag(s.country) || codeFlag(s.code)); }   // terrain-only → show the spot's name/flag
 }
 
-function select(val: string): void { active = val; renderTabs(); renderList(); setView(val || null); }
+function select(val: string): void {
+  if (val === 'hot') { active = 'hot'; renderTabs(); setView(null); void showHot(); return; }
+  clearHot();
+  if (dots.size === 0) rebuildDots();          // restore spot markers after leaving hot mode
+  active = val; renderTabs(); renderList(); setView(val || null);
+}
 function renderTabs(): void {
   if (!tabsEl) return; tabsEl.innerHTML = '';
-  for (const [val, label] of [['', '🌍 ' + t('discoverWorldTab')] as const, ...present().map(c => [c, contLabel(c)] as const)]) {
+  for (const [val, label] of [['', '🌍 ' + t('discoverWorldTab')] as const, ...present().map(c => [c, contLabel(c)] as const), ['hot', '🔥 ' + t('discoverHot')] as const]) {
     const b = document.createElement('button'); b.textContent = label; b.classList.toggle('on', val === active);
     b.onclick = () => select(val);
     tabsEl.appendChild(b);

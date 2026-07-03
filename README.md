@@ -35,7 +35,7 @@ matching FlightBook page.
 
 ## Features
 
-- **Loading** — airfield search (ICAO or national/FAA code), real-time **live mode**, **IGC / GPX / KML** import, and **spot discovery** of famous gliding sites worldwide by continent (records, championships) — the list is a [Tabular Data Package](data/spots.csv) kept current by `just check-spots`.
+- **Loading** — airfield search (ICAO or national/FAA code), real-time **live mode**, **IGC / GPX / KML** import, **spot discovery** of famous gliding sites worldwide by continent (records, championships) — the list is a [Tabular Data Package](data/spots.csv) kept current by `just check-spots` — and **live hot spots** ranking where gliders are airborne right now.
 - **3D scene** — terrain with satellite imagery (adjustable resolution), three views (overview, cockpit, chase), HUD, final-glide cone, ground shadows, altitude curtain, per-aircraft labels.
 - **Playback** — time-of-day scrubber and 1× / 4× / 8× / 30× / 120× speeds, track modes, trail effects (neon / contrail / bloom), spline smoothing, graphs.
 - **Instruments & traffic** — estimated attitude, total-energy vario, vario audio, track-up radar or directional anti-collision.
