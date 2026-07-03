@@ -94,28 +94,6 @@ function rayShadow(lon: number, lat: number, alt: number, dir: number[], k: numb
   return null;
 }
 
-// Is a celestial body (direction `toward` = ENU unit vector) hidden behind the
-// terrain as seen from the eye? March along its azimuth and compare each ridge's
-// apparent elevation angle (with the vertical exaggeration k, to match what's
-// rendered) against the body's. Uses only already-loaded tiles (far, unloaded
-// samples are skipped → a distant unknown ridge won't wrongly hide it).
-// MARGIN ≈ the disc's on-screen angular radius: the disc is all-or-nothing (an
-// HTML overlay can't be clipped), so only hide it when a ridge covers it well
-// past its centre — a body resting ON a ridge still peeks above it.
-const BODY_OCCLUDE_MARGIN = 0.05;                                   // rad (~3°)
-function bodyOccluded(toward: [number, number, number], eyeLon: number, eyeLat: number, eyeAlt: number, k: number): boolean {
-  const horiz = Math.hypot(toward[0], toward[1]);
-  if (horiz < 1e-3) return false;                                   // ~overhead → never occluded
-  const tanElev = toward[2] / horiz + BODY_OCCLUDE_MARGIN, dE = toward[0] / horiz, dN = toward[1] / horiz;
-  const mLng = 111320 * Math.cos(eyeLat * Math.PI / 180), mLat = 111320;
-  for (let s = 150; s <= 18000; s += Math.max(60, s * 0.06)) {      // nearby skyline ridges, fine near / coarser far
-    const terr = terrainElevAt(eyeLon + s * dE / mLng, eyeLat + s * dN / mLat);
-    if (terr == null) continue;
-    if ((terr - eyeAlt) * k > s * tanElev + 1) return true;         // ridge clearly above the line of sight
-  }
-  return false;
-}
-
 // Ground point where a point at [lon, lat, alt] casts its shadow: straight down
 // (nadir), or — when useSun — ray-marched along the sun direction onto the
 // terrain (with a flat-ground single-step fallback). Returns [lon,lat,z*k]|null.
@@ -571,44 +549,83 @@ function updateCelestial(): void {
       : new MapView({ id: 'main' }).makeViewport({ width, height, viewState: S.mapVS as any });
   } catch (e) { hideSun(); hideMoon(); return; }
   if (!vp || !vp.viewProjectionMatrix) { hideSun(); hideMoon(); return; }
-  // Eye-level views: hide a body sitting behind a terrain ridge (the disc is an
-  // HTML overlay, so it can't be depth-occluded by the 3D terrain — test it).
+  // Eye-level views: the sun/moon disc is an HTML overlay, so it can't be
+  // depth-occluded by the 3D terrain. Ray-march the terrain along the body's
+  // azimuth from the glider to find the skyline ridge, then CLIP the disc at that
+  // ridge (clip-path) — a body behind a mountain is partly, or fully, hidden.
   let eye: { lon: number; lat: number; alt: number } | null = null;
   if (S.mode === 'fpv' || S.mode === 'chase') {
     const tr = subjectTrack();
     if (tr) { const ep = posAt(tr, clampCur(tr)); eye = { lon: ep[0], lat: ep[1], alt: groundClamp(ep) }; }
   }
-  const occluded = (toward: [number, number, number]): boolean =>
-    !!eye && bodyOccluded(toward, eye.lon, eye.lat, eye.alt, S.exo);
   const u = (vp.distanceScales && vp.distanceScales.unitsPerMeter) || [1, 1, 1];
   const m = vp.viewProjectionMatrix;                                       // column-major
   // Project a direction at infinity (w = 0) to screen px; null if behind/off-screen.
-  const project = (toward: [number, number, number]): [string, string] | null => {
+  const project = (toward: [number, number, number]): [number, number] | null => {
     const dx = toward[0] * u[0], dy = toward[1] * u[1], dz = toward[2] * u[2];
     const cw = m[3] * dx + m[7] * dy + m[11] * dz;
     if (cw <= 1e-6) return null;
     const nx = (m[0] * dx + m[4] * dy + m[8] * dz) / cw, ny = (m[1] * dx + m[5] * dy + m[9] * dz) / cw;
     if (Math.abs(nx) > 1.4 || Math.abs(ny) > 1.4) return null;
-    return [((nx * 0.5 + 0.5) * vp.width).toFixed(0), ((0.5 - ny * 0.5) * vp.height).toFixed(0)];
+    return [(nx * 0.5 + 0.5) * vp.width, (0.5 - ny * 0.5) * vp.height];
+  };
+  // Steepest terrain elevation-angle (tan, exo-scaled to match the render) along
+  // a horizontal azimuth from the eye — the skyline ridge in that direction.
+  const ridgeTan = (dirE: number, dirN: number, mLng: number): number => {
+    let maxTan = -Infinity;
+    for (let s = 150; s <= 16000; s += Math.max(70, s * 0.08)) {
+      const terr = terrainElevAt(eye!.lon + s * dirE / mLng, eye!.lat + s * dirN / 111320);
+      if (terr != null) { const tan = (terr - eye!.alt) * S.exo / s; if (tan > maxTan) maxTan = tan; }
+    }
+    return maxTan;
+  };
+  // Clip-path that cuts the disc (centre px,py, radius r) along the terrain
+  // skyline, so a body behind a mountain is hidden below the real ridge profile
+  // (not a flat line). '' = clear, null = fully hidden, else a polygon(...).
+  const clipDisc = (toward: [number, number, number], px: number, py: number, r: number): string | null => {
+    if (!eye) return '';
+    const horiz = Math.hypot(toward[0], toward[1]); if (horiz < 1e-3) return '';
+    const azE = toward[0] / horiz, azN = toward[1] / horiz, mLng = 111320 * Math.cos(eye.lat * Math.PI / 180);
+    // Sample the ridge across a spread of azimuths spanning the disc's width.
+    const pts: [number, number][] = [];                                    // local (x,y) on the disc box, left→right
+    for (let i = -6; i <= 6; i++) {
+      const d = i * 0.012, cd = Math.cos(d), sd = Math.sin(d);             // rotate the azimuth by d rad
+      const e = azE * cd - azN * sd, n = azE * sd + azN * cd;
+      const tan = ridgeTan(e, n, mLng); if (!(tan > -Infinity)) continue;
+      const inv = 1 / Math.sqrt(1 + tan * tan);
+      const rp = project([e * inv, n * inv, tan * inv]); if (!rp) continue;
+      if (rp[0] < px - r - 4 || rp[0] > px + r + 4) continue;              // outside the disc horizontally
+      pts.push([Math.max(0, Math.min(2 * r, rp[0] - (px - r))), Math.max(0, Math.min(2 * r, rp[1] - (py - r)))]);
+    }
+    if (pts.length < 2) return '';                                         // no ridge across the disc → clear
+    pts.sort((a, b) => a[0] - b[0]);
+    if (pts.every(p => p[1] <= 0)) return null;                            // skyline above the whole disc → hidden
+    if (pts.every(p => p[1] >= 2 * r)) return '';                          // skyline below the disc → clear
+    // Keep everything ABOVE the skyline: top edge + the ridge profile back to the left.
+    const D = 2 * r, seg = pts.map(p => `${p[0].toFixed(1)}px ${p[1].toFixed(1)}px`);
+    const right = `${D}px ${pts[pts.length - 1][1].toFixed(1)}px`, left = `0px ${pts[0][1].toFixed(1)}px`;
+    return `polygon(0px 0px, ${D}px 0px, ${right}, ${seg.slice().reverse().join(', ')}, ${left})`;
   };
   if (sun.up) {
-    const p = occluded(sun.toward) ? null : project(sun.toward);
-    if (!p) hideSun();
+    const p = project(sun.toward);
+    const clip = p ? clipDisc(sun.toward, p[0], p[1], (sunEl.offsetWidth || 104) / 2) : null;
+    if (!p || clip === null) hideSun();
     else {
       const c = sun.disc.join(',');
-      sunEl.style.left = p[0] + 'px'; sunEl.style.top = p[1] + 'px';
+      sunEl.style.left = p[0].toFixed(0) + 'px'; sunEl.style.top = p[1].toFixed(0) + 'px';
       sunEl.style.background = `radial-gradient(circle, rgb(${c}) 0%, rgb(${c}) 17%, rgba(${c},0.5) 32%, rgba(${c},0) 64%)`;
-      sunEl.style.display = 'block'; sunShown = true;
+      sunEl.style.clipPath = clip; sunEl.style.display = 'block'; sunShown = true;
     }
   }
   if (moon.up && moon.fraction > 0.04) {                                   // hide a ~new (invisible) moon
-    const p = occluded(moon.toward) ? null : project(moon.toward);
-    if (!p) hideMoon();
+    const p = project(moon.toward);
+    const clip = p ? clipDisc(moon.toward, p[0], p[1], (moonEl.offsetWidth || 48) / 2) : null;
+    if (!p || clip === null) hideMoon();
     else {
       const key = Math.round(moon.fraction * 100) + (moon.waxing ? 'w' : 'n') + moon.disc.join(',');
       if (key !== moonKey) { moonEl.innerHTML = moonSvg(moon.fraction, moon.waxing, moon.disc); moonKey = key; }
-      moonEl.style.left = p[0] + 'px'; moonEl.style.top = p[1] + 'px';
-      moonEl.style.display = 'block'; moonShown = true;
+      moonEl.style.left = p[0].toFixed(0) + 'px'; moonEl.style.top = p[1].toFixed(0) + 'px';
+      moonEl.style.clipPath = clip; moonEl.style.display = 'block'; moonShown = true;
     }
   } else hideMoon();
 }
