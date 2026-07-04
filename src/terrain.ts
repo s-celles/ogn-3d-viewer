@@ -190,19 +190,20 @@ export function makeTerrain() {
   const dev = S.dev;
   const deckCache = dev.on ? dev.deckCache : Math.round(DECK_CACHE * ramCacheFactor(S.cacheScale));
   const gm = Math.min(S.groundZoom, basemap().imgMax);   // don't request imagery deeper than the provider serves
-  // Two stacked layers so cold starts never show white/holes: a COARSE BASE
-  // (few, lightest tiles, its own request queue → loads first and always covers
-  // the whole view, textured) UNDER the full-detail layer. The base uses a coarse
-  // (z≤9) DEM that SMOOTHS valleys upward — its floor can sit tens of metres above
-  // the fine DEM — so it must be sunk generously (metres, exaggeration-independent)
-  // or it pokes through detail as flat low-res patches. It only needs to peek
-  // through gaps the detail hasn't filled yet, so a deep sink is harmless.
+  // Two stacked layers so cold starts never show white/holes: a coarser BASE
+  // (lighter tiles, its own wide request queue → loads first and always covers
+  // the whole view, textured) UNDER the full-detail layer, sunk a little so
+  // wherever detail has loaded it wins. The base DEM must be fine enough to
+  // follow valleys: at z≤9 (~800 m between mesh vertices) it skips narrow alpine
+  // valleys entirely and overshoots the floor by hundreds of metres, poking
+  // through detail as flat patches — z11 (~200 m spacing) keeps the overshoot
+  // under the sink. It only fills gaps until detail arrives, so the sink is safe.
   // Suffix the layer ids with the base map: switching it changes the ids, so
   // deck drops the old cached (Esri-textured) tiles and refetches from the new
   // provider — a full refresh, not just newly-panned tiles.
   const bm = S.basemap;
   return [
-    tileLayer(dev, `terrain-base-${bm}`, Math.min(9, gm), 12, 96, 140),
+    tileLayer(dev, `terrain-base-${bm}`, Math.min(11, gm), 64, 96, 140),
     tileLayer(dev, `terrain-${bm}`, gm, deckCache, dev.on ? dev.maxRequests : 12, 0),
   ];
 }
