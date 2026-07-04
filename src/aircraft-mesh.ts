@@ -155,10 +155,19 @@ function buildGlider() {
 
 function buildPlane() {
   const m = new MeshBuilder();
+  // Morane-Saulnier Rallye silhouette: blunt rounded engine cowl (short cap, prop
+  // at the tip) → a tall, roomy "greenhouse" canopy (rzTop ≫ rzBot) → tapered rear
+  // fuselage. Not a pointed rocket nose.
   m.tube([
-    { x: 2.2, ry: 0.22, rz: 0.26 }, { x: 1.3, ry: 0.40, rz: 0.48 }, { x: 0.2, ry: 0.38, rz: 0.46 },
-    { x: -1.2, ry: 0.26, rz: 0.30 }, { x: -2.8, ry: 0.12, rz: 0.18 }, { x: -3.4, ry: 0.07, rz: 0.11 },
-  ], 10, [3.0, 0, 0.04], [-3.6, 0, 0.2]);
+    { x: 2.55, ry: 0.21, rzTop: 0.25, rzBot: 0.24 },   // blunt cowl front (spinner base)
+    { x: 2.1, ry: 0.30, rzTop: 0.36, rzBot: 0.34 },    // engine cowl
+    { x: 1.5, ry: 0.37, rzTop: 0.44, rzBot: 0.42 },    // firewall (widest)
+    { x: 0.9, ry: 0.37, rzTop: 0.56, rzBot: 0.40, cz: 0.02 },   // windscreen base
+    { x: 0.2, ry: 0.35, rzTop: 0.58, rzBot: 0.40 },    // greenhouse canopy peak
+    { x: -0.6, ry: 0.30, rzTop: 0.47, rzBot: 0.34 },   // canopy trailing
+    { x: -1.5, ry: 0.21, rzTop: 0.30, rzBot: 0.28 },   // turtledeck
+    { x: -2.7, ry: 0.12, rz: 0.18 }, { x: -3.4, ry: 0.07, rz: 0.11 },
+  ], 12, [2.9, 0, 0.0], [-3.6, 0, 0.2]);
   // short low wing (span ~10)
   const wr: Edge = { le: 0.85, te: -0.7, y: 0.36, z: -0.22 };
   m.panel(wr, { le: 0.6, te: -0.4, y: 5.0, z: -0.16 }, 0.07);
