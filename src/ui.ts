@@ -625,7 +625,8 @@ function renderDisc(): void {
     `<div style="margin-top:6px">${t('sourceCode')} : ` +
     `<a href="${REPO_URL}" target="_blank" rel="noopener" style="color:var(--accent)">github.com/s-celles/ogn-3d-viewer</a></div>` +
     `<div style="margin-top:4px;color:var(--mut)">${t('version')} ${APP_VERSION} · ${commit}</div>` +
-    `<div style="margin-top:4px;color:var(--mut)">${t('author')} : Sébastien Celles · ${t('license')} : ` +
+    `<div style="margin-top:4px;color:var(--mut)">${t('author')} : ` +
+    `<a href="https://linktr.ee/SebastienCelles" target="_blank" rel="noopener" style="color:var(--accent)">Sébastien Celles</a> · ${t('license')} : ` +
     `<a href="${REPO_URL}/blob/main/LICENSE" target="_blank" rel="noopener" style="color:var(--accent)">AGPL-3.0</a></div>` +
     `<div id="cacheInfo" style="margin-top:4px;color:var(--mut)">${t('cacheLabel')} : …</div>` +
     `<div style="margin-top:6px">${t('appLink')} : ` +
