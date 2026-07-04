@@ -733,6 +733,7 @@ function buildAirfieldSearch(): HTMLElement {
 }
 function build(): void {
   overlay = document.createElement('div');
+  overlay.className = 'disc-overlay';
   overlay.style.cssText = 'position:fixed;inset:0;z-index:200;background:#0c1119;display:none;flex-direction:column';
   const head = document.createElement('div'); head.className = 'disc-head';
   const h = document.createElement('div'); h.className = 'disc-title';

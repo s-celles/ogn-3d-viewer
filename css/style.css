@@ -236,9 +236,11 @@ body.collapsed #legend{display:none}
 .disc-map{position:relative;flex:0 0 auto;align-self:flex-start;width:min(46vw,72vh,560px);aspect-ratio:1;border-radius:8px;overflow:hidden;background:#0a1016;border:1px solid rgba(255,255,255,.12);cursor:pointer}
 .disc-list{flex:1 1 auto;min-width:0;overflow-y:auto;display:flex;flex-direction:column;gap:2px;padding-right:4px}
 @media(max-width:640px){
+  .disc-overlay{overflow-y:auto}               /* scroll the page under a pinned header, not just the map+list region */
+  .disc-head{position:sticky;top:0;z-index:3;background:#0c1119}   /* keep lang / guide / ⓘ / actions reachable while scrolling */
   .disc-title{display:none}                    /* drop the app title on phones to save vertical space */
   .disc-intro{font-size:12px;padding:4px 12px 8px}
-  .disc-body{flex-direction:column;gap:10px;padding:8px 12px;overflow-y:auto}
+  .disc-body{flex-direction:column;gap:10px;padding:8px 12px;flex:0 0 auto;overflow:visible}
   .disc-map{width:100%;align-self:stretch;aspect-ratio:16/10;max-height:30vh}
   .disc-list{overflow:visible;flex:0 0 auto}
 }
