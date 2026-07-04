@@ -197,6 +197,8 @@ export interface AppState {
   // Named summits (OSM) + imported waypoints, shown as poles + labels.
   showPeaks: boolean;
   peakDensity: number;   // 0..1 — how many summit labels to show
+  // Inset 2D minimap (flat tiles + track + heading) shown in the immersive views.
+  minimap: boolean;
   // Follow the browser locale for the UI language (the "Auto" language choice).
   langAuto: boolean;
   windowMin: number;

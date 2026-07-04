@@ -17,6 +17,7 @@
 <div id="moon"></div>
 <div id="labels"></div>
 <div id="poiLabels"></div>
+<div id="minimap"><span class="mmN">N</span></div>
 <div id="attribution"></div>
 
 <div id="panel" class="card">
@@ -141,9 +142,16 @@
       <label class="lbl" style="margin:0" data-i18n="peaks" data-i18n-title="peaksHint" title="">Sommets (OSM)</label>
       <button id="peaksBtn">Désactivé</button>
     </div>
+    <div class="row spread">
+      <label class="lbl" style="margin:0" data-i18n="minimap" data-i18n-title="minimapHint" title="">Mini-carte 2D</label>
+      <button id="minimapBtn">Activé</button>
+    </div>
     <div class="row peaksOnly" style="flex-direction:column;align-items:stretch">
       <label class="lbl"><span data-i18n="peakDensity">Densité des sommets</span></label>
       <input id="peakDensity" type="range" min="0" max="1" value="0.35" step="0.05">
+    </div>
+    <div class="row wpOnly" style="flex-direction:column;align-items:stretch">
+      <button id="clearWpBtn" data-i18n="clearWaypoints">🗑 Supprimer les waypoints importés</button>
     </div>
     <div class="row" style="flex-direction:column;align-items:stretch">
       <label class="lbl"><span data-i18n="cacheScale">Taille du cache :</span> <b id="cacheszval">×1</b></label>

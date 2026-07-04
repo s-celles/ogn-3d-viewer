@@ -32,6 +32,17 @@ html,body{margin:0;height:100%;background:var(--bg);color:var(--txt);
   transform:translate(-50%,-100%);font-variant-numeric:tabular-nums}
 #poiLabels .poilabel.wp{color:#bfe0ff}
 #poiLabels .poilabel .gly{font-weight:700}
+
+/* Inset 2D minimap (own Deck canvas). Top-right corner (the traffic radar sits
+   top-centre, the glider legend bottom-left). Shown in every view when enabled. */
+#minimap{position:fixed;right:12px;top:12px;width:172px;height:172px;z-index:2;
+  border:1px solid var(--line);border-radius:10px;overflow:hidden;display:none;
+  box-shadow:0 2px 10px rgba(0,0,0,.4);background:#0b0b0b}
+body.loaded.minimap #minimap{display:block}
+#minimap canvas{border-radius:10px}
+#minimap .mmN{position:absolute;top:3px;left:50%;transform:translateX(-50%);z-index:3;
+  font:700 10px/1 Helvetica,Arial,sans-serif;color:#fff;text-shadow:0 1px 2px #000,0 0 3px #000;pointer-events:none}
+@media (max-width:640px){ #minimap{width:120px;height:120px;right:8px;top:8px} }
 .card{position:fixed;background:var(--card);backdrop-filter:blur(8px);
       border:1px solid var(--line);border-radius:12px;padding:12px 14px;
       box-shadow:0 8px 30px rgba(0,0,0,.45)}
@@ -112,8 +123,9 @@ body:not(.loaded) #legend, body:not(.loaded) #nav, body:not(.loaded) #hud{displa
 #focusBadge{display:none;align-items:center;gap:8px;margin:0 0 6px;padding-bottom:6px;border-bottom:1px solid rgba(255,255,255,.1);font-variant-numeric:tabular-nums}
 #focusBadge .lbl2{color:var(--mut);font-size:11px}
 #legend .lg.focus{outline:1px solid var(--accent);outline-offset:2px;border-radius:4px}
-.fpvOnly,.subjOnly,.followOnly,.freeOnly,.windowOnly,.coneOnly,.labelsOnly,.peaksOnly{display:none}
+.fpvOnly,.subjOnly,.followOnly,.freeOnly,.windowOnly,.coneOnly,.labelsOnly,.peaksOnly,.wpOnly{display:none}
 body.peaks .peaksOnly{display:flex}
+body.haswp .wpOnly{display:flex}
 body.cone .coneOnly{display:flex}
 body.labels .labelsOnly{display:flex}
 /* "Local" (reachable within the glide cone) badge in the legend. */
@@ -126,9 +138,11 @@ body.fpv.follow .followOnly{display:flex}
 body.fpv.free .freeOnly{display:flex}
 body.win .windowOnly{display:flex}
 body.fpv #legend, body.chase #legend{opacity:.5}
-/* Traffic-awareness radar: top-right in focus views when enabled. */
+/* Traffic-awareness radar: top-right in focus views when enabled — but it steps
+   aside to the top-centre when the minimap is showing (which claims top-right). */
 #traffic{top:12px;right:12px;width:156px;height:156px;padding:6px;display:none;z-index:3}
 body.traffic.fpv.loaded #traffic, body.traffic.chase.loaded #traffic{display:block}
+body.loaded.minimap #traffic{right:auto;left:50%;transform:translateX(-50%)}
 #trafficCanvas{width:100%;height:100%;display:block}
 #hud{right:12px;bottom:12px;width:210px;display:none}
 body.fpv.loaded #hud, body.chase.loaded #hud{display:block}

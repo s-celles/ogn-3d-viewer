@@ -14,6 +14,7 @@ import { updateSky, getSun, getMoon, nightPolygon } from './sky';
 import { subjectTrack, shown, scaled, posAt, presence, airborne, headingAt, varioAt, compVarioAt, groundSpeedAt, clampCur, attitudeAt, nearestToCenter } from './flight-math';
 import { GLIDER_MESH, PLANE_MESH, PROP_MESH, GLIDER_FLAT, PLANE_FLAT, isPowered } from './aircraft-mesh';
 import { getPeaks, getWaypoints, loadPeaks, type Poi } from './poi';
+import { updateMinimap } from './minimap';
 import { poiLabelsDiv } from './dom';
 import { CHASE, FAR_PLANE } from './config';
 import { saveSettings } from './settings';
@@ -830,6 +831,7 @@ export function render(): void {
   updatePeakFetch();
   updateLabels();
   updatePeakLabels();
+  updateMinimap();
   drawGraphs();
   drawTraffic();
 }

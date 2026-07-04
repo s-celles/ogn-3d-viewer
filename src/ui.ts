@@ -5,7 +5,7 @@ import { API_BASE, REPO_URL, MINZ, MAXZ, PMIN, PMAX, CHASE, clampv, BASEMAPS, IG
 import { APP_VERSION, GIT_HASH } from './version';
 import {
   subjEl, viewsEl, cammodeEl, traceEl, trailFxEl, smoothBtn, compBtn, bankBtn, soundBtn, trafficModeEl, graphModeEl, graphClose, winEl, winval, playBtn, revBtn, segEl,
-  exoEl, exval, groundEl, groundval, cacheEl, cacheval, acscaleEl, acscaleval, coneBtn, finesseEl, finval, safetyEl, safeval, coneRadEl, coneradval, labelsBtn, labelFieldsEl, shadowsEl, basemapEl, ignDemBtn, peaksBtn, peakDensityEl, attribEl, curtainBtn, attrBtn, pitchEl, pitchval, scrub, scrubMin, scrubMax, clkEl, lglist, rose, altsl, icaoEl, fblink, acEl,
+  exoEl, exval, groundEl, groundval, cacheEl, cacheval, acscaleEl, acscaleval, coneBtn, finesseEl, finval, safetyEl, safeval, coneRadEl, coneradval, labelsBtn, labelFieldsEl, shadowsEl, basemapEl, ignDemBtn, peaksBtn, peakDensityEl, minimapBtn, clearWpBtn, attribEl, curtainBtn, attrBtn, pitchEl, pitchval, scrub, scrubMin, scrubMax, clkEl, lglist, rose, altsl, icaoEl, fblink, acEl,
   dateEl, loadBtn, langEl, discEl, infoBtn, copyBtn, shareBtn, collapseBtn, liveBtn, igcBtn, igcInput, mapDiv, prevAc, nextAc, resetSettingsBtn, afInfo,
 } from './dom';
 import { codeFlag } from './flags';
@@ -18,7 +18,7 @@ import { subjectTrack, airborne, headingAt, clampCur, fmt, statsFor } from './fl
 import { makeTerrain, clearDemCache } from './terrain';
 import { render, updateHUD } from './render';
 import { loadFlights, refreshLive, statusMsg, setStatus, rebuild, syncUrl, loadTrackFiles } from './data';
-import { importCup, clearWaypoints } from './poi';
+import { importCup, clearWaypoints, getWaypoints } from './poi';
 import { TRACK_EXT } from './track-import';
 import { varioAudio } from './vario-audio';
 import { refreshGraphTabs } from './graphs';
@@ -236,6 +236,9 @@ export function syncControls(): void {
   shadowsEl.value = S.shadowMode; langEl.value = langValue();
   if (BASEMAPS[S.basemap]) basemapEl.value = S.basemap;
   peakDensityEl.value = String(S.peakDensity); document.body.classList.toggle('peaks', S.showPeaks);
+  document.body.classList.toggle('minimap', S.minimap);
+  minimapBtn.textContent = S.minimap ? t('on') : t('off'); minimapBtn.classList.toggle('on', S.minimap);
+  document.body.classList.toggle('haswp', getWaypoints().length > 0);
   exoEl.value = String(S.exo); exval.textContent = S.exo.toFixed(1) + '×';
   groundEl.value = String(S.groundZoom); groundval.textContent = 'z' + S.groundZoom;
   cacheEl.value = String(S.cacheScale); cacheval.textContent = '×' + S.cacheScale;
@@ -325,6 +328,17 @@ peaksBtn.onclick = () => {
   updateMapCredit(); render();   // render() triggers the view-driven summit fetch
 };
 peakDensityEl.addEventListener('input', e => { S.peakDensity = parseFloat((e.target as HTMLInputElement).value); render(); });
+// ---- inset 2D minimap toggle ----
+minimapBtn.onclick = () => {
+  S.minimap = !S.minimap;
+  minimapBtn.textContent = S.minimap ? t('on') : t('off'); minimapBtn.classList.toggle('on', S.minimap);
+  document.body.classList.toggle('minimap', S.minimap); render();
+};
+// Remove all imported .cup waypoints (summits from OSM are unaffected).
+clearWpBtn.onclick = () => {
+  clearWaypoints(); document.body.classList.remove('haswp');
+  render(); setStatus('0 ' + t('peakWaypoints'));
+};
 // Imagery credit (per base map) + shared terrain credit, kept in sync in BOTH
 // the on-map overlay and the ⓘ info panel (the latter isn't rebuilt on a
 // base-map switch, so update its copy directly).
@@ -491,6 +505,7 @@ async function importFiles(files: FileList | File[], replace: boolean): Promise<
     clearWaypoints();   // a .cup import replaces the previous waypoint set (no duplicates on re-import)
     for (const f of cups) { try { added += importCup(await f.text()); } catch { /* bad file */ } }
     if (added && !S.showPeaks) { S.showPeaks = true; document.body.classList.add('peaks'); peaksBtn.textContent = t('on'); peaksBtn.classList.add('on'); }
+    document.body.classList.toggle('haswp', getWaypoints().length > 0);
     render(); setStatus(`${added} ${t('peakWaypoints')}`);
   }
   if (arr.some(f => TRACK_EXT.test(f.name))) { stopLive(); loadTrackFiles(arr, replace); }
