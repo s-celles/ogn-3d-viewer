@@ -58,7 +58,8 @@ Fügen Sie `?dev=1` zur URL hinzu für ein technisches Panel: Gelände-**Drahtgi
 - **V** — Ansicht wechseln
 - **1 / 2 / 3** — Segelflugzeug wählen
 - **J / K** — vorheriges / nächstes Segelflugzeug
-- **Leertaste** — Wiedergabe / Pause
+- **Leertaste** — Wiedergabe / Pause (vorwärts)
+- **B** — Wiedergabe / Pause rückwärts
 - **Pfeiltasten** — drehen / neigen / zoomen
 
 ## Hinweise & Grenzen

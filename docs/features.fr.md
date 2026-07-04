@@ -58,7 +58,8 @@ Ajoutez `?dev=1` à l'URL pour un panneau technique : **fil de fer** du relief, 
 - **V** — changer de vue
 - **1 / 2 / 3** — choisir un planeur
 - **J / K** — planeur précédent / suivant
-- **Espace** — lecture / pause
+- **Espace** — lecture / pause (avant)
+- **B** — lecture / pause arrière
 - **Flèches** — pivoter / incliner / zoomer
 
 ## Notes & limites

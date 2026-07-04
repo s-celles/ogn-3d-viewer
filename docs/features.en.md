@@ -58,7 +58,8 @@ Add `?dev=1` to the URL for a technical panel: terrain **wireframe**, **bare rel
 - **V** — switch view
 - **1 / 2 / 3** — pick a glider
 - **J / K** — previous / next glider
-- **Space** — play / pause
+- **Space** — play / pause (forward)
+- **B** — play / pause backward
 - **Arrows** — orbit / tilt / zoom
 
 ## Notes & limitations

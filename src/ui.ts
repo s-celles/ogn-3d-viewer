@@ -694,7 +694,8 @@ window.addEventListener('keydown', e => {
     if (reg) { S.subject = reg; subjEl.value = reg; render(); syncUI(); }
   } else if (e.key === 'j' || e.key === 'J') cycleSubject(-1);   // previous aircraft
   else if (e.key === 'k' || e.key === 'K') cycleSubject(1);      // next aircraft
-  else if (e.key === ' ') { e.preventDefault(); playBtn.click(); }
+  else if (e.key === ' ') { e.preventDefault(); playBtn.click(); }          // play / pause (forward)
+  else if (e.key === 'b' || e.key === 'B') revBtn.click();                   // play / pause backward
   else if (S.mode === 'over') {
     if (e.key === 'ArrowLeft') S.mapTarget.bearing -= 15; else if (e.key === 'ArrowRight') S.mapTarget.bearing += 15;
     else if (e.key === 'ArrowUp') S.mapTarget.pitch = clampv(S.mapTarget.pitch + 8, PMIN, PMAX);
