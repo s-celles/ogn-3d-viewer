@@ -25,7 +25,7 @@ Rejeu 3D des vols de planeurs de l'[Open Glider Network](http://wiki.glidernet.o
 
 ## Lecture
 
-- **Lecture temporelle** — curseur d'heure de la journée et vitesses 1× / 4× / 8× / 30× / 120×.
+- **Lecture temporelle** — curseur d'heure de la journée, lecture **avant et arrière**, préréglages 0,25× / 1× / 4× / 8× / 30×, et un champ de vitesse libre pour toute autre valeur (ex. 0,5×, 120×).
 - **Modes de trace** — historique, historique + futur, ou fenêtre glissante.
 - **Effets de trace** — basique, néon, contrail ou bloom.
 - **Lissage des traces** — interpolation spline Catmull-Rom pour des trajectoires fluides.

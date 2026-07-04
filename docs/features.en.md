@@ -25,7 +25,7 @@
 
 ## Playback
 
-- **Time playback** — a time-of-day scrubber and 1× / 4× / 8× / 30× / 120× speeds.
+- **Time playback** — a time-of-day scrubber, **forward and reverse** play, 0.25× / 1× / 4× / 8× / 30× presets, and a custom-speed field for any other value (e.g. 0.5×, 120×).
 - **Track modes** — history, history + future, or a rolling window.
 - **Trail effects** — basic, neon glow, contrail or bloom.
 - **Track smoothing** — Catmull-Rom spline interpolation for fluid trajectories.

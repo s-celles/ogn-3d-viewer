@@ -147,6 +147,7 @@ export interface AppState {
   cur: number;
   playing: boolean;
   speed: number;
+  dir: 1 | -1;   // playback direction (forward / reverse)
   solo: string | null;
   mode: Mode;
   // Data source: 'ogn' = FlightBook logbook/live; 'file' = locally loaded IGC

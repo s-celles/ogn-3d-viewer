@@ -4,7 +4,7 @@ import { t, I18N } from './i18n';
 import { API_BASE, REPO_URL, MINZ, MAXZ, PMIN, PMAX, CHASE, clampv, BASEMAPS } from './config';
 import { APP_VERSION, GIT_HASH } from './version';
 import {
-  subjEl, viewsEl, cammodeEl, traceEl, trailFxEl, smoothBtn, compBtn, bankBtn, soundBtn, trafficModeEl, graphModeEl, graphClose, winEl, winval, playBtn, segEl,
+  subjEl, viewsEl, cammodeEl, traceEl, trailFxEl, smoothBtn, compBtn, bankBtn, soundBtn, trafficModeEl, graphModeEl, graphClose, winEl, winval, playBtn, revBtn, segEl,
   exoEl, exval, groundEl, groundval, cacheEl, cacheval, acscaleEl, acscaleval, coneBtn, finesseEl, finval, safetyEl, safeval, coneRadEl, coneradval, labelsBtn, labelFieldsEl, shadowsEl, basemapEl, attribEl, curtainBtn, attrBtn, pitchEl, pitchval, scrub, scrubMin, scrubMax, clkEl, lglist, rose, altsl, icaoEl, fblink, acEl,
   dateEl, loadBtn, langEl, discEl, infoBtn, copyBtn, shareBtn, collapseBtn, liveBtn, igcBtn, igcInput, mapDiv, prevAc, nextAc, resetSettingsBtn, afInfo,
 } from './dom';
@@ -178,12 +178,30 @@ const unlockAudio = () => {
 };
 AUDIO_EVENTS.forEach(ev => window.addEventListener(ev, unlockAudio));
 
-// ---- play / speed ----
-playBtn.onclick = () => { if (!S.ready) return; S.playing = !S.playing; playBtn.textContent = S.playing ? t('pause') : t('play'); playBtn.classList.toggle('on', S.playing); };
-[1, 4, 8, 30, 120].forEach(s => {
-  const b = document.createElement('button'); b.textContent = s + '×'; if (s === S.speed) b.classList.add('on');
-  b.onclick = () => { S.speed = s; [...segEl.children].forEach(c => c.classList.remove('on')); b.classList.add('on'); }; segEl.appendChild(b);
+// ---- play / speed (forward + reverse, slow-motion presets + a custom field) ----
+export function syncTransport(): void {   // reflect playing state + direction on the two icon buttons
+  const fwd = S.playing && S.dir > 0, back = S.playing && S.dir < 0;
+  playBtn.textContent = fwd ? '⏸' : '▶'; playBtn.title = fwd ? t('pause') : t('play'); playBtn.classList.toggle('on', fwd);
+  revBtn.textContent = back ? '⏸' : '◀'; revBtn.classList.toggle('on', back);
+}
+playBtn.onclick = () => { if (!S.ready) return; if (S.playing && S.dir > 0) S.playing = false; else { S.playing = true; S.dir = 1; } syncTransport(); };
+revBtn.onclick  = () => { if (!S.ready) return; if (S.playing && S.dir < 0) S.playing = false; else { S.playing = true; S.dir = -1; } syncTransport(); };
+const speedCustom = document.createElement('input');
+export function syncSpeedUI(): void {   // highlight the matching preset, else show the value in the custom field
+  let matched = false;
+  segEl.querySelectorAll('button').forEach(b => { const on = b.textContent === S.speed + '×'; b.classList.toggle('on', on); if (on) matched = true; });
+  if (document.activeElement !== speedCustom) speedCustom.value = matched ? '' : String(S.speed);
+}
+[0.25, 1, 4, 8, 30].forEach(s => {
+  const b = document.createElement('button'); b.textContent = s + '×';
+  b.onclick = () => { S.speed = s; syncSpeedUI(); };
+  segEl.appendChild(b);
 });
+speedCustom.type = 'number'; speedCustom.min = '0.05'; speedCustom.step = '0.25'; speedCustom.placeholder = '×'; speedCustom.title = t('speedCustom');
+speedCustom.style.cssText = 'width:58px;padding:4px 6px;border-radius:7px;background:rgba(255,255,255,.06);color:inherit;border:1px solid rgba(255,255,255,.15);font-size:12px';
+speedCustom.oninput = () => { const v = parseFloat(speedCustom.value); if (v > 0 && Number.isFinite(v)) { S.speed = v; segEl.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.textContent === S.speed + '×')); } };
+segEl.appendChild(speedCustom);
+syncSpeedUI();
 
 // ---- exaggeration & pitch ----
 exoEl.addEventListener('input', e => { S.exo = parseFloat((e.target as HTMLInputElement).value); exval.textContent = S.exo.toFixed(1) + '×'; S.terrainInst = makeTerrain(); render(); });
@@ -224,7 +242,7 @@ export function syncControls(): void {
   coneRadEl.value = String(S.coneRadiusKm); coneradval.textContent = String(S.coneRadiusKm);
   pitchEl.value = String(S.fpvPitch); pitchval.textContent = (S.fpvPitch >= 0 ? '+' : '') + S.fpvPitch + '°';
   syncAcScale();
-  [...segEl.children].forEach(c => asEl(c).classList.toggle('on', asEl(c).textContent === S.speed + '×'));
+  syncSpeedUI();
   smoothBtn.classList.toggle('on', S.spline); compBtn.classList.toggle('on', S.compensated);
   bankBtn.classList.toggle('on', S.bank); soundBtn.classList.toggle('on', S.sound);
   coneBtn.classList.toggle('on', S.glideCone); labelsBtn.classList.toggle('on', S.labels);
@@ -422,7 +440,7 @@ function stopLive(): void {
   const wasLive = S.live;
   S.live = false; if (S.liveTimer) clearTimeout(S.liveTimer); S.liveTimer = null;
   document.body.classList.remove('live'); liveBtn.classList.remove('on'); liveBtn.title = t('live');
-  if (S.ready) { S.playing = false; playBtn.textContent = t('play'); playBtn.classList.remove('on'); }
+  if (S.ready) { S.playing = false; S.dir = 1; syncTransport(); }
   // Reflect the switch back to replay in the URL (keeps a shared link accurate).
   if (wasLive && icaoEl.value.trim()) syncUrl(icaoEl.value.trim().toUpperCase(), dateEl.value);
 }
@@ -506,7 +524,7 @@ export function applyI18n(): void {
   document.body.classList.toggle('traffic', S.trafficMode !== 'off');
   [...graphModeEl.options].forEach(o => o.textContent = t(o.dataset.k!));
   refreshGraphTabs();
-  playBtn.textContent = S.playing ? t('pause') : t('play');
+  syncTransport();
   updateMapCredit();
   renderDisc();
   syncGuide();
@@ -643,14 +661,14 @@ export function applyDeepLinkCursor(qp: URLSearchParams): void {
   if (reg && S.TRACKS.some(tr => tr.reg === reg)) { S.subject = reg; subjEl.value = reg; }
   if (S.mode === 'fpv') setFollow((qp.get('cam') || '').trim() !== 'free');   // ?cam=free → free look
   const speed = +(qp.get('speed') || '');
-  if ([1, 4, 8, 30, 120].includes(speed)) { S.speed = speed; [...segEl.children].forEach(c => asEl(c).classList.toggle('on', asEl(c).textContent === speed + '×')); }
+  if (speed > 0 && Number.isFinite(speed)) { S.speed = speed; syncSpeedUI(); }
   const digits = (qp.get('t') || '').replace(/\D/g, '');
   if (!S.live && digits.length >= 4) {
     const local = (+digits.slice(0, 2)) * 3600 + (+digits.slice(2, 4)) * 60 + (+digits.slice(4, 6) || 0);
     let cur = local - (S.AF ? S.AF.tz_off : 0) * 3600 - S.G0;   // local clock → replay-relative seconds
     if (cur < -43200) cur += 86400;                             // clock wrapped past midnight
     S.cur = Math.max(0, Math.min(S.SPAN, cur));                 // out-of-range → clamp to start/end
-    S.playing = false; playBtn.textContent = t('play'); playBtn.classList.remove('on');
+    S.playing = false; syncTransport();
   }
   render(); syncUI();
 }

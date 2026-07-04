@@ -64,8 +64,9 @@
     <div class="row"><span class="clock"><span id="clk">--:--</span><small id="tz" data-i18n="localTz">…</small></span><span id="liveBadge"><span class="livedot"></span><span data-i18n="liveLabel">EN DIRECT</span></span></div>
 
     <div class="row liveHide">
-      <button id="play" class="on">⏸ Pause</button>
-      <div class="seg" id="speeds"></div>
+      <button id="rev" data-i18n-title="playBack" title="">◀</button>
+      <button id="play" class="on">▶</button>
+      <div class="seg" id="speeds" style="flex-wrap:wrap;flex:1"></div>
     </div>
     <div class="row liveHide" style="flex-direction:column;align-items:stretch">
       <label class="lbl" data-i18n="timeOfDay">Heure de la journée</label>

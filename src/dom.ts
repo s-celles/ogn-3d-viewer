@@ -28,6 +28,7 @@ export const graphTabs  = $('graphTabs');
 export const winEl      = $<HTMLInputElement>('win');
 export const winval     = $('winval');
 export const playBtn    = $<HTMLButtonElement>('play');
+export const revBtn     = $<HTMLButtonElement>('rev');
 export const segEl      = $('speeds');
 export const exoEl      = $<HTMLInputElement>('exo');
 export const exval      = $('exval');

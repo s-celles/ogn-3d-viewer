@@ -25,7 +25,7 @@
 
 ## Wiedergabe
 
-- **Zeitwiedergabe** — Tageszeit-Regler und Geschwindigkeiten 1× / 4× / 8× / 30× / 120×.
+- **Zeitwiedergabe** — Tageszeit-Regler, **Vorwärts- und Rückwärtswiedergabe**, Voreinstellungen 0,25× / 1× / 4× / 8× / 30× und ein Feld für jede andere Geschwindigkeit (z. B. 0,5×, 120×).
 - **Spurmodi** — Verlauf, Verlauf + Zukunft, oder gleitendes Fenster.
 - **Spureffekte** — einfach, Neon, Kondensstreifen oder Bloom.
 - **Spurglättung** — Catmull-Rom-Spline-Interpolation für flüssige Bahnen.

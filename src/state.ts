@@ -17,7 +17,7 @@ export function detectLang(): Lang {
 export const S: AppState = {
   // filled by loadData / rebuild
   AF: null, G0: 0, G1: 0, SPAN: 1, TRACKS: [], ready: false,
-  exo: 1.0, groundZoom: GROUND_ZOOM_DEFAULT, cacheScale: 1, altOffset: 0, cur: 0, playing: false, speed: 8, solo: null,
+  exo: 1.0, groundZoom: GROUND_ZOOM_DEFAULT, cacheScale: 1, altOffset: 0, cur: 0, playing: false, speed: 8, dir: 1, solo: null,
   mode: 'over', source: 'ogn', subject: null, focus: null, fpvPitch: 6, fpvFollow: true, bank: true, freeCam: { bearing: 0, pitch: 6 },
   chase: { az: 0, el: 17, dist: 25 },
   trace: 'window', trailFx: 'basic', modelScale: { ...MODEL_SCALE }, windowMin: 10, spline: true, compensated: true, sound: true, trafficMode: 'directional', graphMode: 'off',
