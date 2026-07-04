@@ -14,6 +14,7 @@
 
 - **3D-Gelände** mit Satellitenbildern und einstellbarer vertikaler Überhöhung.
 - **Grundkarte** — Wahl der über das Gelände gelegten Ebene: **Esri**-Satellit, **OpenTopoMap** oder **OpenStreetMap** (die Wahl wird gespeichert).
+- **Frankreich-Detail (IGN)** — *experimentell, standardmäßig aus*: über Frankreich ein viel feineres Gelände (IGN **RGE ALTI / LIDAR HD**) und **20-cm-BD-ORTHO**-Luftbilder (Géoplateforme, ohne Schlüssel), sonst globale Quellen. Zum Testen einschalten.
 - **Bodenauflösung** — einstellbarer Detailgrad der Satellitenbilder (z13 bis z18).
 - **Drei Ansichten** — Übersicht (von oben), Cockpit (Egoperspektive, der Horizont neigt sich in Kurven) und eine Verfolgerkamera.
 - **Cockpit-Kamera** — Kurs folgen oder freie Sicht.

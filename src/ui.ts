@@ -1,11 +1,11 @@
 // ============ UI controllers ============
 import { S, DEFAULT_SETTINGS, detectLang } from './state';
 import { t, I18N } from './i18n';
-import { API_BASE, REPO_URL, MINZ, MAXZ, PMIN, PMAX, CHASE, clampv, BASEMAPS } from './config';
+import { API_BASE, REPO_URL, MINZ, MAXZ, PMIN, PMAX, CHASE, clampv, BASEMAPS, IGN_CREDIT } from './config';
 import { APP_VERSION, GIT_HASH } from './version';
 import {
   subjEl, viewsEl, cammodeEl, traceEl, trailFxEl, smoothBtn, compBtn, bankBtn, soundBtn, trafficModeEl, graphModeEl, graphClose, winEl, winval, playBtn, revBtn, segEl,
-  exoEl, exval, groundEl, groundval, cacheEl, cacheval, acscaleEl, acscaleval, coneBtn, finesseEl, finval, safetyEl, safeval, coneRadEl, coneradval, labelsBtn, labelFieldsEl, shadowsEl, basemapEl, attribEl, curtainBtn, attrBtn, pitchEl, pitchval, scrub, scrubMin, scrubMax, clkEl, lglist, rose, altsl, icaoEl, fblink, acEl,
+  exoEl, exval, groundEl, groundval, cacheEl, cacheval, acscaleEl, acscaleval, coneBtn, finesseEl, finval, safetyEl, safeval, coneRadEl, coneradval, labelsBtn, labelFieldsEl, shadowsEl, basemapEl, ignDemBtn, attribEl, curtainBtn, attrBtn, pitchEl, pitchval, scrub, scrubMin, scrubMax, clkEl, lglist, rose, altsl, icaoEl, fblink, acEl,
   dateEl, loadBtn, langEl, discEl, infoBtn, copyBtn, shareBtn, collapseBtn, liveBtn, igcBtn, igcInput, mapDiv, prevAc, nextAc, resetSettingsBtn, afInfo,
 } from './dom';
 import { codeFlag } from './flags';
@@ -15,7 +15,7 @@ const HAS_SHARE = typeof navigator !== 'undefined' && 'share' in navigator;   //
 import { clearStored } from './settings';
 import { postCacheCap } from './sw-cache';
 import { subjectTrack, airborne, headingAt, clampCur, fmt, statsFor } from './flight-math';
-import { makeTerrain } from './terrain';
+import { makeTerrain, clearDemCache } from './terrain';
 import { render, updateHUD } from './render';
 import { loadFlights, refreshLive, statusMsg, setStatus, rebuild, syncUrl, loadTrackFiles } from './data';
 import { varioAudio } from './vario-audio';
@@ -308,11 +308,21 @@ basemapEl.addEventListener('change', e => {
   S.basemap = (e.target as HTMLSelectElement).value;
   S.terrainInst = makeTerrain(); updateMapCredit(); render();
 });
+// ---- finer IGN RGE ALTI DEM over France (falls back to Terrarium elsewhere) ----
+ignDemBtn.onclick = () => {
+  S.ignDem = !S.ignDem;
+  ignDemBtn.textContent = S.ignDem ? t('on') : t('off'); ignDemBtn.classList.toggle('on', S.ignDem);
+  clearDemCache(); S.terrainInst = makeTerrain(); updateMapCredit(); render();
+};
 // Imagery credit (per base map) + shared terrain credit, kept in sync in BOTH
 // the on-map overlay and the ⓘ info panel (the latter isn't rebuilt on a
 // base-map switch, so update its copy directly).
+function mapCreditHtml(): string {
+  const ign = S.ignDem ? ` · ${IGN_CREDIT}` : '';   // IGN RGE ALTI / BD ORTHO used over France
+  return `${(BASEMAPS[S.basemap] || BASEMAPS.esri).credit}${ign} · ${t('terrainCredit')}`;
+}
 export function updateMapCredit(): void {
-  const html = `${(BASEMAPS[S.basemap] || BASEMAPS.esri).credit} · ${t('terrainCredit')}`;
+  const html = mapCreditHtml();
   attribEl.innerHTML = html;
   const mc = discEl.querySelector('.mapcredit'); if (mc) mc.innerHTML = html;
 }
@@ -519,6 +529,7 @@ export function applyI18n(): void {
   [...labelFieldsEl.children].forEach(b => { asEl(b).textContent = t(asEl(b).dataset.k!); });
   [...shadowsEl.options].forEach(o => { o.textContent = t(o.dataset.k!); });
   curtainBtn.textContent = S.altCurtain ? t('on') : t('off'); curtainBtn.classList.toggle('on', S.altCurtain);
+  ignDemBtn.textContent = S.ignDem ? t('on') : t('off'); ignDemBtn.classList.toggle('on', S.ignDem);
   attrBtn.textContent = S.showAttribution ? t('on') : t('off'); attrBtn.classList.toggle('on', S.showAttribution);
   [...trafficModeEl.options].forEach(o => o.textContent = t(o.dataset.k!));
   document.body.classList.toggle('traffic', S.trafficMode !== 'off');
@@ -537,7 +548,7 @@ function renderDisc(): void {
     : `<a href="${REPO_URL}/commit/${GIT_HASH}" target="_blank" rel="noopener" style="color:var(--accent)">${GIT_HASH}</a>`;
   discEl.innerHTML = `<button id="discGuideBtn" style="margin:0 0 10px;padding:6px 12px">📖 ${t('guide')}</button>` +
     '<b>' + t('disclaimerTitle') + '</b><ul>' + arr.map(x => '<li>' + x + '</li>').join('') + '</ul>' +
-    `<div class="mapcredit" style="margin-top:6px;color:var(--mut)">${(BASEMAPS[S.basemap] || BASEMAPS.esri).credit} · ${t('terrainCredit')}</div>` +
+    `<div class="mapcredit" style="margin-top:6px;color:var(--mut)">${mapCreditHtml()}</div>` +
     `<div style="margin-top:6px">${t('sourceCode')} : ` +
     `<a href="${REPO_URL}" target="_blank" rel="noopener" style="color:var(--accent)">github.com/s-celles/ogn-3d-viewer</a></div>` +
     `<div style="margin-top:4px;color:var(--mut)">${t('version')} ${APP_VERSION} · ${commit}</div>` +

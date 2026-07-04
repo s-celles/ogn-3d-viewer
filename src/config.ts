@@ -37,7 +37,33 @@ export const BASEMAPS: Record<string, Basemap> = {
 export const DEFAULT_BASEMAP = 'esri';
 export const TEXTURE = BASEMAPS.esri.url;   // Esri stays the source for the Discover-spots preview map
 
-export const TERRAIN_N = 96; // grid resolution per tile
+export const TERRAIN_N = 128; // mesh grid per tile (bilinear DEM sampling → denser = finer relief, esp. with the IGN DEM)
+
+// IGN RGE ALTI (fed by LIDAR HD) — a much finer DEM over France, keyless and
+// CORS-enabled, served as BIL float32 by the Géoplateforme WMS-raster. We request
+// it per tile in EPSG:3857 so it aligns with our web-mercator tiles, decode the
+// float32 in JS (like Terrarium), and fall back to Terrarium per pixel on the
+// -99999 nodata sentinel (sea / outside coverage). No hosting or pre-tiling.
+export const IGN_DEM_PX = 256;   // BIL tile size: > the mesh grid so bilinear oversamples it → smooth (no mesh-facet terracing)
+export const IGN_DEM_WMS = `https://data.geopf.fr/wms-r/wms?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap&LAYERS=ELEVATION.ELEVATIONGRIDCOVERAGE.HIGHRES&STYLES=&CRS=EPSG:3857&FORMAT=image/x-bil;bits=32&WIDTH=${IGN_DEM_PX}&HEIGHT=${IGN_DEM_PX}`;
+// IGN BD ORTHO (20 cm aerial imagery over France) — keyless WMTS in Web Mercator
+// (TileMatrixSet PM = our z/x/y), so it drapes like any basemap. Used per tile
+// where the tile is fully inside France; the chosen basemap covers the rest.
+export const IGN_ORTHO = 'https://data.geopf.fr/wmts?SERVICE=WMTS&VERSION=1.0.0&REQUEST=GetTile&LAYER=ORTHOIMAGERY.ORTHOPHOTOS&STYLE=normal&TILEMATRIXSET=PM&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}&FORMAT=image/jpeg';
+export const IGN_CREDIT = "© <a href='https://geoservices.ign.fr/' target='_blank' rel='noopener'>IGN</a> — RGE ALTI / LIDAR HD · BD ORTHO";
+export const IGN_DEM_MINZOOM = 8;    // below this the tile bbox is too wide for a 256px BIL to help
+export const IGN_DEM_MAXZOOM = 15;   // RGE ALTI (~1 m native) stays sharp up to here and beyond
+// Where RGE ALTI HIGHRES exists (metropole + DROM), lon/lat [w, s, e, n]. Generous
+// rectangles — the per-pixel nodata fallback cleans up sea / foreign edges.
+export const IGN_COVER: [number, number, number, number][] = [
+  [-5.3, 41.2, 9.8, 51.3],     // métropole + Corse
+  [-61.9, 15.7, -60.9, 16.6],  // Guadeloupe
+  [-61.3, 14.3, -60.7, 14.95], // Martinique
+  [-54.7, 2.0, -51.5, 6.0],    // Guyane
+  [55.1, -21.5, 55.9, -20.8],  // La Réunion
+  [45.0, -13.1, 45.4, -12.6],  // Mayotte
+  [-56.5, 46.7, -56.1, 47.2],  // Saint-Pierre-et-Miquelon
+];
 
 // Per-device streaming budget. deck.gl's TileLayer loads the whole scene at a
 // single zoom level, so a deep first-person frustum (out to the horizon) asks

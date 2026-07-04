@@ -192,6 +192,8 @@ export interface AppState {
   showAttribution: boolean;
   // Key into BASEMAPS: which base map is draped over the terrain.
   basemap: string;
+  // Use the finer IGN RGE ALTI DEM over France (falls back to Terrarium elsewhere).
+  ignDem: boolean;
   // Follow the browser locale for the UI language (the "Auto" language choice).
   langAuto: boolean;
   windowMin: number;

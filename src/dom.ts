@@ -49,6 +49,7 @@ export const labelsBtn  = $<HTMLButtonElement>('labelsBtn');
 export const labelFieldsEl = $('labelFields');
 export const shadowsEl  = $<HTMLSelectElement>('shadows');
 export const basemapEl  = $<HTMLSelectElement>('basemap');
+export const ignDemBtn  = $<HTMLButtonElement>('ignDemBtn');
 export const attribEl   = $('attribution');
 export const curtainBtn = $<HTMLButtonElement>('curtainBtn');
 export const attrBtn    = $<HTMLButtonElement>('attrBtn');

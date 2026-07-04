@@ -5,7 +5,8 @@
 // with UPNG (a pure-JS PNG decoder) on the main thread.
 import UPNG from 'upng-js';
 import { S } from './state';
-import { TERRAIN, BASEMAPS, TERRAIN_N, DECK_CACHE, ELEV_CACHE, DEM_MAXZOOM, ramCacheFactor } from './config';
+import { TERRAIN, BASEMAPS, TERRAIN_N, DECK_CACHE, ELEV_CACHE, DEM_MAXZOOM, ramCacheFactor,
+  IGN_DEM_WMS, IGN_DEM_PX, IGN_DEM_MINZOOM, IGN_DEM_MAXZOOM, IGN_COVER, IGN_ORTHO } from './config';
 import { TileLayer, SimpleMeshLayer, PathLayer, TextLayer, COORDINATE_SYSTEM } from './deck';
 import type { DecodedTile } from './types';
 
@@ -33,11 +34,19 @@ export function buildTerrainMesh(t: DecodedTile, west: number, south: number, ea
   const heights = new Float32Array(cols * rows);
   const mPerLat = 111320, mPerLng = 111320 * Math.cos((south + north) / 2 * Math.PI / 180);
   const elevAt = (px: number, py: number) => { const i = (py * w + px) * 4; return rgba[i] * 256 + rgba[i + 1] + rgba[i + 2] / 256 - 32768; };
+  // Bilinear DEM sample: nearest-neighbour beats against the mesh grid and shows
+  // as corrugations on a sharp DEM (IGN), so interpolate the 4 neighbours.
+  const elevBil = (fx: number, fy: number) => {
+    fx = Math.max(0, Math.min(w - 1, fx)); fy = Math.max(0, Math.min(h - 1, fy));
+    const x0 = Math.floor(fx), y0 = Math.floor(fy), x1 = Math.min(w - 1, x0 + 1), y1 = Math.min(h - 1, y0 + 1);
+    const tx = fx - x0, ty = fy - y0;
+    const a = elevAt(x0, y0) * (1 - tx) + elevAt(x1, y0) * tx;
+    const b = elevAt(x0, y1) * (1 - tx) + elevAt(x1, y1) * tx;
+    return a * (1 - ty) + b * ty;
+  };
   for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
     const u = c / (cols - 1), v = r / (rows - 1);
-    const px = Math.min(w - 1, Math.max(0, Math.round((su0 + u * sf) * (w - 1))));
-    const py = Math.min(h - 1, Math.max(0, Math.round((sv0 + (1 - v) * sf) * (h - 1))));
-    const e = elevAt(px, py), idx = r * cols + c;
+    const e = elevBil((su0 + u * sf) * (w - 1), (sv0 + (1 - v) * sf) * (h - 1)), idx = r * cols + c;
     heights[idx] = e;
     positions.push(west + (east - west) * u, south + (north - south) * v, (e - zShift) * k);
     texCoords.push(u, 1 - v);
@@ -137,27 +146,115 @@ async function fetchImage(url: string, signal: AbortSignal): Promise<ImageBitmap
   return null;
 }
 
-// Fetch + decode one Terrarium DEM tile, reusing the cache (many overzoomed
-// imagery tiles share the same coarser ancestor DEM, so this fetches it once).
-// Retries transient failures with backoff; gives up quietly once aborted.
-async function fetchDEM(z: number, x: number, y: number, signal: AbortSignal): Promise<DecodedTile | null> {
-  const hit = TILE_CACHE.get(z + '/' + x + '/' + y);
-  if (hit) return hit;
+/** Drop the decoded-DEM cache (e.g. when the IGN-DEM toggle changes). */
+export function clearDemCache(): void { TILE_CACHE.clear(); }
+
+// A tile's extent in EPSG:3857 metres (matches how our web-mercator tiles map).
+const MERC = 20037508.342789244;
+function tile3857(z: number, x: number, y: number): [number, number, number, number] {
+  const size = (MERC * 2) / 2 ** z, minx = -MERC + x * size, maxy = MERC - y * size;
+  return [minx, maxy - size, minx + size, maxy];   // minx, miny, maxx, maxy
+}
+// Does this tile intersect IGN (RGE ALTI / BD ORTHO) coverage (metropole + DROM)?
+function inIgnCover(z: number, x: number, y: number): boolean {
+  const bb = tileBBox(x, y, z);
+  return IGN_COVER.some(([w, s, e, n]) => bb.east > w && bb.west < e && bb.north > s && bb.south < n);
+}
+
+// Fetch one Terrarium DEM tile → decoded RGBA (Terrarium-encoded), or null.
+async function fetchTerrarium(z: number, x: number, y: number, signal: AbortSignal): Promise<CachedTile | null> {
   const url = TERRAIN.replace('{z}', String(z)).replace('{x}', String(x)).replace('{y}', String(y));
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
       const r = await fetch(url, { signal });
       if (!r.ok) throw new Error('http ' + r.status);
       const img = UPNG.decode(await r.arrayBuffer());
-      const dec = { rgba: new Uint8Array(UPNG.toRGBA8(img)[0]), w: img.width, h: img.height };
-      cacheTile(z, x, y, dec);
-      return dec;
+      return { rgba: new Uint8Array(UPNG.toRGBA8(img)[0]), w: img.width, h: img.height };
     } catch (e) {
       if (signal?.aborted) return null;
       await new Promise(res => setTimeout(res, 200 * (attempt + 1)));
     }
   }
   return null;
+}
+// The Géoplateforme WMS rate-limits (HTTP 429), so cap how many IGN requests are
+// in flight at once — independent of deck's per-layer queues — and queue the rest.
+let ignActive = 0;
+const ignWaiters: (() => void)[] = [];
+const IGN_CONCURRENCY = 3;   // gentle on the Géoplateforme WMS (429/502 under bursts)
+function ignAcquire(): Promise<void> {
+  if (ignActive < IGN_CONCURRENCY) { ignActive++; return Promise.resolve(); }
+  return new Promise(res => ignWaiters.push(res));
+}
+function ignRelease(): void {
+  const next = ignWaiters.shift();
+  if (next) next(); else ignActive--;
+}
+// Fetch the IGN RGE ALTI BIL tile (256×256 float32, EPSG:3857 bbox) → elevations
+// in metres, or null (→ Terrarium). Nodata pixels stay as the -99999 sentinel.
+// Throttled to IGN_CONCURRENCY; backs off on 429 and gives up rather than storm.
+async function fetchIgnDem(z: number, x: number, y: number, signal: AbortSignal): Promise<Float32Array | null> {
+  const [minx, miny, maxx, maxy] = tile3857(z, x, y);
+  const url = `${IGN_DEM_WMS}&BBOX=${minx},${miny},${maxx},${maxy}`;
+  await ignAcquire();
+  try {
+    for (let attempt = 0; attempt < 3; attempt++) {
+      if (signal?.aborted) return null;
+      try {
+        const r = await fetch(url, { signal });
+        if (r.status === 429 || r.status >= 500) { await new Promise(res => setTimeout(res, 800 * (attempt + 1))); continue; }
+        if (!r.ok) throw new Error('http ' + r.status);
+        const buf = await r.arrayBuffer();
+        if (buf.byteLength < IGN_DEM_PX * IGN_DEM_PX * 4) throw new Error('short');
+        const dv = new DataView(buf), out = new Float32Array(IGN_DEM_PX * IGN_DEM_PX);
+        for (let i = 0; i < out.length; i++) out[i] = dv.getFloat32(i * 4, true);   // little-endian
+        return out;
+      } catch (e) {
+        if (signal?.aborted) return null;
+        await new Promise(res => setTimeout(res, 300 * (attempt + 1)));
+      }
+    }
+    return null;
+  } finally { ignRelease(); }
+}
+// Encode an elevation grid into a Terrarium RGBA buffer (so the mesh/elevAt paths
+// are source-agnostic). Nodata pixels take the Terrarium fallback value.
+function encodeDem(elev: Float32Array, fallback: CachedTile | null): CachedTile {
+  const N = IGN_DEM_PX, rgba = new Uint8Array(N * N * 4);
+  const fw = fallback ? fallback.w : 0, fh = fallback ? fallback.h : 0;   // Terrarium tile may be a different size
+  for (let py = 0; py < N; py++) for (let px = 0; px < N; px++) {
+    const i = py * N + px;
+    let e = elev[i];
+    if (!(e > -9000)) {                                                   // nodata (-99999) → Terrarium (scaled sample)
+      if (fallback) {
+        const fx = Math.min(fw - 1, Math.floor(px / N * fw)), fy = Math.min(fh - 1, Math.floor(py / N * fh)), j = (fy * fw + fx) * 4;
+        e = fallback.rgba[j] * 256 + fallback.rgba[j + 1] + fallback.rgba[j + 2] / 256 - 32768;
+      } else e = 0;
+    }
+    const v = e + 32768, R = Math.max(0, Math.min(255, Math.floor(v / 256)));
+    const rem = v - R * 256, G = Math.max(0, Math.min(255, Math.floor(rem)));
+    const B = Math.max(0, Math.min(255, Math.floor((rem - G) * 256)));
+    const o = i * 4; rgba[o] = R; rgba[o + 1] = G; rgba[o + 2] = B; rgba[o + 3] = 255;
+  }
+  return { rgba, w: N, h: N };
+}
+
+// One decoded DEM tile, cached (many overzoomed imagery tiles share the same
+// ancestor DEM). Uses the finer IGN RGE ALTI over France (falling back to
+// Terrarium per pixel on nodata / on failure), Terrarium everywhere else.
+async function fetchDEM(z: number, x: number, y: number, signal: AbortSignal, allowIgn: boolean): Promise<DecodedTile | null> {
+  const hit = TILE_CACHE.get(z + '/' + x + '/' + y);
+  if (hit) return hit;
+  const useIgn = allowIgn && S.ignDem && z >= IGN_DEM_MINZOOM && z <= IGN_DEM_MAXZOOM && inIgnCover(z, x, y);
+  const terr = await fetchTerrarium(z, x, y, signal);
+  if (signal?.aborted) return null;
+  let dec: CachedTile | null = terr;
+  if (useIgn) {
+    const ign = await fetchIgnDem(z, x, y, signal);
+    if (ign) dec = encodeDem(ign, terr);                               // merge IGN over Terrarium
+  }
+  if (dec) cacheTile(z, x, y, dec);
+  return dec;
 }
 
 // Ground elevation (m, orthometric) at a lng/lat from the highest-resolution
@@ -183,8 +280,13 @@ export function terrainCacheSize(): number { return TILE_CACHE.size; }
 
 /** Build the streaming terrain TileLayer (rebuilt whenever exaggeration changes). */
 const basemap = () => BASEMAPS[S.basemap] || BASEMAPS.esri;
-const texUrl = (z: number | string, x: number | string, y: number | string): string =>
-  basemap().url.replace('{z}', String(z)).replace('{x}', String(x)).replace('{y}', String(y));
+// Imagery URL for a tile: sharp IGN BD ORTHO wherever the tile touches France
+// (BD ORTHO serves real imagery across the border too, so front and back stay
+// visually consistent — no ortho↔basemap seam mid-view), the basemap elsewhere.
+const texUrl = (z: number, x: number, y: number): string => {
+  const tpl = (S.ignDem && inIgnCover(z, x, y)) ? IGN_ORTHO : basemap().url;
+  return tpl.replace('{z}', String(z)).replace('{x}', String(x)).replace('{y}', String(y));
+};
 
 export function makeTerrain() {
   const dev = S.dev;
@@ -201,14 +303,14 @@ export function makeTerrain() {
   // Suffix the layer ids with the base map: switching it changes the ids, so
   // deck drops the old cached (Esri-textured) tiles and refetches from the new
   // provider — a full refresh, not just newly-panned tiles.
-  const bm = S.basemap;
+  const tag = `${S.basemap}-${S.ignDem ? 'ign' : 't'}`;   // id encodes the DEM source too → toggling refetches
   return [
-    tileLayer(dev, `terrain-base-${bm}`, Math.min(11, gm), 64, 96, 140),
-    tileLayer(dev, `terrain-${bm}`, gm, deckCache, dev.on ? dev.maxRequests : 12, 0),
+    tileLayer(dev, `terrain-base-${tag}`, Math.min(11, gm), 64, 96, 140),          // Terrarium only (coarse backdrop)
+    tileLayer(dev, `terrain-${tag}`, gm, deckCache, dev.on ? dev.maxRequests : 12, 0, true),   // detail: IGN over France
   ];
 }
 
-function tileLayer(dev: typeof S.dev, id: string, maxZoom: number, maxCacheSize: number, maxRequests: number, zShiftM: number) {
+function tileLayer(dev: typeof S.dev, id: string, maxZoom: number, maxCacheSize: number, maxRequests: number, zShiftM: number, allowIgn = false) {
   return new TileLayer({
     // maxZoom = the ground-detail setting. Up to the DEM ceiling (15) each tile
     // is a normal DEM tile textured with its own Esri image; BEYOND 15 the tile
@@ -238,7 +340,7 @@ function tileLayer(dev: typeof S.dev, id: string, maxZoom: number, maxCacheSize:
       const dz = Math.max(0, z - DEM_MAXZOOM);
       const turl = texUrl(z, x, y);
       const [dem, image] = await Promise.all([
-        fetchDEM(z - dz, x >> dz, y >> dz, tile.signal),
+        fetchDEM(z - dz, x >> dz, y >> dz, tile.signal, allowIgn),
         fetchImage(turl, tile.signal),
       ]);
       return dem ? { ...dem, image } : null;

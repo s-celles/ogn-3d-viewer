@@ -86,7 +86,7 @@ const CAP_URL = 'https://ogn.local/tilemax';
 // the value is persisted in CFG so it survives worker restarts. The browser also
 // evicts the whole cache under storage pressure, so this is a soft ceiling.
 let tileMax = (navigator.deviceMemory || 4) >= 8 ? 4000 : 800;
-const isTile = (u) => u.href.includes('elevation-tiles-prod') || u.hostname.endsWith('arcgisonline.com') || u.hostname.endsWith('openstreetmap.org') || u.hostname.endsWith('opentopomap.org');
+const isTile = (u) => u.href.includes('elevation-tiles-prod') || u.hostname.endsWith('arcgisonline.com') || u.hostname.endsWith('openstreetmap.org') || u.hostname.endsWith('opentopomap.org') || u.hostname.endsWith('data.geopf.fr');
 async function trim() {
   const c = await caches.open(TILES), keys = await c.keys();
   for (let i = 0; i < keys.length - tileMax; i++) await c.delete(keys[i]);

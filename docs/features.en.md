@@ -14,6 +14,7 @@
 
 - **3D terrain** with satellite imagery and adjustable vertical exaggeration.
 - **Base map** — choose the layer draped over the terrain: **Esri** satellite, **OpenTopoMap** or **OpenStreetMap** (the choice is saved).
+- **France detail (IGN)** — *experimental, off by default*: over France it swaps in a much finer terrain (IGN **RGE ALTI / LIDAR HD**) and **20 cm BD ORTHO** aerial imagery (keyless Géoplateforme), falling back to the global sources everywhere else. Toggle it on to try it.
 - **Ground resolution** — adjustable satellite-imagery detail level (z13 to z18).
 - **Three views** — top-down overview, cockpit (first-person, the horizon banks in turns) and a chase camera following the glider.
 - **Cockpit camera** — lock-to-heading or free look.
