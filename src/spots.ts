@@ -543,11 +543,22 @@ function importCsv(text: string): void {
   USER = USER.filter(u => !codes.has(u.code)).concat(spots); saveUser();
   renderTabs(); renderList(); rebuildDots();
 }
+function spotsFile(): File {
+  return new File([toCsv(USER.length ? USER : allSpots())], USER.length ? 'my-spots.csv' : 'spots.csv', { type: 'text/csv' });
+}
 function exportCsv(): void {
-  const blob = new Blob([toCsv(USER.length ? USER : allSpots())], { type: 'text/csv' });
-  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = URL.createObjectURL(spotsFile());
   a.download = USER.length ? 'my-spots.csv' : 'spots.csv'; a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+// True where the browser can share a CSV file via the Web Share API.
+function canShareCsv(): boolean {
+  try { return !!navigator.canShare && navigator.canShare({ files: [new File([''], 's.csv', { type: 'text/csv' })] }); }
+  catch { return false; }
+}
+async function shareCsv(): Promise<void> {
+  try { await navigator.share({ files: [spotsFile()], title: t('discoverShare') }); }
+  catch { /* user dismissed / unsupported → offer the download instead */ if (!('share' in navigator)) exportCsv(); }
 }
 
 // Very rough continent from coordinates — a sensible default the user can adjust.
@@ -608,6 +619,48 @@ function openForm(host: HTMLElement, edit?: Spot): void {
   host.prepend(f); code.focus();
 }
 
+// Load any airfield by code (from the search box), like the main ICAO input.
+function loadAirfield(code: string): void {
+  close();
+  icaoEl.value = code.toUpperCase(); updateFbLink(); loadBtn.click();
+}
+let searchTimer: ReturnType<typeof setTimeout> | null = null;
+// Airfield search with OGN autocomplete (code OR name) — find & load ANY airfield,
+// not just the curated spots, straight from the Discover window.
+function buildAirfieldSearch(): HTMLElement {
+  const wrap = document.createElement('div');
+  wrap.style.cssText = 'position:relative;padding:10px 16px 0';
+  const input = document.createElement('input');
+  input.type = 'search'; input.placeholder = t('discoverSearchAf');
+  input.style.cssText = 'width:100%;box-sizing:border-box;padding:8px 10px;border-radius:8px;background:rgba(255,255,255,.06);color:inherit;border:1px solid rgba(255,255,255,.15);font-size:14px';
+  const drop = document.createElement('div');
+  drop.style.cssText = 'position:absolute;left:16px;right:16px;top:100%;z-index:5;background:#141b25;border:1px solid rgba(255,255,255,.15);border-radius:8px;display:none;max-height:min(50vh,320px);overflow:auto';
+  const hide = (): void => { drop.style.display = 'none'; drop.innerHTML = ''; };
+  input.oninput = () => {
+    const q = input.value.trim();
+    if (searchTimer) clearTimeout(searchTimer);
+    if (q.length < 2) { hide(); return; }
+    searchTimer = setTimeout(async () => {
+      let list: Array<{ code: string; name?: string }> = [];
+      try { list = await fetch(`${API_BASE}/api/autocomp/${encodeURIComponent(q)}`).then(r => r.json()); } catch { /* offline */ }
+      drop.innerHTML = '';
+      (list || []).slice(0, 8).forEach(a => {
+        const it = document.createElement('div');
+        it.style.cssText = 'padding:8px 10px;cursor:pointer;display:flex;gap:8px;align-items:center';
+        it.onmouseenter = () => it.style.background = 'rgba(255,255,255,.08)';
+        it.onmouseleave = () => it.style.background = '';
+        it.innerHTML = `<span style="font-size:16px">${codeFlag(a.code) || '📍'}</span><b>${a.code}</b> <span style="color:var(--mut)">${a.name || ''}</span>`;
+        it.onclick = () => { hide(); input.value = ''; loadAirfield(a.code); };
+        drop.appendChild(it);
+      });
+      drop.style.display = drop.children.length ? 'block' : 'none';
+    }, 200);
+  };
+  input.onkeydown = e => { if (e.key === 'Enter') { const q = input.value.trim(); if (q.length >= 3) { hide(); input.value = ''; loadAirfield(q); } } };
+  document.addEventListener('click', e => { if (!wrap.contains(e.target as Node)) hide(); });
+  wrap.append(input, drop);
+  return wrap;
+}
 function build(): void {
   overlay = document.createElement('div');
   overlay.style.cssText = 'position:fixed;inset:0;z-index:200;background:#0c1119;display:none;flex-direction:column';
@@ -617,7 +670,8 @@ function build(): void {
   const mkBtn = (label: string, title: string, fn: () => void) => { const b = document.createElement('button'); b.textContent = label; b.title = title; b.style.padding = '5px 10px'; b.onclick = fn; return b; };
   const addB = mkBtn('➕', t('discoverAdd'), () => openForm(listEl!));
   const impB = mkBtn('⤓', t('discoverImport'), () => fileInput!.click());
-  const expB = mkBtn('⤒', t('discoverExport'), exportCsv);
+  const shareable = canShareCsv();   // share the CSV natively where possible, else download it
+  const expB = mkBtn(shareable ? '📤' : '⤒', t(shareable ? 'discoverShare' : 'discoverExport'), shareable ? shareCsv : exportCsv);
   const x = mkBtn('✕', '', close);
   head.append(h, addB, impB, expB, x);
 
@@ -643,7 +697,7 @@ function build(): void {
   fileInput = document.createElement('input'); fileInput.type = 'file'; fileInput.accept = '.csv,text/csv'; fileInput.hidden = true;
   fileInput.onchange = () => { const f = fileInput!.files?.[0]; if (f) f.text().then(importCsv); fileInput!.value = ''; };
 
-  overlay.append(head, tabsEl, body, note, fileInput);
+  overlay.append(head, buildAirfieldSearch(), tabsEl, body, note, fileInput);
   document.body.appendChild(overlay);
   rebuildDots();
 }

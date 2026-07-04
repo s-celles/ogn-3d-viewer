@@ -8,6 +8,12 @@ import { pickSettings, applyStored } from './settings';
 
 const INIT = { longitude: 2.4, latitude: 46.6, zoom: 6, pitch: 0, bearing: 0, minZoom: OVERVIEW_MINZOOM, maxPitch: 85 };
 
+/** UI language auto-detected from the browser locale (falls back to English). */
+export function detectLang(): Lang {
+  const l = (navigator.language || '').toLowerCase();
+  return l.startsWith('fr') ? 'fr' : l.startsWith('de') ? 'de' : l.startsWith('es') ? 'es' : l.startsWith('it') ? 'it' : 'en';
+}
+
 export const S: AppState = {
   // filled by loadData / rebuild
   AF: null, G0: 0, G1: 0, SPAN: 1, TRACKS: [], ready: false,
@@ -26,9 +32,8 @@ export const S: AppState = {
   // live refreshes; rebuild() turns it into the render-ready TRACKS.
   RAW: [], CURAF: null, CURTZ: 0, date: '',
   COLOR: {}, colorN: 0,
-  // current UI language (fr/en/de/es/it), auto-detected from the browser
-  lang: ((): Lang => { const l = (navigator.language || '').toLowerCase();
-    return l.startsWith('fr') ? 'fr' : l.startsWith('de') ? 'de' : l.startsWith('es') ? 'es' : l.startsWith('it') ? 'it' : 'en'; })(),
+  // current UI language (fr/en/de/es/it); langAuto = follow the browser locale.
+  lang: detectLang(), langAuto: true,
   // developer mode (enabled with ?dev=1); tuners default to the normal values
   dev: {
     on: false, wireframe: false, noTexture: false, skirts: true, tileBounds: false,
@@ -43,6 +48,7 @@ export const S: AppState = {
 // runs at module load, before the UI reads S, so controls init to stored values.
 export const DEFAULT_SETTINGS = pickSettings(S);
 applyStored(S);
+if (S.langAuto) S.lang = detectLang();   // "Auto": always follow the current browser locale
 // ?dev=1 enables developer mode (?dev=0 disables); otherwise the persisted value
 // stands, so it stays on across reloads once turned on.
 const devParam = typeof location !== 'undefined' ? new URLSearchParams(location.search).get('dev') : null;

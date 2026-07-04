@@ -46,7 +46,7 @@
 - **Installable app (PWA)** — installable and usable **offline**; already-visited tiles persist across sessions.
 - **Languages** — French, English, German, Spanish, Italian (auto-detected).
 
-- **Shareable links** — the **🔗** button copies a link that reopens the exact state: airfield, date, live/replay, **view** (overview/cockpit/chase), followed aircraft, speed and the playback **moment**.
+- **Shareable links** — the **🔗** button copies a link that reopens the exact state: airfield, date, live/replay, **view** (overview/cockpit/chase), followed aircraft, speed and the playback **moment**. The **ⓘ** panel also shows a **QR code** of the current link — scan it to open the same view on a phone.
 
 ## Developer mode
 

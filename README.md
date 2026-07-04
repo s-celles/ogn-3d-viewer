@@ -39,9 +39,9 @@ matching FlightBook page.
 - **3D scene** — terrain with satellite imagery (adjustable resolution), three views (overview, cockpit, chase), HUD, final-glide cone, ground shadows, altitude curtain, per-aircraft labels.
 - **Playback** — time-of-day scrubber and 1× / 4× / 8× / 30× / 120× speeds, track modes, trail effects (neon / contrail / bloom), spline smoothing, graphs.
 - **Instruments & traffic** — estimated attitude, total-energy vario, vario audio, track-up radar or directional anti-collision.
-- **App** — **5-language** UI (en / fr / de / es / it), shareable links (site, date, view, aircraft, speed, moment), **persisted settings** (localStorage + reset), **offline PWA** with an adjustable tile cache, keyboard shortcuts, and a **developer mode** (`?dev=1`: wireframe, FPS, cache counters…).
+- **App** — **5-language** UI (en / fr / de / es / it), shareable links (site, date, view, aircraft, speed, moment) with a **QR code**, selectable **base map** (Esri / OpenTopoMap / OpenStreetMap), **persisted settings** (localStorage + reset), **offline PWA** with an adjustable tile cache, keyboard shortcuts, and a **developer mode** (`?dev=1`: wireframe, FPS, cache counters…).
 
-📖 **Full feature guide:** the **📖** button in the app, or [`docs/features.en.md`](docs/features.en.md).
+📖 **Full feature guide:** the **📖 Guide** button in the **ⓘ** panel, or [`docs/features.en.md`](docs/features.en.md).
 
 ## How it works
 

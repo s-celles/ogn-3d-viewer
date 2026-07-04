@@ -1,14 +1,17 @@
 // ============ UI controllers ============
-import { S, DEFAULT_SETTINGS } from './state';
+import { S, DEFAULT_SETTINGS, detectLang } from './state';
 import { t, I18N } from './i18n';
 import { API_BASE, REPO_URL, MINZ, MAXZ, PMIN, PMAX, CHASE, clampv, BASEMAPS } from './config';
 import { APP_VERSION, GIT_HASH } from './version';
 import {
   subjEl, viewsEl, cammodeEl, traceEl, trailFxEl, smoothBtn, compBtn, bankBtn, soundBtn, trafficModeEl, graphModeEl, graphClose, winEl, winval, playBtn, segEl,
   exoEl, exval, groundEl, groundval, cacheEl, cacheval, acscaleEl, acscaleval, coneBtn, finesseEl, finval, safetyEl, safeval, coneRadEl, coneradval, labelsBtn, labelFieldsEl, shadowsEl, basemapEl, attribEl, curtainBtn, attrBtn, pitchEl, pitchval, scrub, scrubMin, scrubMax, clkEl, lglist, rose, altsl, icaoEl, fblink, acEl,
-  dateEl, loadBtn, langEl, discEl, infoBtn, copyBtn, collapseBtn, liveBtn, igcBtn, igcInput, mapDiv, prevAc, nextAc, resetSettingsBtn, afInfo,
+  dateEl, loadBtn, langEl, discEl, infoBtn, copyBtn, shareBtn, collapseBtn, liveBtn, igcBtn, igcInput, mapDiv, prevAc, nextAc, resetSettingsBtn, afInfo,
 } from './dom';
 import { codeFlag } from './flags';
+import qrcode from 'qrcode-generator';
+
+const HAS_SHARE = typeof navigator !== 'undefined' && 'share' in navigator;   // Web Share API available?
 import { clearStored } from './settings';
 import { postCacheCap } from './sw-cache';
 import { subjectTrack, airborne, headingAt, clampCur, fmt, statsFor } from './flight-math';
@@ -17,7 +20,7 @@ import { render, updateHUD } from './render';
 import { loadFlights, refreshLive, statusMsg, setStatus, rebuild, syncUrl, loadTrackFiles } from './data';
 import { varioAudio } from './vario-audio';
 import { refreshGraphTabs } from './graphs';
-import { syncGuide } from './guide';
+import { syncGuide, openGuide } from './guide';
 import type { Mode, Trace, TrailFx, ShadowMode, GraphMode, TrafficMode, Lang } from './types';
 
 const asEl = (c: Element) => c as HTMLElement;
@@ -210,7 +213,7 @@ acscaleEl.addEventListener('input', e => {
 export function syncControls(): void {
   traceEl.value = S.trace; trailFxEl.value = S.trailFx;
   trafficModeEl.value = S.trafficMode; graphModeEl.value = S.graphMode;
-  shadowsEl.value = S.shadowMode; langEl.value = S.lang;
+  shadowsEl.value = S.shadowMode; langEl.value = langValue();
   if (BASEMAPS[S.basemap]) basemapEl.value = S.basemap;
   exoEl.value = String(S.exo); exval.textContent = S.exo.toFixed(1) + '×';
   groundEl.value = String(S.groundZoom); groundval.textContent = 'z' + S.groundZoom;
@@ -464,18 +467,25 @@ export function setCollapsed(c: boolean): void {
 }
 collapseBtn.onclick = () => setCollapsed(!document.body.classList.contains('collapsed'));
 
-// ---- language (dropdown) ----
+// ---- language (dropdown, with an Auto = follow-browser option) ----
+{ const o = document.createElement('option'); o.value = 'auto'; o.dataset.k = 'langAuto'; langEl.appendChild(o); }
 (['fr', 'en', 'de', 'es', 'it'] as Lang[]).forEach(L => {
   const o = document.createElement('option'); o.value = L; o.textContent = L.toUpperCase(); langEl.appendChild(o);
 });
-langEl.value = S.lang;
-langEl.addEventListener('change', e => { S.lang = (e.target as HTMLSelectElement).value as Lang; applyI18n(); });
+const langValue = (): string => S.langAuto ? 'auto' : S.lang;
+langEl.value = langValue();
+langEl.addEventListener('change', e => {
+  const v = (e.target as HTMLSelectElement).value;
+  if (v === 'auto') { S.langAuto = true; S.lang = detectLang(); } else { S.langAuto = false; S.lang = v as Lang; }
+  applyI18n();
+});
 export function applyI18n(): void {
   document.documentElement.lang = S.lang;
   document.querySelectorAll('[data-i18n]').forEach(el => { (el as HTMLElement).textContent = t((el as HTMLElement).dataset.i18n!); });
   document.querySelectorAll('[data-i18n-html]').forEach(el => { (el as HTMLElement).innerHTML = t((el as HTMLElement).dataset.i18nHtml!); });
   document.querySelectorAll('[data-i18n-title]').forEach(el => { (el as HTMLElement).title = t((el as HTMLElement).dataset.i18nTitle!); });
-  langEl.value = S.lang;
+  const autoOpt = langEl.querySelector('option[value="auto"]'); if (autoOpt) autoOpt.textContent = t('langAuto');
+  langEl.value = langValue();
   [...viewsEl.children].forEach(b => {
     const m = asEl(b).dataset.m; asEl(b).textContent = t(m === 'over' ? 'overview' : m === 'chase' ? 'chase' : 'fpv');
   });
@@ -507,12 +517,40 @@ function renderDisc(): void {
   const commit = GIT_HASH === 'dev'
     ? GIT_HASH
     : `<a href="${REPO_URL}/commit/${GIT_HASH}" target="_blank" rel="noopener" style="color:var(--accent)">${GIT_HASH}</a>`;
-  discEl.innerHTML = '<b>' + t('disclaimerTitle') + '</b><ul>' + arr.map(x => '<li>' + x + '</li>').join('') + '</ul>' +
+  discEl.innerHTML = `<button id="discGuideBtn" style="margin:0 0 10px;padding:6px 12px">📖 ${t('guide')}</button>` +
+    '<b>' + t('disclaimerTitle') + '</b><ul>' + arr.map(x => '<li>' + x + '</li>').join('') + '</ul>' +
     `<div class="mapcredit" style="margin-top:6px;color:var(--mut)">${(BASEMAPS[S.basemap] || BASEMAPS.esri).credit} · ${t('terrainCredit')}</div>` +
     `<div style="margin-top:6px">${t('sourceCode')} : ` +
     `<a href="${REPO_URL}" target="_blank" rel="noopener" style="color:var(--accent)">github.com/s-celles/ogn-3d-viewer</a></div>` +
     `<div style="margin-top:4px;color:var(--mut)">${t('version')} ${APP_VERSION} · ${commit}</div>` +
-    `<div id="cacheInfo" style="margin-top:4px;color:var(--mut)">${t('cacheLabel')} : …</div>`;
+    `<div id="cacheInfo" style="margin-top:4px;color:var(--mut)">${t('cacheLabel')} : …</div>` +
+    `<div style="margin-top:6px">${t('appLink')} : ` +
+    `<a href="${appUrl()}" target="_blank" rel="noopener" style="color:var(--accent);word-break:break-all">${appUrl().replace(/^https?:\/\//, '')}</a></div>` +
+    `<div style="margin-top:10px;display:flex;gap:10px;align-items:center">` +
+      `<div id="qrImg" style="width:104px;height:104px;flex:0 0 auto;background:#fff;border-radius:8px;padding:6px;box-sizing:border-box"></div>` +
+      `<div style="min-width:0"><div style="color:var(--mut);font-size:12px">${t('qrShare')}</div>` +
+      `<div id="qrUrl" style="font-size:11px;color:var(--mut);word-break:break-all;margin-top:4px"></div></div>` +
+    `</div>`;
+  const gb = document.getElementById('discGuideBtn'); if (gb) gb.onclick = () => openGuide();
+  updateQr();
+}
+// A self-contained QR code (SVG) for the current app URL — scan to open the same
+// view on a phone. Uses the enriched share link when a flight is loaded.
+function qrSvg(text: string): string {
+  const qr = qrcode(0, 'M'); qr.addData(text); qr.make();
+  const n = qr.getModuleCount(); let d = '';
+  for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) if (qr.isDark(r, c)) d += `M${c} ${r}h1v1h-1z`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${n} ${n}" shape-rendering="crispEdges" style="width:100%;height:100%;display:block"><path d="${d}" fill="#0b0f14"/></svg>`;
+}
+function appUrl(): string { const u = new URL(location.href); return u.origin + u.pathname; }   // the app's own address (no query/hash)
+function qrTarget(): string {
+  return (S.ready && S.source !== 'file') ? shareUrl() : appUrl();
+}
+export function updateQr(): void {
+  const box = document.getElementById('qrImg'); if (!box) return;
+  const target = qrTarget();
+  box.innerHTML = qrSvg(target);
+  const url = document.getElementById('qrUrl'); if (url) url.textContent = target.replace(/^https?:\/\//, '');
 }
 
 // Fill the #cacheInfo line with the persistent map-tile cache size: the tile
@@ -548,7 +586,7 @@ function renderPlace(): void {
 export function updateFbLink(): void {
   renderPlace();   // dirty-checked; cheap to call each frame
   // Share-link button: only when there's a loaded OGN session to deep-link to.
-  copyBtn.style.display = (S.ready && S.source !== 'file') ? '' : 'none';
+  copyBtn.style.display = (!HAS_SHARE && S.ready && S.source !== 'file') ? '' : 'none';   // 🔗 only where Web Share is unavailable
   if (S.source === 'file') { fblink.style.display = 'none'; return; }   // no FlightBook for local files
   const code = icaoEl.value.trim().toUpperCase() || (S.AF && S.AF.code) || '';
   const date = dateEl.value || S.date;
@@ -559,7 +597,7 @@ export function updateFbLink(): void {
     fblink.style.display = 'none';
   }
 }
-infoBtn.onclick = () => { const open = discEl.style.display !== 'none'; discEl.style.display = open ? 'none' : 'block'; infoBtn.classList.toggle('on', !open); if (!open) updateCacheInfo(); };
+infoBtn.onclick = () => { const open = discEl.style.display !== 'none'; discEl.style.display = open ? 'none' : 'block'; infoBtn.classList.toggle('on', !open); if (!open) { updateCacheInfo(); updateQr(); } };
 
 // ---- shareable deep link (current moment + selected aircraft) ----
 // The address bar already carries icao/date/mode (syncUrl); here we add the
@@ -581,6 +619,13 @@ copyBtn.onclick = async () => {
     const prev = copyBtn.textContent; copyBtn.textContent = '✓'; copyBtn.classList.add('on');
     setTimeout(() => { copyBtn.textContent = prev; copyBtn.classList.remove('on'); }, 1200);
   } catch { /* clipboard blocked (insecure context) — no-op */ }
+};
+// Native share sheet — the primary link button. Where it exists we hide 🔗
+// entirely (the share sheet already offers "copy"); 🔗 is only the fallback.
+if (HAS_SHARE) { shareBtn.style.display = ''; copyBtn.style.display = 'none'; }
+shareBtn.onclick = async () => {
+  try { await navigator.share({ title: 'OGN 3D Viewer', url: (S.ready && S.source !== 'file') ? shareUrl() : appUrl() }); }
+  catch { /* user dismissed / unsupported */ }
 };
 
 /**

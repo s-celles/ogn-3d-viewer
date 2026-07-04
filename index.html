@@ -22,11 +22,9 @@
   <div class="row spread hdr" style="margin-top:0">
     <h1 data-i18n="h1">…</h1>
     <div style="display:flex;gap:6px;align-items:center">
+      <button id="shareBtn" data-i18n-title="shareLink" title="" style="display:none">📤</button>
       <button id="copyBtn" data-i18n-title="copyLink" title="">🔗</button>
-      <button id="guideBtn" data-i18n-title="guide" title="">📖</button>
       <button id="infoBtn" data-i18n-title="info" title="">ⓘ</button>
-      <button id="resetSettings" data-i18n-title="resetSettings" title="">↺</button>
-      <select id="lang" class="langsel" aria-label="Language"></select>
       <button id="collapseBtn" data-i18n-title="collapse" title="">▾</button>
     </div>
   </div>
@@ -160,6 +158,14 @@
     <div class="row spread">
       <label class="lbl" style="margin:0" data-i18n="attribution">Attribution carte</label>
       <button id="attrBtn" class="on">Activé</button>
+    </div>
+    <div class="row spread">
+      <label class="lbl" style="margin:0" data-i18n="langLabel">Langue</label>
+      <select id="lang" class="langsel" style="width:auto;flex:0 0 auto" aria-label="Language"></select>
+    </div>
+    <div class="row spread">
+      <label class="lbl" style="margin:0" data-i18n="resetSettings">Réinitialiser les réglages</label>
+      <button id="resetSettings" data-i18n-title="resetSettings" title="">↺</button>
     </div>
     <div class="row spread">
       <label class="lbl" style="margin:0" data-i18n="glideCone">Cône de finesse</label>

@@ -46,7 +46,7 @@
 - **Installierbare App (PWA)** — installierbar und **offline** nutzbar; bereits besuchte Kacheln bleiben über Sitzungen hinweg erhalten.
 - **Sprachen** — Französisch, Englisch, Deutsch, Spanisch, Italienisch (automatisch erkannt).
 
-- **Teilbare Links** — die **🔗**-Schaltfläche kopiert einen Link, der den genauen Zustand wiederherstellt: Flugplatz, Datum, Live/Wiedergabe, **Ansicht** (Übersicht/Cockpit/Verfolger), verfolgtes Luftfahrzeug, Geschwindigkeit und **Zeitpunkt** der Wiedergabe.
+- **Teilbare Links** — die **🔗**-Schaltfläche kopiert einen Link, der den genauen Zustand wiederherstellt: Flugplatz, Datum, Live/Wiedergabe, **Ansicht** (Übersicht/Cockpit/Verfolger), verfolgtes Luftfahrzeug, Geschwindigkeit und **Zeitpunkt** der Wiedergabe. Das **ⓘ**-Panel zeigt zudem einen **QR-Code** des aktuellen Links — scannen Sie ihn, um dieselbe Ansicht auf dem Handy zu öffnen.
 
 ## Entwicklermodus
 

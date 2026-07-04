@@ -23,6 +23,7 @@
     "@deck.gl/layers": "9.1.0",
     "@deck.gl/mesh-layers": "9.1.0",
     "marked": "^18.0.5",
+    "qrcode-generator": "^2.0.4",
     "upng-js": "^2.1.0"
   },
   "devDependencies": {

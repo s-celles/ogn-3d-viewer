@@ -191,6 +191,8 @@ export interface AppState {
   showAttribution: boolean;
   // Key into BASEMAPS: which base map is draped over the terrain.
   basemap: string;
+  // Follow the browser locale for the UI language (the "Auto" language choice).
+  langAuto: boolean;
   windowMin: number;
   spline: boolean;
   compensated: boolean;

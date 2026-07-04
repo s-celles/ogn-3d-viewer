@@ -5,7 +5,7 @@
 import { marked } from 'marked';
 import { S } from './state';
 import type { Lang } from './types';
-import { guideBtn, guideEl, guideBody, guideClose } from './dom';
+import { guideEl, guideBody, guideClose } from './dom';
 
 import guideEN from '../docs/features.en.md' with { type: 'text' };
 import guideFR from '../docs/features.fr.md' with { type: 'text' };
@@ -32,19 +32,16 @@ const isOpen = (): boolean => guideEl.classList.contains('open');
 export function openGuide(): void {
   if (renderedLang !== S.lang) render();
   guideEl.classList.add('open');
-  guideBtn.classList.add('on');
   guideBody.scrollTop = 0;
 }
 export function closeGuide(): void {
   guideEl.classList.remove('open');
-  guideBtn.classList.remove('on');
 }
 /** Re-render if the UI language changed while the guide is open (from applyI18n). */
 export function syncGuide(): void {
   if (isOpen() && renderedLang !== S.lang) render();
 }
 
-guideBtn.onclick = () => (isOpen() ? closeGuide() : openGuide());
 guideClose.onclick = closeGuide;
 guideEl.onclick = e => { if (e.target === guideEl) closeGuide(); };  // click the backdrop to close
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && isOpen()) closeGuide(); });
