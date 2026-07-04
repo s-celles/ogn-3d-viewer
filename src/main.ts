@@ -26,6 +26,12 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
 // Privacy-respecting, cookieless usage stats (canonical deploy only; honours DNT/GPC).
 initAnalytics();
 
+// Decide the entry point BEFORE the 3D scene renders: with no ?icao deep link,
+// open the Discover landing page first so the empty 3D scene never flashes.
+const qp = new URLSearchParams(location.search);
+const qIcao = (qp.get('icao') || qp.get('oaci') || '').trim().toUpperCase();
+if (!qIcao) openDiscover();
+
 initDeck();
 initGraphs();
 syncControls(); applyI18n(); applyFollowClass(); syncUI(); syncAcScale();
@@ -35,8 +41,7 @@ initDev();   // developer panel + HUD (only when ?dev=1 / persisted)
 // OGN FlightBook work (and the URL stays shareable — loadFlights keeps it in
 // sync). `mode=live` opens the real-time view; `mode=replay` (the default)
 // replays &date=YYYY-MM-DD (today if omitted). `oaci` is accepted as an alias.
-const qp = new URLSearchParams(location.search);
-const qIcao = (qp.get('icao') || qp.get('oaci') || '').trim().toUpperCase();
+// (The no-deep-link case already opened Discover above, before the scene rendered.)
 if (qIcao) {
   icaoEl.value = qIcao;
   updateFbLink();   // inputs were set programmatically (no input event)
@@ -47,9 +52,8 @@ if (qIcao) {
     if (/^\d{4}-\d{2}-\d{2}$/.test(qDate) && qDate <= todayStr) dateEl.value = qDate;
     loadFlights(qIcao, dateEl.value).then(() => applyDeepLinkCursor(qp));  // ?t=…&reg=… → frame + aircraft
   }
-} else {
-  openDiscover();   // no deep link → land on the Discover page (the app's entry point)
 }
+document.getElementById('boot')?.remove();   // entry page is up (Discover overlay, or the loading scene) → drop the cover
 
 const nowSod = () => (Date.now() / 1000) % 86400; // current UTC seconds-of-day
 let last = performance.now();

@@ -12,6 +12,9 @@
 <script type="module" src="./src/main.ts"></script>
 </head>
 <body>
+<!-- Opaque cover shown from the first paint (before the deferred module runs), so
+     the empty 3D scene never flashes before the entry page is decided. JS removes it. -->
+<div id="boot" style="position:fixed;inset:0;z-index:500;background:#0c1119"></div>
 <div id="map"></div>
 <div id="sun"></div>
 <div id="moon"></div>
