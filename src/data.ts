@@ -24,7 +24,29 @@ export function setStatus(msg: string, cls?: string): void {
   statusEl.textContent = msg;
 }
 
+// In-memory, session-only cache of full airfield/date loads, so revisiting a day
+// already seen (clicking around Discover / Hot spots, reopening a shared link)
+// doesn't re-hit the FlightBook API. Deliberately NOT persisted — nothing from OGN
+// is written to disk or kept beyond the tab — and TTL-bounded well under OGN's
+// 24 h retention window, so we never serve tracks OGN has since purged. Live
+// refreshes (onlyActive) always bypass it to stay real-time.
+interface CachedLoad { at: number; res: FetchResult; }
+const loadCache = new Map<string, CachedLoad>();
+const CACHE_MAX = 24;   // LRU cap (bounds memory when clicking through many spots)
+function cacheTtlMs(date: string): number {
+  const today = new Date().toISOString().slice(0, 10);
+  return date === today ? 60_000 : 60 * 60_000;   // today refreshes fast; past days ~1 h (≪ 24 h)
+}
+
 export async function fetchData(icao: string, date: string, onlyActive: boolean): Promise<FetchResult | null> {
+  const cacheKey = `${icao}|${date}`;
+  if (!onlyActive) {
+    const hit = loadCache.get(cacheKey);
+    if (hit && Date.now() - hit.at < cacheTtlMs(date)) {
+      loadCache.delete(cacheKey); loadCache.set(cacheKey, hit);   // LRU touch
+      return { af: hit.res.af, tzoff: hit.res.tzoff, tracks: [...hit.res.tracks] };   // fresh array; tracks are read-only downstream
+    }
+  }
   const lb = await fetch(`${API_BASE}/api/logbook/${encodeURIComponent(icao)}/${date}`).then(r => r.json()) as FBLogbook;
   const af = lb.airfield;
   if (!af || !af.latlng) return null;
@@ -62,7 +84,12 @@ export async function fetchData(icao: string, date: string, onlyActive: boolean)
       });
     } catch (e) { /* IGC unavailable (>24 h or no reception) */ }
   });
-  return { af, tzoff, tracks };
+  const result: FetchResult = { af, tzoff, tracks };
+  if (!onlyActive) {   // cache full loads only (a copy, isolated from S.RAW); keep the LRU bounded
+    loadCache.set(cacheKey, { at: Date.now(), res: { af, tzoff, tracks: tracks.slice() } });
+    while (loadCache.size > CACHE_MAX) loadCache.delete(loadCache.keys().next().value as string);
+  }
+  return result;
 }
 
 function statusMsgInner(date: string | null, n: number): void {
