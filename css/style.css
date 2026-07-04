@@ -108,6 +108,7 @@ body:not(.loaded) #legend, body:not(.loaded) #nav, body:not(.loaded) #hud{displa
 /* z-index below the panel so a tall legend never paints over the panel's
    lower controls (e.g. the time-of-day scrubber) on busy days. */
 #legend{bottom:12px;left:12px;width:320px;max-width:calc(100vw - 24px);font-size:12px;z-index:2;max-height:34vh;overflow:auto}
+#legend .lg.inactive{display:none}   /* "active only" filter hides non-airborne gliders */
 /* Cap the glider list so a busy day doesn't grow the legend off-screen. */
 #lglist{max-height:26vh;overflow-y:auto}
 #legend .lg{display:flex;align-items:flex-start;gap:8px;margin:5px 0;font-variant-numeric:tabular-nums}
@@ -146,6 +147,11 @@ body.loaded.minimap #traffic{right:auto;left:50%;transform:translateX(-50%)}
 #trafficCanvas{width:100%;height:100%;display:block}
 #hud{right:12px;bottom:12px;width:210px;display:none}
 body.fpv.loaded #hud, body.chase.loaded #hud{display:block}
+/* Opt-in HUD in the overview (focused glider): bottom-right like the other views;
+   the overview nav widget slides to its left, mirroring the chase-cam layout
+   where #hud (right:12) and #chasenav (right:234) sit side by side. */
+body.ovhud.loaded:not(.fpv):not(.chase) #hud{display:block}
+body.ovhud.loaded:not(.fpv):not(.chase) #nav{right:234px}
 #hud .hregrow{display:flex;align-items:center;gap:6px;margin-bottom:6px}
 #hud .hreg{font-size:13px;font-weight:650;color:var(--accent);flex:1;text-align:center}
 .acnav{flex:0 0 auto;padding:3px 9px;font-size:13px;line-height:1}
@@ -207,6 +213,8 @@ body.collapsed #legend{display:none}
   #panel{width:fit-content;left:8px;right:auto;top:8px;max-width:min(68vw,260px);max-height:54vh}
   #legend{left:8px;right:8px;width:auto;bottom:8px}
   #nav{right:8px;bottom:8px}
+  body.ovhud.loaded:not(.fpv):not(.chase) #nav{right:8px;bottom:158px}
+  body.ovhud.graphs.loaded:not(.fpv):not(.chase) #nav{bottom:290px}
   #hud{right:8px;bottom:8px}
   /* Stack the chase controls above the HUD on narrow screens. */
   #chasenav{right:8px;bottom:auto;top:8px}

@@ -158,6 +158,9 @@ export interface AppState {
   // centre. Highlighted in overview and adopted as the subject when switching
   // to cockpit/chase. Null when no glider is airborne.
   focus: string | null;
+  // Manual overview focus: when set (via J/K or the HUD ◀/▶), it pins `focus` to
+  // this glider instead of the nearest-to-centre one, until the user pans.
+  focusLock: string | null;
   fpvPitch: number;
   fpvFollow: boolean;
   bank: boolean;
@@ -199,6 +202,10 @@ export interface AppState {
   peakDensity: number;   // 0..1 — how many summit labels to show
   // Inset 2D minimap (flat tiles + track + heading) shown in the immersive views.
   minimap: boolean;
+  // Show the HUD (focused glider telemetry) in the overview too (opt-in).
+  overviewHud: boolean;
+  // Only show/cycle gliders airborne at the current time (opt-in).
+  activeOnly: boolean;
   // Follow the browser locale for the UI language (the "Auto" language choice).
   langAuto: boolean;
   windowMin: number;

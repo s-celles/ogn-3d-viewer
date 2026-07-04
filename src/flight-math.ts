@@ -53,7 +53,13 @@ export const subjectTrack = (): RenderTrack => {
 };
 
 /** Whether a track should be drawn (cockpit shows all; overview honours solo). */
-export function shown(tr: RenderTrack): boolean { if (S.mode === 'fpv') return true; return !S.solo || S.solo === tr.reg; }
+export function shown(tr: RenderTrack): boolean {
+  // Optional "active only" filter hides gliders not currently airborne — but never
+  // the one you're following/focused on.
+  if (S.activeOnly && tr.reg !== S.subject && tr.reg !== S.focus && !isActive(tr)) return false;
+  if (S.mode === 'fpv') return true;
+  return !S.solo || S.solo === tr.reg;
+}
 
 /**
  * The shown, currently-present track nearest the overview camera centre — the
@@ -110,6 +116,10 @@ export function presence(tr: RenderTrack): Presence | null {
   if (age > LIVE.offlineMaxAge) return null;                // landed / gone
   return { time: Math.min(S.cur, tr.rend), offline: age > LIVE.onlineMaxAge };
 }
+
+/** "Active" = drawn as a live marker right now (airborne in replay; online/recent
+ *  in live). Drives the optional "active only" filter. */
+export const isActive = (tr: RenderTrack): boolean => presence(tr) != null;
 
 /** Path points between two relative times (clamped to the track span). */
 export function slice(tr: RenderTrack, t0: number, t1: number): Pos3[] {

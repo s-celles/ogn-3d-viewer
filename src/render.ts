@@ -11,7 +11,7 @@ import { drawGraphs } from './graphs';
 import { drawTraffic } from './traffic';
 import { varioAudio } from './vario-audio';
 import { updateSky, getSun, getMoon, nightPolygon } from './sky';
-import { subjectTrack, shown, scaled, posAt, presence, airborne, headingAt, varioAt, compVarioAt, groundSpeedAt, clampCur, attitudeAt, nearestToCenter } from './flight-math';
+import { subjectTrack, shown, scaled, posAt, presence, airborne, isActive, headingAt, varioAt, compVarioAt, groundSpeedAt, clampCur, attitudeAt, nearestToCenter } from './flight-math';
 import { GLIDER_MESH, PLANE_MESH, PROP_MESH, GLIDER_FLAT, PLANE_FLAT, isPowered } from './aircraft-mesh';
 import { getPeaks, getWaypoints, loadPeaks, type Poi } from './poi';
 import { updateMinimap } from './minimap';
@@ -789,7 +789,7 @@ export function initDeck(): void {
     onViewStateChange: ({ viewState, interactionState }: any) => {
       if (S.mode === 'over') {
         S.mapVS = viewState; const it = interactionState || {};
-        if (it.isDragging || it.isPanning || it.isRotating || it.isZooming) S.mapTarget = { ...viewState };
+        if (it.isDragging || it.isPanning || it.isRotating || it.isZooming) { S.mapTarget = { ...viewState }; S.focusLock = null; }   // panning resumes nearest-to-centre focus
       } else if (S.mode === 'fpv' && !S.fpvFollow) { S.freeCam = { bearing: viewState.bearing, pitch: viewState.pitch }; }
     },
     layers: [S.terrainInst, ...dynamicLayers()],
@@ -806,11 +806,15 @@ export function render(): void {
   if (S.mode === 'over') {
     // The glider nearest the scene centre (the one cockpit/chase will adopt).
     // Recomputed each frame so it tracks the camera and time.
-    const f = nearestToCenter(); S.focus = f ? f.reg : null;
+    // Manual pick (J/K, HUD ◀/▶) pins the focus; otherwise it's the glider
+    // nearest the scene centre.
+    if (S.focusLock && S.TRACKS.some(tr => tr.reg === S.focusLock)) S.focus = S.focusLock;
+    else { S.focusLock = null; const f = nearestToCenter(); S.focus = f ? f.reg : null; }
     deckgl.setProps({
       views: [new MapView({ id: 'main' })], viewState: { main: S.mapVS }, controller: { keyboard: false }, effects,
       layers: [S.terrainInst, ...dynamicLayers()],
     } as any);
+    if (S.overviewHud) updateHUD();
   } else if (S.mode === 'chase') {
     deckgl.setProps({
       views: [new FirstPersonView({ id: 'fpv', fovy: CHASE.fovy, near: 1, far: farPlane() })], viewState: { fpv: computeChase() }, effects,
@@ -861,9 +865,10 @@ function updateFocusUI(): void {
 function updateLegendLocal(): void {
   const rows = lglist.children;
   for (let i = 0; i < rows.length; i++) {
+    const tr = S.TRACKS[i];
+    (rows[i] as HTMLElement).classList.toggle('inactive', S.activeOnly && !!tr && !isActive(tr));   // "active only" filter
     const loc = (rows[i] as HTMLElement).querySelector('.loc') as HTMLElement | null;
     if (!loc) continue;
-    const tr = S.TRACKS[i];
     if (!S.glideCone || !tr || !airborne(tr, S.cur)) { loc.className = 'loc'; loc.textContent = ''; loc.title = ''; continue; }
     const ok = reachable(tr);
     loc.className = 'loc ' + (ok ? 'ok' : 'no'); loc.textContent = '🏠'; loc.title = ok ? t('reachOk') : t('reachNo');
@@ -885,7 +890,8 @@ function feedVarioSound(): void {
 // ---- HUD ----
 export function updateHUD(): void {
   if (!S.ready) return;
-  const tr = subjectTrack();
+  // In the overview the HUD (opt-in) reads the focused glider; elsewhere the subject.
+  const tr = (S.mode === 'over' && S.focus ? S.TRACKS.find(t2 => t2.reg === S.focus) : null) || subjectTrack();
   const pr = presence(tr);
   hudreg.textContent = tr.reg + ' · ' + tr.label + (pr && pr.offline ? ' · ' + t('offline') : '');
   if (!pr) {

@@ -5,7 +5,7 @@ import { API_BASE, REPO_URL, MINZ, MAXZ, PMIN, PMAX, CHASE, clampv, BASEMAPS, IG
 import { APP_VERSION, GIT_HASH } from './version';
 import {
   subjEl, viewsEl, cammodeEl, traceEl, trailFxEl, smoothBtn, compBtn, bankBtn, soundBtn, trafficModeEl, graphModeEl, graphClose, winEl, winval, playBtn, revBtn, segEl,
-  exoEl, exval, groundEl, groundval, cacheEl, cacheval, acscaleEl, acscaleval, coneBtn, finesseEl, finval, safetyEl, safeval, coneRadEl, coneradval, labelsBtn, labelFieldsEl, shadowsEl, basemapEl, ignDemBtn, peaksBtn, peakDensityEl, minimapBtn, clearWpBtn, attribEl, curtainBtn, attrBtn, pitchEl, pitchval, scrub, scrubMin, scrubMax, clkEl, lglist, rose, altsl, icaoEl, fblink, acEl,
+  exoEl, exval, groundEl, groundval, cacheEl, cacheval, acscaleEl, acscaleval, coneBtn, finesseEl, finval, safetyEl, safeval, coneRadEl, coneradval, labelsBtn, labelFieldsEl, shadowsEl, basemapEl, ignDemBtn, peaksBtn, peakDensityEl, minimapBtn, overviewHudBtn, activeOnlyBtn, clearWpBtn, attribEl, curtainBtn, attrBtn, pitchEl, pitchval, scrub, scrubMin, scrubMax, clkEl, lglist, rose, altsl, icaoEl, fblink, acEl,
   dateEl, loadBtn, langEl, discEl, infoBtn, copyBtn, shareBtn, collapseBtn, liveBtn, igcBtn, igcInput, mapDiv, prevAc, nextAc, resetSettingsBtn, afInfo,
 } from './dom';
 import { codeFlag } from './flags';
@@ -14,7 +14,7 @@ import qrcode from 'qrcode-generator';
 const HAS_SHARE = typeof navigator !== 'undefined' && 'share' in navigator;   // Web Share API available?
 import { clearStored } from './settings';
 import { postCacheCap } from './sw-cache';
-import { subjectTrack, airborne, headingAt, clampCur, fmt, statsFor } from './flight-math';
+import { subjectTrack, airborne, isActive, headingAt, clampCur, fmt, statsFor } from './flight-math';
 import { makeTerrain, clearDemCache } from './terrain';
 import { render, updateHUD } from './render';
 import { loadFlights, refreshLive, statusMsg, setStatus, rebuild, syncUrl, loadTrackFiles } from './data';
@@ -72,7 +72,7 @@ export function gotoSpot(lat: number, lon: number): void {
 export function clearScene(): void {
   stopLive();
   S.RAW = []; S.TRACKS = []; S.ready = false; S.AF = null; S.CURAF = null;
-  S.solo = null; S.subject = null; S.focus = null;
+  S.solo = null; S.subject = null; S.focus = null; S.focusLock = null;
   icaoEl.value = ''; updateFbLink();
   buildLegend();   // empties the legend list
   render();
@@ -100,8 +100,23 @@ subjEl.addEventListener('change', e => {
 // Cycle the followed aircraft (keyboard j/k, or the HUD ◀/▶ buttons for touch).
 // Doesn't touch the replay clock — just switches which glider is followed.
 const uniqueRegs = (): string[] => [...new Set(S.TRACKS.map(tr => tr.reg))];
+// The registrations you can cycle/pick. With the "active only" filter on, keep
+// just the airborne ones (but fall back to all if none are, so you're never stuck).
+const cycleRegs = (): string[] => {
+  const regs = uniqueRegs();
+  if (!S.activeOnly) return regs;
+  const active = regs.filter(r => S.TRACKS.some(tr => tr.reg === r && isActive(tr)));
+  return active.length ? active : regs;
+};
 function cycleSubject(dir: number): void {
-  const regs = uniqueRegs(); if (!regs.length) return;
+  const regs = cycleRegs(); if (!regs.length) return;
+  // In the overview, J/K and the HUD ◀/▶ cycle the focused glider (pinned via
+  // focusLock); in cockpit/chase they cycle the followed subject.
+  if (S.mode === 'over') {
+    const i = regs.indexOf((S.focusLock || S.focus) ?? '');
+    const n = i < 0 ? (dir > 0 ? 0 : regs.length - 1) : (i + dir + regs.length) % regs.length;
+    S.focusLock = regs[n]; S.focus = regs[n]; render(); syncUI(); return;
+  }
   const i = regs.indexOf(S.subject!);
   const n = i < 0 ? (dir > 0 ? 0 : regs.length - 1) : (i + dir + regs.length) % regs.length;
   S.subject = regs[n]; subjEl.value = S.subject; render(); syncUI();
@@ -238,6 +253,9 @@ export function syncControls(): void {
   peakDensityEl.value = String(S.peakDensity); document.body.classList.toggle('peaks', S.showPeaks);
   document.body.classList.toggle('minimap', S.minimap);
   minimapBtn.textContent = S.minimap ? t('on') : t('off'); minimapBtn.classList.toggle('on', S.minimap);
+  document.body.classList.toggle('ovhud', S.overviewHud);
+  overviewHudBtn.textContent = S.overviewHud ? t('on') : t('off'); overviewHudBtn.classList.toggle('on', S.overviewHud);
+  activeOnlyBtn.textContent = S.activeOnly ? t('on') : t('off'); activeOnlyBtn.classList.toggle('on', S.activeOnly);
   document.body.classList.toggle('haswp', getWaypoints().length > 0);
   exoEl.value = String(S.exo); exval.textContent = S.exo.toFixed(1) + '×';
   groundEl.value = String(S.groundZoom); groundval.textContent = 'z' + S.groundZoom;
@@ -333,6 +351,18 @@ minimapBtn.onclick = () => {
   S.minimap = !S.minimap;
   minimapBtn.textContent = S.minimap ? t('on') : t('off'); minimapBtn.classList.toggle('on', S.minimap);
   document.body.classList.toggle('minimap', S.minimap); render();
+};
+// ---- HUD in the overview (focused glider), opt-in ----
+overviewHudBtn.onclick = () => {
+  S.overviewHud = !S.overviewHud;
+  overviewHudBtn.textContent = S.overviewHud ? t('on') : t('off'); overviewHudBtn.classList.toggle('on', S.overviewHud);
+  document.body.classList.toggle('ovhud', S.overviewHud); render();
+};
+// ---- show/cycle only airborne gliders, opt-in ----
+activeOnlyBtn.onclick = () => {
+  S.activeOnly = !S.activeOnly;
+  activeOnlyBtn.textContent = S.activeOnly ? t('on') : t('off'); activeOnlyBtn.classList.toggle('on', S.activeOnly);
+  render();
 };
 // Remove all imported .cup waypoints (summits from OSM are unaffected).
 clearWpBtn.onclick = () => {
@@ -731,8 +761,12 @@ window.addEventListener('keydown', e => {
   if (tag === 'INPUT' || tag === 'SELECT') return;
   if (e.key === 'v' || e.key === 'V') { const order: Mode[] = ['over', 'fpv', 'chase']; setMode(order[(order.indexOf(S.mode) + 1) % 3]); }
   else if ('123'.includes(e.key)) {
-    const regs = uniqueRegs(), reg = regs[+e.key - 1];
-    if (reg) { S.subject = reg; subjEl.value = reg; render(); syncUI(); }
+    const regs = cycleRegs(), reg = regs[+e.key - 1];
+    if (reg) {
+      if (S.mode === 'over') { S.focusLock = reg; S.focus = reg; }   // overview: pin the focus
+      else { S.subject = reg; subjEl.value = reg; }
+      render(); syncUI();
+    }
   } else if (e.key === 'j' || e.key === 'J') cycleSubject(-1);   // previous aircraft
   else if (e.key === 'k' || e.key === 'K') cycleSubject(1);      // next aircraft
   else if (e.key === ' ') { e.preventDefault(); playBtn.click(); }          // play / pause (forward)
