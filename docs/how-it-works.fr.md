@@ -87,6 +87,10 @@ Pour situer un vol dans son terrain, l'application peut planter des repères dan
 
 On peut aussi importer ses propres **waypoints au format SeeYou `.cup`** (celui des calculateurs XCSoar / LK8000) — aérodromes, points de virage, vachables, obstacles. Chaque point est catégorisé d'après sa colonne de style et reçoit une icône et une couleur : ✈ aérodrome, ▽ vachable, ▲ sommet ou col, ✕ obstacle (antenne, pylône), ◆ repère. Comme un fichier national peut compter des milliers de points, seul le voisinage du point de vue est dessiné, pour rester fluide.
 
+## Points chauds : où l'on vole en ce moment
+
+Un onglet « points chauds » balaie la carte live de l'OGN dans le monde entier, ne garde que les planeurs en l'air, les regroupe en cellules d'une trentaine de kilomètres et classe les zones les plus actives — une photo en direct de là où ça vole. Le nom d'une zone est celui du récepteur OGN qui y entend le plus de planeurs, ce qui n'est pas toujours un aérodrome (« UKEdge », « Koenigsd2 »…). Au clic, l'appli résout donc la zone vers un vrai aérodrome FlightBook : d'abord via le nom du récepteur, sinon via l'aérodrome OpenStreetMap le plus proche du centroïde — et **chaque candidat est vérifié** en comparant les coordonnées de son carnet FlightBook à celles de l'activité, pour ne jamais atterrir sur un terrain homonyme à l'autre bout du pays. Elle charge ensuite la journée de vols de ce terrain, en vue d'ensemble.
+
 ## Limites assumées
 
 Rien de tout cela ne remplace de vraies données de vol. L'attitude est **estimée**, pas mesurée ; la vitesse sol sert de proxy à la vitesse air, faute de mieux ; les positions sont interpolées entre balises, donc ce n'est pas exactement la trajectoire réellement suivie ; et l'OGN ne conserve les traces IGC qu'environ vingt-quatre heures, si bien que les dates anciennes sont souvent vides. C'est un outil de rejeu et de pédagogie, pas un instrument.
