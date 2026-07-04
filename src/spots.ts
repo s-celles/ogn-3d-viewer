@@ -8,11 +8,12 @@
 import { S } from './state';
 import { t } from './i18n';
 import { TEXTURE, API_BASE } from './config';
-import { icaoEl, loadBtn, discoverBtn } from './dom';
+import { icaoEl, dateEl, loadBtn, discoverBtn } from './dom';
 import { gotoSpot, updateFbLink, setPlace, clearScene } from './ui';
 import { setStatus } from './data';
 import { codeCountry, codeFlag, flag as isoFlag } from './flags';
 import { fetchHotZones, hotCache, hotFresh, type HotZone } from './hotspots';
+import { nearbyAerodromes } from './poi';
 import spotsCsv from '../data/spots.csv' with { type: 'text' };
 import type { Lang } from './types';
 
@@ -266,7 +267,7 @@ function renderHotRows(): void {   // rebuild just the ranked rows (leaves the c
     const d = document.createElement('div');
     d.style.cssText = 'padding:8px 10px;border-radius:8px;cursor:pointer;display:flex;gap:10px;align-items:center';
     d.onmouseenter = () => highlightHot(i, true); d.onmouseleave = () => highlightHot(i, false);
-    d.onclick = () => pickZone(z);
+    d.onclick = () => void pickZone(z);
     d.innerHTML = `<b style="color:#ff5a3c;min-width:28px;text-align:right" title="${z.count} ${t('discoverGliders')}">${z.count}</b>`
       + `<span style="font-size:16px">${info.flag || '📍'}</span>`
       + `<div data-nm style="flex:1;min-width:0">${hotRowText(info)}</div>`;
@@ -302,9 +303,9 @@ function buildHotControls(): HTMLElement {   // country filter + search + sort +
   wrap.append(country, search, sort, reset);
   return wrap;
 }
-interface ZoneInfo { code: string; name: string; country: string; flag: string; }
-function nearestSpot(lat: number, lon: number): Spot | null {   // a known spot sharing this grid cell, if any
-  let best: Spot | null = null, bd = 0.3;
+interface ZoneInfo { code: string; name: string; country: string; flag: string; loadable: boolean; }
+function nearestSpot(lat: number, lon: number, maxDeg = 0.3): Spot | null {   // nearest known spot within maxDeg (default: same grid cell)
+  let best: Spot | null = null, bd = maxDeg;
   for (const s of allSpots()) {
     if (!Number.isFinite(s.lat) || !Number.isFinite(s.lon)) continue;
     const d = Math.abs(s.lat - lat) + Math.abs(s.lon - lon);
@@ -312,7 +313,7 @@ function nearestSpot(lat: number, lon: number): Spot | null {   // a known spot 
   }
   return best;
 }
-interface AfHit { name: string; code: string; }
+interface AfHit { name: string; code: string; found: boolean; }   // found = the code is a real FlightBook airfield
 const nameCache = new Map<string, AfHit>();   // receiver label → resolved airfield (name + canonical code)
 // An OGN receiver is usually an ICAO code, sometimes with a trailing index
 // (LFNA, LKDK, edka4, EDFA2). Derive the 4-letter ICAO to look the airfield up.
@@ -320,19 +321,80 @@ function icaoOf(label: string): string {
   const m = (label || '').toUpperCase().match(/^([A-Z]{4})[0-9]*$/);
   return m ? m[1] : '';
 }
-async function fbAirfield(q: string): Promise<AfHit | null> {   // best FlightBook match for a code
+async function fbAirfield(q: string): Promise<{ name: string; code: string } | null> {   // best FlightBook match for a code
   try {
     const list = await fetch(`${API_BASE}/api/autocomp/${encodeURIComponent(q)}`).then(r => r.json()) as Array<{ code: string; name?: string }>;
     const m = list.find(a => a.code?.toUpperCase() === q) || list.find(a => (a.code || '').toUpperCase().startsWith(q));
     return m ? { name: m.name || '', code: (m.code || q).toUpperCase() } : null;
   } catch { return null; }
 }
+// ---- resolve a hot zone to a loadable FlightBook airfield, VERIFIED by location ----
+// Receiver labels are messy (Koenigsd2, UKEdge, APIK) and FlightBook autocomplete
+// is fuzzy ("Edge" → Eisenach *and* Edgehill), so every candidate code is checked
+// against the zone's centroid via its logbook coordinates — only a nearby one wins.
+const afCache = new Map<string, { name: string; lat: number; lon: number } | null>();
+async function afLatLng(code: string): Promise<{ name: string; lat: number; lon: number } | null> {
+  const key = code.toUpperCase(); if (!key) return null;
+  const cached = afCache.get(key); if (cached !== undefined) return cached;
+  let r: { name: string; lat: number; lon: number } | null = null;
+  try {
+    const today = new Date().toISOString().slice(0, 10);
+    const lb = await fetch(`${API_BASE}/api/logbook/${encodeURIComponent(key)}/${today}`).then(x => x.json()) as { airfield?: { name?: string; latlng?: [number, number] } };
+    const a = lb.airfield; if (a?.latlng) r = { name: a.name || '', lat: a.latlng[0], lon: a.latlng[1] };
+  } catch { /* ignore */ }
+  afCache.set(key, r); return r;
+}
+async function fbCodes(q: string): Promise<string[]> {
+  if (!q.trim()) return [];
+  try {
+    const list = await fetch(`${API_BASE}/api/autocomp/${encodeURIComponent(q)}`).then(x => x.json()) as Array<{ code?: string }>;
+    return list.slice(0, 5).map(a => (a.code || '').toUpperCase()).filter(Boolean);
+  } catch { return []; }
+}
+// Strip common aerodrome words (several languages) + fold accents so an OSM name
+// reaches FlightBook: "Segelfluggelände Königsdorf" → "Koenigsdorf".
+function bareName(name: string): string {
+  return name
+    .replace(/\b(gliding|soaring|glider|segelflug(gel[aä]nde|platz)?|sonderlandeplatz|verkehrslandeplatz|flug(platz|gel[aä]nde|feld)|luchthaven|vliegveld|lotnisko|aerodromo|a[eé]rodrome|airfield|airport|airstrip|airpark|field|club|centre|center|base)\b/gi, '')
+    .replace(/[äÄ]/g, 'ae').replace(/[öÖ]/g, 'oe').replace(/[üÜ]/g, 'ue').replace(/ß/g, 'ss')
+    .normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\s+/g, ' ').trim();
+}
+interface Resolved { code: string; name: string; lat: number; lon: number; }   // code '' = a real aerodrome with no FlightBook logbook (terrain only)
+// Autocomplete every query, verify every resulting code by its logbook location —
+// all in parallel — and return the airfield nearest the centroid (within ~50 km).
+async function bestNear(queries: string[], z: HotZone): Promise<(Resolved & { d: number }) | null> {
+  const cs = Math.cos(z.lat * Math.PI / 180);
+  const qs = [...new Set(queries.map(s => (s || '').trim()).filter(Boolean))];
+  const codes = [...new Set((await Promise.all(qs.map(fbCodes))).flat())];
+  const afs = await Promise.all(codes.map(afLatLng));
+  let best: (Resolved & { d: number }) | null = null;
+  codes.forEach((code, i) => {
+    const a = afs[i]; if (!a) return;
+    const d = Math.hypot(a.lat - z.lat, (a.lon - z.lon) * cs);
+    if (d < 0.45 && (!best || d < best.d)) best = { code, name: a.name, lat: a.lat, lon: a.lon, d };
+  });
+  return best;
+}
+async function resolveZone(z: HotZone): Promise<Resolved | null> {
+  // 1) the receiver label itself (no Overpass): Koenigsd2 → Koenigsd → EDKOENIG.
+  const p1 = await bestNear([z.label, z.label.replace(/[0-9]+$/, '')], z);
+  if (p1 && p1.d < 0.1) return p1;   // the label nailed it (< ~11 km) — skip Overpass
+  // 2) nearby OSM aerodromes as geographic anchors; resolve each via FlightBook.
+  const ads = await nearbyAerodromes(z.lat, z.lon);
+  const p2 = await bestNear(ads.flatMap(ad => [ad.icao, ad.name, bareName(ad.name)]), z);
+  const best = [p1, p2].filter(Boolean).sort((a, b) => a!.d - b!.d)[0];
+  if (best) return best;
+  if (ads[0]) return { code: '', name: ads[0].name, lat: ads[0].lat, lon: ads[0].lon };   // aerodrome without a FlightBook logbook → terrain there
+  return null;
+}
 async function resolveName(label: string): Promise<AfHit> {   // resolve a receiver label to its airfield
   if (nameCache.has(label)) return nameCache.get(label)!;
   const cand = icaoOf(label), up = label.toUpperCase();
   const tries = cand && cand !== up ? [up, cand] : [up];   // try the raw label, then the derived ICAO (edka4 → EDKA)
-  let hit: AfHit = { name: '', code: cand || label };
-  for (const q of tries) { const m = await fbAirfield(q); if (m) { hit = m; break; } }
+  // Not every 4-letter receiver is a real airfield (APIK, ETNU, BENE…) — mark it
+  // unresolved so clicking it flies to the area (terrain) instead of a dud load.
+  let hit: AfHit = { name: '', code: cand || label, found: false };
+  for (const q of tries) { const m = await fbAirfield(q); if (m) { hit = { name: m.name, code: m.code, found: true }; break; } }
   nameCache.set(label, hit); return hit;
 }
 function nearestCountry(lat: number, lon: number): string {   // country of the closest known spot (≤ ~2°), for unnamed receivers
@@ -346,14 +408,14 @@ function nearestCountry(lat: number, lon: number): string {   // country of the 
 }
 function zoneInfo(z: HotZone): ZoneInfo {   // resolve a name / country / flag for a hot zone
   const sp = nearestSpot(z.lat, z.lon);
-  if (sp) return { code: sp.code, name: sp.name, country: sp.country, flag: isoFlag(sp.country) || codeFlag(sp.code) };
+  if (sp) return { code: sp.code, name: sp.name, country: sp.country, flag: isoFlag(sp.country) || codeFlag(sp.code), loadable: true };
   const cand = icaoOf(z.label);
   const hit = cand ? nameCache.get(z.label) : undefined;
   const code = hit?.code || z.label;                 // canonical airfield code once resolved (LKDK → LKDKH)
   const iso = hit?.code || cand;                     // for flag/country: resolved code, else the derived ICAO
   let country = iso ? codeCountry(iso) : '', flag = iso ? codeFlag(iso) : '';
   if (!country) { country = nearestCountry(z.lat, z.lon); flag = isoFlag(country); }   // named receiver (UKDUN2) → country by location
-  return { code, name: hit?.name || '', country, flag };
+  return { code, name: hit?.name || '', country, flag, loadable: !!hit?.found };   // loadable = maps to a real FlightBook airfield
 }
 function hotRowText(info: ZoneInfo): string {
   const title = info.name || info.code || '—';
@@ -376,20 +438,27 @@ async function enrichHotNames(): Promise<void> {   // fill in airfield names for
   }
   if (active === 'hot' && hotFilter.sort === 'name') renderHotRows();   // reorder now that names are known
 }
-function pickZone(z: HotZone): void {
+async function pickZone(z: HotZone): Promise<void> {
   close();
-  const sp = nearestSpot(z.lat, z.lon);
-  if (sp) { pick(sp); return; }                             // known spot → reuse its full loading path (name propagates)
+  dateEl.value = new Date().toISOString().slice(0, 10);     // hot spots are today's activity → always load today
   const info = zoneInfo(z);
-  const loadCode = info.name ? info.code : icaoOf(z.label);   // resolved airfield, or the derived ICAO (edka4 → EDKA)
-  if (loadCode) {                                             // load that airfield's day → replaces any previous flight (coherent)
-    icaoEl.value = loadCode; updateFbLink(); loadBtn.click();
-    if (info.name) setPlace(info.name, info.flag);            // known name up front; otherwise let the FlightBook name show
-  } else {                                                    // a named receiver with no airfield → clean terrain view at the zone
-    clearScene(); gotoSpot(z.lat, z.lon);
-    setPlace(info.name || z.label || t('discoverHot'), info.flag);
-    setStatus(`${z.count} ${t('discoverGliders')}`);
+  const sp = nearestSpot(z.lat, z.lon);
+  if (sp) { pick(sp); return; }                             // known spot → reuse its full loading path (loads today, overview)
+  // Immediate feedback: drop the stale scene and fly the overview to the activity
+  // area right away (terrain streams in there) while we resolve the airfield — no
+  // lingering on the previous, wrong terrain/name.
+  clearScene(); gotoSpot(z.lat, z.lon);
+  setPlace(z.label, info.flag); setStatus(t('searching'));
+  const r = await resolveZone(z);                           // location-verified FlightBook airfield near the activity
+  if (r?.code) {                                            // load its day → rebuild refines the overview onto the airfield
+    icaoEl.value = r.code; updateFbLink(); loadBtn.click();
+    setPlace(r.name || z.label, info.flag);                 // after loadBtn (its onclick clears the place)
+    return;
   }
+  if (r) { gotoSpot(r.lat, r.lon); setPlace(r.name || z.label, info.flag); setStatus(`${z.count} ${t('discoverGliders')}`); return; }   // aerodrome without a logbook → terrain there
+  const far = nearestSpot(z.lat, z.lon, 0.6);               // last resort: nearest project spot
+  if (far) { pick(far); return; }
+  setPlace(info.name || z.label || t('discoverHot'), info.flag); setStatus(`${z.count} ${t('discoverGliders')}`);   // stay on the terrain we already flew to
 }
 
 function open(): void {

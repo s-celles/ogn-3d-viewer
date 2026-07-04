@@ -55,6 +55,34 @@ export async function loadPeaks(west: number, south: number, east: number, north
   finally { if (pending === key) pending = ''; }
 }
 
+// ---- nearby aerodromes (OSM), to resolve a hot-spot centroid to a real airfield -
+export interface Aerodrome { icao: string; name: string; lat: number; lon: number; }
+const adCache = new Map<string, Aerodrome[]>();
+/** Aerodromes near [lat,lon] (within ~25 km) from OpenStreetMap, nearest first —
+ *  candidates whose code the caller then resolves + verifies against FlightBook. */
+export async function nearbyAerodromes(lat: number, lon: number): Promise<Aerodrome[]> {
+  const key = lat.toFixed(2) + ',' + lon.toFixed(2);
+  const hit = adCache.get(key); if (hit) return hit;
+  const q = `[out:json][timeout:25];nwr["aeroway"="aerodrome"](around:25000,${lat},${lon});out center tags;`;
+  try {
+    const res = await fetch(OVERPASS, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: 'data=' + encodeURIComponent(q) });
+    if (!res.ok) throw new Error('http ' + res.status);
+    const data = await res.json() as { elements?: Array<{ lat?: number; lon?: number; center?: { lat: number; lon: number }; tags?: Record<string, string> }> };
+    const cs = Math.cos(lat * Math.PI / 180);
+    const list: Array<Aerodrome & { d: number }> = [];
+    for (const el of (data.elements || [])) {
+      const t = el.tags || {}, alat = el.lat ?? el.center?.lat, alon = el.lon ?? el.center?.lon;
+      if (alat == null || alon == null) continue;
+      const icao = (t.icao || '').toUpperCase().match(/^[A-Z]{4}$/) ? t.icao!.toUpperCase() : '';
+      list.push({ icao, name: t.name || '', lat: alat, lon: alon, d: Math.hypot(alat - lat, (alon - lon) * cs) });
+    }
+    list.sort((a, b) => a.d - b.d);
+    const out = list.slice(0, 6).map(({ d, ...a }) => a);   // eslint-disable-line @typescript-eslint/no-unused-vars
+    if (out.length) adCache.set(key, out);   // cache only non-empty (a rate-limited miss retries)
+    return out;
+  } catch { return []; }
+}
+
 // ---- user waypoints from a SeeYou .cup file (persisted) ----------------------
 const WKEY = 'ogn.waypoints';
 let waypoints: Poi[] = [];
