@@ -375,6 +375,9 @@ function tileLayer(dev: typeof S.dev, id: string, maxZoom: number, maxCacheSize:
             _instanced: false, coordinateSystem: COORDINATE_SYSTEM.LNGLAT,
             mesh: buildTerrainMesh(t, bb.west, bb.south, bb.east, bb.north, su0, sv0, sf, skirtM, zShiftM) as any,
             texture: (dev.on && dev.noTexture) ? undefined : (t.image || turl),
+            // Trilinear + anisotropic sampling so the draped imagery doesn't alias
+            // into horizontal bands on steep faces seen at a grazing angle.
+            textureParameters: { minFilter: 'linear', magFilter: 'linear', mipmapFilter: 'linear', maxAnisotropy: 8 },
             getColor: (dev.on && dev.noTexture) ? [150, 155, 160] : [255, 255, 255], pickable: false,
             material: { ambient: 0.4, diffuse: 0.85, shininess: 6, specularColor: [30, 30, 30] },
           } as any);
