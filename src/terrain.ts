@@ -44,17 +44,29 @@ export function buildTerrainMesh(t: DecodedTile, west: number, south: number, ea
     const b = elevAt(x0, y1) * (1 - tx) + elevAt(x1, y1) * tx;
     return a * (1 - ty) + b * ty;
   };
-  for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
-    const u = c / (cols - 1), v = r / (rows - 1);
-    const e = elevBil((su0 + u * sf) * (w - 1), (sv0 + (1 - v) * sf) * (h - 1)), idx = r * cols + c;
-    heights[idx] = e;
-    positions.push(west + (east - west) * u, south + (north - south) * v, (e - zShift) * k);
-    texCoords.push(u, 1 - v);
-  }
+  for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++)
+    heights[r * cols + c] = elevBil((su0 + (c / (cols - 1)) * sf) * (w - 1), (sv0 + (1 - r / (rows - 1)) * sf) * (h - 1));
   const dx = (east - west) * mPerLng / (cols - 1), dy = (north - south) * mPerLat / (rows - 1);
+  // Slope-adaptive smoothing: blend each vertex toward its neighbours' mean in
+  // proportion to the local steepness — nothing on gentle ground (keeps detail),
+  // up to ~0.6 on steep faces, where the fine RGE ALTI relief otherwise bands.
+  const hs = new Float32Array(cols * rows);
   for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
+    const idx = r * cols + c, hC = heights[idx];
     const hL = heights[r * cols + Math.max(0, c - 1)], hR = heights[r * cols + Math.min(cols - 1, c + 1)];
     const hD = heights[Math.max(0, r - 1) * cols + c], hU = heights[Math.min(rows - 1, r + 1) * cols + c];
+    const slope = Math.max(Math.abs(hR - hL) / (2 * dx), Math.abs(hU - hD) / (2 * dy));   // ≈ tan(angle)
+    const bl = Math.max(0, Math.min(0.6, (slope - 0.5) / 0.7 * 0.6));                     // 0 below ~27°, up to 0.6 by ~50°
+    hs[idx] = hC * (1 - bl) + ((hL + hR + hU + hD) / 4) * bl;
+  }
+  for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
+    const u = c / (cols - 1), v = r / (rows - 1);
+    positions.push(west + (east - west) * u, south + (north - south) * v, (hs[r * cols + c] - zShift) * k);
+    texCoords.push(u, 1 - v);
+  }
+  for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
+    const hL = hs[r * cols + Math.max(0, c - 1)], hR = hs[r * cols + Math.min(cols - 1, c + 1)];
+    const hD = hs[Math.max(0, r - 1) * cols + c], hU = hs[Math.min(rows - 1, r + 1) * cols + c];
     let nx = -(hR - hL) * k / (2 * dx), ny = -(hU - hD) * k / (2 * dy), nz = 1; const L = Math.hypot(nx, ny, nz) || 1;
     normals.push(nx / L, ny / L, nz / L);
   }
