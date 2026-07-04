@@ -226,6 +226,22 @@ body.collapsed #legend{display:none}
 }
 
 /* ---- full-screen feature guide (markdown rendered by src/guide.ts) ---- */
+/* ---- Discover overlay (also the landing page): map + list side by side on
+   desktop, stacked into one scrolling column on phones so list rows aren't
+   squeezed/truncated. ---- */
+.disc-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:12px 16px;border-bottom:1px solid rgba(255,255,255,.1)}
+.disc-title{flex:1 1 auto;min-width:120px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.disc-intro{padding:4px 16px 8px;color:var(--txt);font-size:12.5px;line-height:1.5;max-width:900px}
+.disc-body{display:flex;gap:16px;padding:8px 16px;flex:1;min-height:0;overflow:hidden}
+.disc-map{position:relative;flex:0 0 auto;align-self:flex-start;width:min(46vw,72vh,560px);aspect-ratio:1;border-radius:8px;overflow:hidden;background:#0a1016;border:1px solid rgba(255,255,255,.12);cursor:pointer}
+.disc-list{flex:1 1 auto;min-width:0;overflow-y:auto;display:flex;flex-direction:column;gap:2px;padding-right:4px}
+@media(max-width:640px){
+  .disc-title{flex-basis:100%}                 /* title on its own line, controls wrap below */
+  .disc-intro{font-size:12px;padding:4px 12px 8px}
+  .disc-body{flex-direction:column;gap:10px;padding:8px 12px;overflow-y:auto}
+  .disc-map{width:100%;align-self:stretch;aspect-ratio:16/10;max-height:30vh}
+  .disc-list{overflow:visible;flex:0 0 auto}
+}
 #guide{position:fixed;inset:0;z-index:300;display:none;overflow:auto;
        background:rgba(6,10,14,.72);backdrop-filter:blur(4px)}
 #guide.open{display:flex;align-items:flex-start;justify-content:center;padding:24px}

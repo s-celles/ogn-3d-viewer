@@ -734,9 +734,8 @@ function buildAirfieldSearch(): HTMLElement {
 function build(): void {
   overlay = document.createElement('div');
   overlay.style.cssText = 'position:fixed;inset:0;z-index:200;background:#0c1119;display:none;flex-direction:column';
-  const head = document.createElement('div');
-  head.style.cssText = 'display:flex;align-items:center;gap:8px;padding:12px 16px;border-bottom:1px solid rgba(255,255,255,.1)';
-  const h = document.createElement('div'); h.style.cssText = 'flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis';
+  const head = document.createElement('div'); head.className = 'disc-head';
+  const h = document.createElement('div'); h.className = 'disc-title';
   h.innerHTML = `<b style="font-size:17px">OGN 3D Viewer</b> <span style="color:var(--mut);font-size:13px">· ${t('discoverTitle')}</span>`;
   const mkBtn = (label: string, title: string, fn: () => void) => { const b = document.createElement('button'); b.textContent = label; b.title = title; b.style.padding = '5px 10px'; b.onclick = fn; return b; };
   const langSel = document.createElement('select');   // language is chosen here too — this is the entry page
@@ -754,25 +753,20 @@ function build(): void {
   const x = mkBtn('✕', '', close);
   head.append(h, langSel, guideB, infoB, addB, impB, expB, x);
 
-  const intro = document.createElement('div');   // what the app does + how to start (this is the entry point)
-  intro.style.cssText = 'padding:4px 16px 8px;color:var(--fg);font-size:12.5px;line-height:1.5;max-width:900px';
+  const intro = document.createElement('div'); intro.className = 'disc-intro';   // what the app does + how to start (this is the entry point)
   intro.textContent = t('discoverIntro');
 
   tabsEl = document.createElement('div'); tabsEl.className = 'seg'; tabsEl.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px;padding:10px 16px 4px';
   // Body fills the remaining height and does NOT scroll; only the list scrolls,
   // so the map stays in view. (min-height:0 lets the flex child actually shrink.)
-  const body = document.createElement('div');
-  body.style.cssText = 'display:flex;gap:16px;padding:8px 16px;flex:1;min-height:0;overflow:hidden';
-  mapEl = document.createElement('div');
-  mapEl.style.cssText = `position:relative;flex:0 0 auto;align-self:flex-start;width:min(46vw,72vh,560px);aspect-ratio:1;border-radius:8px;` +
-    `overflow:hidden;background:#0a1016;border:1px solid rgba(255,255,255,.12);cursor:pointer`;
+  const body = document.createElement('div'); body.className = 'disc-body';
+  mapEl = document.createElement('div'); mapEl.className = 'disc-map';
   mapEl.title = t('discoverWorld');
   mapEl.onclick = e => { if (e.target === mapEl || e.target === bgEl) select(''); };   // click the map → back to world (tab + list too)
   bgEl = document.createElement('div');   // sharp imagery of the current view; markers sit on top at constant size
   bgEl.style.cssText = 'position:absolute;inset:0;background-position:center;background-size:100% 100%;background-repeat:no-repeat';
   mapEl.appendChild(bgEl);
-  listEl = document.createElement('div');
-  listEl.style.cssText = 'flex:1 1 auto;min-width:0;overflow-y:auto;display:flex;flex-direction:column;gap:2px;padding-right:4px';
+  listEl = document.createElement('div'); listEl.className = 'disc-list';
   body.append(mapEl, listEl);
   const note = document.createElement('div');
   note.style.cssText = 'padding:8px 16px;border-top:1px solid rgba(255,255,255,.1);color:var(--mut);font-size:11px';
