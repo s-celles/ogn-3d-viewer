@@ -251,7 +251,14 @@ async function fetchDEM(z: number, x: number, y: number, signal: AbortSignal, al
   let dec: CachedTile | null = terr;
   if (useIgn) {
     const ign = await fetchIgnDem(z, x, y, signal);
-    if (ign) dec = encodeDem(ign, terr);                               // merge IGN over Terrarium
+    if (ign) {
+      let nodata = false;
+      for (let i = 0; i < ign.length; i++) if (!(ign[i] > -9000)) { nodata = true; break; }
+      // Only fill gaps if we actually have Terrarium — otherwise skip the merge so
+      // nodata pixels never collapse to 0 m (a pit/hole punched in the massif).
+      if (!nodata) dec = encodeDem(ign, null);
+      else if (terr) dec = encodeDem(ign, terr);
+    }
   }
   if (dec) cacheTile(z, x, y, dec);
   return dec;
