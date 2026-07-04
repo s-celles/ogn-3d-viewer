@@ -22,16 +22,23 @@ dev port=port:
     watcher=$!
     trap 'kill $watcher 2>/dev/null' EXIT
     until [ -f dist/index.html ]; do sleep 0.1; done
-    echo "serving http://localhost:{{port}}/ (Ctrl-C to stop)"
-    python3 -m http.server -d dist {{port}}
+    ip=$(ipconfig getifaddr en0 2>/dev/null || ipconfig getifaddr en1 2>/dev/null || hostname -I 2>/dev/null | awk '{print $1}' || echo localhost)
+    echo "serving http://localhost:{{port}}/  ·  LAN (phone, same Wi-Fi): http://$ip:{{port}}/  (Ctrl-C to stop)"
+    python3 -m http.server --bind 0.0.0.0 -d dist {{port}}
 
 # Production build → dist/ (bundle + PWA manifest/icons/service worker)
 build:
     bun run build
 
-# Build once, then serve dist/ locally on {{port}} (needs python3)
+# Build once, then serve dist/ on all interfaces (0.0.0.0) — reachable from a
+# phone on the same Wi-Fi at the printed LAN URL. Needs python3.
 serve port=port:
-    bun run scripts/build.ts && python3 -m http.server -d dist {{port}}
+    #!/usr/bin/env bash
+    set -euo pipefail
+    bun run scripts/build.ts
+    ip=$(ipconfig getifaddr en0 2>/dev/null || ipconfig getifaddr en1 2>/dev/null || hostname -I 2>/dev/null | awk '{print $1}' || echo localhost)
+    echo "serving http://localhost:{{port}}/  ·  LAN (phone, same Wi-Fi): http://$ip:{{port}}/"
+    python3 -m http.server --bind 0.0.0.0 -d dist {{port}}
 
 # Run the test suite
 test:
