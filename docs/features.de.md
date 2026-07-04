@@ -24,6 +24,9 @@
 - **Höhenvorhang** — ein durchscheinender Vorhang von jedem Track bis zum Boden.
 - **Beschriftung je Luftfahrzeug** — Kennzeichen, Höhe, Geschwindigkeit, Vario, Kurs.
 - **Points of Interest** — benannte **OpenStreetMap-Gipfel** rund um die Ansicht anzeigen (Mast + Höhe, einstellbare Dichte, Schriftgröße nach Bedeutung des Gipfels) und/oder eigene **SeeYou-`.cup`**-Wegpunkte importieren (Flugplätze, Wendepunkte, Hindernisse…). Jeder Punkt erhält ein **Symbol je Typ**: ✈ Flugplatz, ▽ Außenlandefeld, ▲ Gipfel/Pass, ✕ Hindernis (Mast, Turm), ◆ Landmarke.
+- **2D-Minikarte** — eine flache Einschub-Karte (oben rechts) mit der gewählten Grundkarte sowie Spur und Position des verfolgten (bzw. in der Übersicht fokussierten) Luftfahrzeugs zur Orientierung; andere fliegende Luftfahrzeuge erscheinen als Punkte. Umschaltbar.
+- **HUD in der Übersicht** *(optional, standardmäßig aus)* — das Telemetrie-Feld (Kennzeichen, Kurs, Geschwindigkeit, Höhe, Vario) des **fokussierten** Luftfahrzeugs auch in der Übersicht anzeigen. **J / K**, die **◀ / ▶** und **1 / 2 / 3** wechseln das fokussierte Luftfahrzeug (beim Verschieben der Ansicht übernimmt wieder das der Mitte nächste).
+- **Nur aktive Luftfahrzeuge** *(optional, standardmäßig aus)* — nur gerade **fliegende** Luftfahrzeuge zeigen und durchschalten; blendet die übrigen Spuren und Legendenzeilen aus (nie das verfolgte).
 
 ## Wiedergabe
 

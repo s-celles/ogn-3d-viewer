@@ -24,6 +24,9 @@
 - **Altitude curtain** — a translucent drape from each track down to the ground.
 - **Per-aircraft labels** — registration, altitude, speed, vario, heading.
 - **Points of interest** — show named **OpenStreetMap summits** around the view (a pole + elevation, adjustable density, label size scaling with the summit's importance), and/or import your **SeeYou `.cup`** waypoints (airfields, turnpoints, obstacles…). Each point gets an **icon for its type**: ✈ airfield, ▽ outlanding field, ▲ summit/pass, ✕ obstacle (mast, tower), ◆ landmark.
+- **2D minimap** — a flat inset map (top-right) with the chosen base map plus the followed aircraft's track and position (or the focused one in the overview), to keep your bearings; other airborne aircraft show as dots. Toggleable.
+- **HUD in the overview** *(opt-in, off by default)* — show the telemetry card (registration, heading, speed, altitude, vario) of the **focused** aircraft in the overview too. **J / K**, the **◀ / ▶** and **1 / 2 / 3** change the focused aircraft (panning hands focus back to the one nearest the centre).
+- **Active aircraft only** *(opt-in, off by default)* — only show and cycle aircraft **airborne at the current time**; hides the others' traces and legend rows (never the one you follow).
 
 ## Playback
 
