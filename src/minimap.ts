@@ -68,10 +68,21 @@ function baseTileLayer(): any {
 
 /** Rebuild the minimap's layers + recentre on the followed glider. Cheap no-op
  *  when the minimap is hidden (overview, off, or not ready). */
+// Which glider the minimap centres on and draws. In the overview it follows the
+// focused glider (the one nearest the scene centre — changes as you pan/select),
+// otherwise the cockpit/chase subject.
+function minimapSubject(): RenderTrack | undefined {
+  if (S.mode === 'over' && S.focus) {
+    const f = S.TRACKS.find((tr: RenderTrack) => tr.reg === S.focus);
+    if (f) return f;
+  }
+  return subjectTrack();
+}
+
 export function updateMinimap(): void {
   if (!S.ready || !S.minimap) return;   // hidden by CSS too; skip the work
   ensureDeck();
-  const tr = subjectTrack();
+  const tr = minimapSubject();
   if (!tr) { deck.setProps({ layers: [baseTileLayer()] }); return; }
   const t = clampCur(tr), cur = posAt(tr, t), hdg = headingAt(tr, t);
 
