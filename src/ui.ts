@@ -572,11 +572,13 @@ collapseBtn.onclick = () => setCollapsed(!document.body.classList.contains('coll
 });
 const langValue = (): string => S.langAuto ? 'auto' : S.lang;
 langEl.value = langValue();
-langEl.addEventListener('change', e => {
-  const v = (e.target as HTMLSelectElement).value;
+/** Switch UI language ('auto' follows the browser). Re-applies all translations. */
+export function setLang(v: string): void {
   if (v === 'auto') { S.langAuto = true; S.lang = detectLang(); } else { S.langAuto = false; S.lang = v as Lang; }
   applyI18n();
-});
+}
+export const langCurrent = (): string => langValue();
+langEl.addEventListener('change', e => setLang((e.target as HTMLSelectElement).value));
 export function applyI18n(): void {
   document.documentElement.lang = S.lang;
   document.querySelectorAll('[data-i18n]').forEach(el => { (el as HTMLElement).textContent = t((el as HTMLElement).dataset.i18n!); });
@@ -633,6 +635,33 @@ function renderDisc(): void {
     `</div>`;
   const gb = document.getElementById('discGuideBtn'); if (gb) gb.onclick = () => openGuide();
   updateQr();
+}
+// The ⓘ panel content (discEl) as a floating overlay — used from the Discover
+// landing page, where the normal controls panel is dimmed/behind. discEl is moved
+// into a top-level overlay and restored on close, so the in-panel ⓘ still works.
+let infoOv: HTMLElement | null = null, discHome: Node | null = null;
+export function openInfoFloat(): void {
+  renderDisc(); updateCacheInfo();
+  if (!infoOv) {
+    infoOv = document.createElement('div');
+    infoOv.style.cssText = 'position:fixed;inset:0;z-index:250;background:rgba(4,8,12,.6);display:none;overflow:auto;padding:5vh 16px';
+    infoOv.onclick = e => { if (e.target === infoOv) closeInfoFloat(); };
+    document.addEventListener('keydown', e => { if (e.key === 'Escape' && infoOv && infoOv.style.display === 'block') closeInfoFloat(); });
+    document.body.appendChild(infoOv);
+  }
+  const card = document.createElement('div');
+  card.className = 'disc';
+  card.style.cssText = 'position:relative;max-width:520px;margin:0 auto;background:#0e141b;border:1px solid rgba(255,255,255,.15);border-radius:12px;padding:16px 18px';
+  const x = document.createElement('button'); x.textContent = '✕'; x.style.cssText = 'position:absolute;top:8px;right:10px;padding:2px 8px'; x.onclick = closeInfoFloat;
+  discHome = discEl.parentNode;
+  discEl.style.display = 'block'; discEl.style.pointerEvents = 'auto';
+  card.append(x, discEl);
+  infoOv.innerHTML = ''; infoOv.append(card); infoOv.style.display = 'block';
+}
+export function closeInfoFloat(): void {
+  if (infoOv) infoOv.style.display = 'none';
+  discEl.style.display = 'none';
+  if (discHome) discHome.appendChild(discEl);   // restore so the controls-panel ⓘ keeps working
 }
 // A self-contained QR code (SVG) for the current app URL — scan to open the same
 // view on a phone. Uses the enriched share link when a flight is loaded.

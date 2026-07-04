@@ -9,7 +9,8 @@ import { S } from './state';
 import { t } from './i18n';
 import { TEXTURE, API_BASE } from './config';
 import { icaoEl, dateEl, loadBtn, discoverBtn } from './dom';
-import { gotoSpot, updateFbLink, setPlace, clearScene } from './ui';
+import { gotoSpot, updateFbLink, setPlace, clearScene, openInfoFloat, setLang, langCurrent } from './ui';
+import { openGuide } from './guide';
 import { setStatus } from './data';
 import { codeCountry, codeFlag, flag as isoFlag } from './flags';
 import { fetchHotZones, hotCache, hotFresh, type HotZone } from './hotspots';
@@ -735,14 +736,27 @@ function build(): void {
   overlay.style.cssText = 'position:fixed;inset:0;z-index:200;background:#0c1119;display:none;flex-direction:column';
   const head = document.createElement('div');
   head.style.cssText = 'display:flex;align-items:center;gap:8px;padding:12px 16px;border-bottom:1px solid rgba(255,255,255,.1)';
-  const h = document.createElement('b'); h.textContent = t('discoverTitle'); h.style.cssText = 'font-size:16px;flex:1';
+  const h = document.createElement('div'); h.style.cssText = 'flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis';
+  h.innerHTML = `<b style="font-size:17px">OGN 3D Viewer</b> <span style="color:var(--mut);font-size:13px">· ${t('discoverTitle')}</span>`;
   const mkBtn = (label: string, title: string, fn: () => void) => { const b = document.createElement('button'); b.textContent = label; b.title = title; b.style.padding = '5px 10px'; b.onclick = fn; return b; };
+  const langSel = document.createElement('select');   // language is chosen here too — this is the entry page
+  langSel.className = 'langsel'; langSel.style.cssText = 'flex:0 0 auto;width:auto;padding:4px 6px;font-size:11px;font-weight:600';
+  langSel.innerHTML = ([['auto', t('langAuto')], ['fr', 'FR'], ['en', 'EN'], ['de', 'DE'], ['es', 'ES'], ['it', 'IT']] as [string, string][])
+    .map(([v, l]) => `<option value="${v}">${l}</option>`).join('');
+  langSel.value = langCurrent();
+  langSel.onchange = () => { setLang(langSel.value); overlay?.remove(); overlay = null; open(); };   // rebuild the overlay in the new language
+  const guideB = mkBtn('📖', t('guide'), () => openGuide());
+  const infoB = mkBtn('ⓘ', t('info'), () => openInfoFloat());
   const addB = mkBtn('➕', t('discoverAdd'), () => openForm(listEl!));
   const impB = mkBtn('⤓', t('discoverImport'), () => fileInput!.click());
   const shareable = canShareCsv();   // share the CSV natively where possible, else download it
   const expB = mkBtn(shareable ? '📤' : '⤒', t(shareable ? 'discoverShare' : 'discoverExport'), shareable ? shareCsv : exportCsv);
   const x = mkBtn('✕', '', close);
-  head.append(h, addB, impB, expB, x);
+  head.append(h, langSel, guideB, infoB, addB, impB, expB, x);
+
+  const intro = document.createElement('div');   // what the app does + how to start (this is the entry point)
+  intro.style.cssText = 'padding:4px 16px 8px;color:var(--fg);font-size:12.5px;line-height:1.5;max-width:900px';
+  intro.textContent = t('discoverIntro');
 
   tabsEl = document.createElement('div'); tabsEl.className = 'seg'; tabsEl.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px;padding:10px 16px 4px';
   // Body fills the remaining height and does NOT scroll; only the list scrolls,
@@ -766,10 +780,12 @@ function build(): void {
   fileInput = document.createElement('input'); fileInput.type = 'file'; fileInput.accept = '.csv,text/csv'; fileInput.hidden = true;
   fileInput.onchange = () => { const f = fileInput!.files?.[0]; if (f) f.text().then(importCsv); fileInput!.value = ''; };
 
-  overlay.append(head, buildAirfieldSearch(), tabsEl, body, note, fileInput);
+  overlay.append(head, intro, buildAirfieldSearch(), tabsEl, body, note, fileInput);
   document.body.appendChild(overlay);
   rebuildDots();
 }
 
+/** Open the Discover overlay — used as the app's landing page on a cold start. */
+export function openDiscover(): void { open(); }
 discoverBtn.onclick = () => (isOpen() ? close() : open());
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && isOpen()) close(); });

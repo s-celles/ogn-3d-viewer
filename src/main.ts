@@ -7,7 +7,7 @@ import { loadFlights } from './data';
 import { initGraphs } from './graphs';
 import { initAnalytics } from './analytics';
 import { initDev, devFrame } from './dev';
-import './spots';   // registers the "Discover spots" button + overlay
+import { openDiscover } from './spots';   // registers the "Discover spots" button + overlay
 import { postCacheCap } from './sw-cache';
 
 const todayStr = new Date().toISOString().slice(0, 10);
@@ -47,6 +47,8 @@ if (qIcao) {
     if (/^\d{4}-\d{2}-\d{2}$/.test(qDate) && qDate <= todayStr) dateEl.value = qDate;
     loadFlights(qIcao, dateEl.value).then(() => applyDeepLinkCursor(qp));  // ?t=…&reg=… → frame + aircraft
   }
+} else {
+  openDiscover();   // no deep link → land on the Discover page (the app's entry point)
 }
 
 const nowSod = () => (Date.now() / 1000) % 86400; // current UTC seconds-of-day
