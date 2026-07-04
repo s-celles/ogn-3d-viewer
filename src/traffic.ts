@@ -41,7 +41,10 @@ export function drawTraffic(): void {
   if (cv.width !== Math.round(W * dpr) || cv.height !== Math.round(H * dpr)) { cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); }
   const ctx = cv.getContext('2d'); if (!ctx) return;
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, W, H);
-  const data = compute(); if (!data) return;
+  // When the followed aircraft isn't active (before take-off, landed, offline),
+  // compute() has no reference point — still draw the idle frame (rings + own
+  // ship, no targets) so the indicator stays lit instead of going blank/black.
+  const data = compute() || { hdg: 0, list: [] };
   if (S.trafficMode === 'radar') drawRadar(ctx, W, H, data);
   else drawDirectional(ctx, W, H, data);
 }
