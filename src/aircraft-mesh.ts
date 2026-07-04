@@ -11,7 +11,10 @@ const sub = (a: V, b: V): V => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
 const cross = (a: V, b: V): V => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
 const norm = (v: V): V => { const l = Math.hypot(v[0], v[1], v[2]) || 1; return [v[0] / l, v[1] / l, v[2] / l]; };
 
-interface Station { x: number; ry: number; rz: number; }
+// A fuselage cross-section. `rz` is the vertical half-height; give `rzTop`/`rzBot`
+// instead to make it egg-shaped (a taller top than bottom) — used to raise the
+// canopy over the cockpit without dropping the belly. `cz` shifts the ring centre.
+interface Station { x: number; ry: number; rz?: number; rzTop?: number; rzBot?: number; cz?: number; }
 interface Edge { le: number; te: number; y: number; z: number; } // wing cross-section
 
 class MeshBuilder {
@@ -28,7 +31,11 @@ class MeshBuilder {
 
   private ring(s: Station, sides: number): number[] {
     const idx: number[] = [];
-    for (let i = 0; i < sides; i++) { const a = 2 * Math.PI * i / sides; idx.push(this.add([s.x, s.ry * Math.cos(a), s.rz * Math.sin(a)])); }
+    const cz = s.cz ?? 0, rTop = s.rzTop ?? s.rz ?? 0, rBot = s.rzBot ?? s.rz ?? 0;
+    for (let i = 0; i < sides; i++) {
+      const a = 2 * Math.PI * i / sides, sa = Math.sin(a);
+      idx.push(this.add([s.x, s.ry * Math.cos(a), cz + (sa >= 0 ? rTop : rBot) * sa]));
+    }
     return idx;
   }
 
@@ -118,10 +125,21 @@ class MeshBuilder {
 
 function buildGlider() {
   const m = new MeshBuilder();
+  // Short blunt rounded nose → a canopy that rises just behind it (rzTop ≫ rzBot)
+  // → a long slim tail boom. Only the tail tapers; the nose stays stubby. Reads
+  // as a glider, not a rocket.
   m.tube([
-    { x: 3.4, ry: 0.16, rz: 0.20 }, { x: 2.5, ry: 0.30, rz: 0.40 }, { x: 1.2, ry: 0.28, rz: 0.38 },
-    { x: -0.6, ry: 0.20, rz: 0.26 }, { x: -2.6, ry: 0.11, rz: 0.16 }, { x: -4.4, ry: 0.06, rz: 0.10 },
-  ], 10, [4.4, 0, 0.04], [-4.7, 0, 0.18]);
+    { x: 2.8, ry: 0.19, rzTop: 0.27, rzBot: 0.22 },   // stubby nose (short cap ahead)
+    { x: 2.4, ry: 0.24, rzTop: 0.36, rzBot: 0.27, cz: 0.02 },   // windscreen base
+    { x: 2.0, ry: 0.26, rzTop: 0.43, rzBot: 0.28 },
+    { x: 1.6, ry: 0.27, rzTop: 0.46, rzBot: 0.28 },   // canopy peak (rounded)
+    { x: 1.2, ry: 0.27, rzTop: 0.44, rzBot: 0.27 },
+    { x: 0.7, ry: 0.25, rzTop: 0.38, rzBot: 0.26 },   // long, gentle rear fairing
+    { x: 0.1, ry: 0.22, rzTop: 0.31, rzBot: 0.25 },
+    { x: -0.6, ry: 0.18, rzTop: 0.25, rzBot: 0.23 },
+    { x: -1.7, ry: 0.13, rz: 0.18 },
+    { x: -3.0, ry: 0.09, rz: 0.13 }, { x: -4.4, ry: 0.06, rz: 0.10 },
+  ], 12, [3.05, 0, -0.03], [-4.7, 0, 0.18]);
   // long high-aspect wing (span ~17), tapered + swept + dihedral
   const wr: Edge = { le: 0.6, te: -0.55, y: 0.3, z: 0.06 };
   m.panel(wr, { le: 0.2, te: -0.1, y: 8.6, z: 0.55 }, 0.05);
