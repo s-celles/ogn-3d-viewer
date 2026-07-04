@@ -194,6 +194,9 @@ export interface AppState {
   basemap: string;
   // Use the finer IGN RGE ALTI DEM over France (falls back to Terrarium elsewhere).
   ignDem: boolean;
+  // Named summits (OSM) + imported waypoints, shown as poles + labels.
+  showPeaks: boolean;
+  peakDensity: number;   // 0..1 — how many summit labels to show
   // Follow the browser locale for the UI language (the "Auto" language choice).
   langAuto: boolean;
   windowMin: number;

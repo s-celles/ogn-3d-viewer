@@ -13,6 +13,8 @@ import { varioAudio } from './vario-audio';
 import { updateSky, getSun, getMoon, nightPolygon } from './sky';
 import { subjectTrack, shown, scaled, posAt, presence, airborne, headingAt, varioAt, compVarioAt, groundSpeedAt, clampCur, attitudeAt, nearestToCenter } from './flight-math';
 import { GLIDER_MESH, PLANE_MESH, PROP_MESH, GLIDER_FLAT, PLANE_FLAT, isPowered } from './aircraft-mesh';
+import { getPeaks, getWaypoints, loadPeaks, type Poi } from './poi';
+import { poiLabelsDiv } from './dom';
 import { CHASE, FAR_PLANE } from './config';
 import { saveSettings } from './settings';
 import type { RGB, Pos3, RenderTrack } from './types';
@@ -239,6 +241,55 @@ const pushPaths = (solidArr: PathDatum[], dashArr: PathDatum[], color: RGB, r: {
 };
 
 // The glider/airfield/terrain layers, rebuilt every frame from the cursor.
+// ---- points of interest (OSM summits + .cup waypoints): a pole + a label ----
+const POLE_M = 70;   // pole ("piquet") height in metres, planted on the summit
+// Per-category marker: a glyph (leading the DOM label) + a colour (pole + glyph).
+// ︎ forces text (monochrome) presentation so ✈/✖ inherit the category colour.
+const POI_STYLE: Record<string, { glyph: string; color: [number, number, number] }> = {
+  summit:   { glyph: '▲',         color: [255, 110, 70] },   // ▲ orange
+  airfield: { glyph: '✈︎',   color: [120, 210, 130] },  // ✈ green (landable, hard/grass)
+  outland:  { glyph: '▽',         color: [235, 205, 90] },   // ▽ amber (landable field / vachable)
+  obstacle: { glyph: '✕︎',   color: [255, 95, 95] },    // ✕ red (mast / tower / plant)
+  landmark: { glyph: '◆',         color: [120, 190, 255] },  // ◆ blue (VOR, castle, turnpoint…)
+};
+const poiStyle = (p: Poi) => POI_STYLE[p.cat] || POI_STYLE.landmark;
+function peakCount(): number { return Math.round(15 + S.peakDensity * S.peakDensity * 485); }   // density 0..1 → ~15..500 (highest first)
+function viewCenter(): [number, number] {
+  if (S.mode !== 'over') { const tr = subjectTrack(); if (tr) { const p = posAt(tr, clampCur(tr)); return [p[0], p[1]]; } }
+  return [S.mapVS.longitude, S.mapVS.latitude];
+}
+// Fetch summits around wherever the view is now — refetch only when the centre
+// crosses a 0.25° cell (the loader caches per bbox, so panning back is free).
+let lastPeakKey = '';
+let peakTimer: ReturnType<typeof setTimeout> | null = null;
+function updatePeakFetch(): void {
+  if (!S.ready || !S.showPeaks) { lastPeakKey = ''; return; }
+  const [clon, clat] = viewCenter();
+  const key = Math.round(clon * 4) + '|' + Math.round(clat * 4);
+  if (key === lastPeakKey) return;
+  lastPeakKey = key;
+  const M = 0.6, lon = clon, lat = clat;
+  if (peakTimer) clearTimeout(peakTimer);   // debounce: only fetch once the view settles on a cell
+  peakTimer = setTimeout(() => loadPeaks(lon - M, lat - M, lon + M, lat + M).then(render), 300);
+}
+function activePois(): Poi[] {
+  if (!S.showPeaks) return [];
+  const peaks = getPeaks().slice(0, peakCount()), wps = getWaypoints();   // peaks are already area-local
+  if (!wps.length) return peaks;
+  const [clon, clat] = viewCenter(), R = 1.2;                              // a .cup can hold thousands → only render nearby
+  return [...peaks, ...wps.filter(p => Math.abs(p.lon - clon) < R && Math.abs(p.lat - clat) < R)];
+}
+function poiPoleLayers(k: number): any[] {
+  const pois = activePois(); if (!pois.length) return [];
+  return [new PathLayer<Poi>({
+    id: 'poi-poles', data: pois,
+    getPath: (p: Poi) => [[p.lon, p.lat, p.ele * k], [p.lon, p.lat, (p.ele + POLE_M) * k]],
+    getColor: (p: Poi) => [...poiStyle(p).color, 235] as [number, number, number, number],
+    getWidth: 2.5, widthUnits: 'pixels', billboard: true,   // billboard: a vertical path is edge-on (invisible) otherwise
+    parameters: { depthTest: true } as any, updateTriggers: { getPath: [S.exo], getColor: [S.showPeaks] },
+  } as any)];
+}
+
 function dynamicLayers() {
   if (!S.ready) return [];
   const k = S.exo, vis = S.TRACKS.filter(shown), off = S.trace === 'off';
@@ -454,6 +505,7 @@ function dynamicLayers() {
       } as any)];
     })()),
     ...(S.glideCone ? glideConeLayers(k) : []),
+    ...poiPoleLayers(k),
   ];
 }
 
@@ -529,6 +581,55 @@ function updateLabels(): void {
     }
   } catch { /* projection unavailable this frame — hide everything below */ }
   for (let i = n; i < labelEls.length; i++) labelEls[i].style.display = 'none';
+}
+
+// ---- POI (summit / waypoint) labels, DOM overlay above each pole ----
+const poiEls: HTMLElement[] = [];
+function updatePeakLabels(): void {
+  const on = S.ready && S.showPeaks;
+  const width = mapDiv.clientWidth, height = mapDiv.clientHeight;
+  let vp: any = null;
+  if (on && width && height) {
+    try {
+      vp = S.mode === 'over'
+        ? new MapView({ id: 'main' }).makeViewport({ width, height, viewState: S.mapVS as any })
+        : new FirstPersonView({ id: 'fpv', fovy: S.mode === 'chase' ? CHASE.fovy : 64, near: 1, far: farPlane() })
+          .makeViewport({ width, height, viewState: (S.mode === 'chase' ? computeChase() : computeFPV()) as any });
+    } catch { vp = null; }
+  }
+  let n = 0;
+  if (vp && vp.viewProjectionMatrix) try {
+    const k = S.exo, placed: [number, number][] = [], pois = activePois();   // peaks are highest-first → get priority
+    // Font size scales with a summit's importance (its elevation relative to the
+    // shown set), so major peaks stand out over minor ones.
+    const eles = pois.filter(p => p.kind === 'peak').map(p => p.ele);
+    const minE = eles.length ? Math.min(...eles) : 0, span = Math.max(1, (eles.length ? Math.max(...eles) : 1) - minE);
+    for (const p of pois) {
+      const sp = projectToScreen(vp, p.lon, p.lat, (p.ele + POLE_M) * k, width, height);
+      if (!sp) continue;
+      const imp = p.kind === 'peak' ? (p.ele - minE) / span : 0.5;     // 0 (minor) .. 1 (highest)
+      const fs = 9 + imp * 6;                                          // 9..15 px
+      if (placed.some(q => Math.abs(q[0] - sp[0]) < 46 && Math.abs(q[1] - sp[1]) < fs + 2)) continue;   // de-clutter
+      placed.push(sp);
+      let el = poiEls[n];
+      if (!el) {
+        el = document.createElement('div'); el.className = 'poilabel';
+        (el.appendChild(document.createElement('span')) as HTMLElement).className = 'gly';   // colored type glyph
+        el.appendChild(document.createTextNode(''));                                         // name + elevation
+        poiLabelsDiv.appendChild(el); poiEls[n] = el;
+      }
+      el.style.display = 'block'; el.style.left = sp[0].toFixed(0) + 'px'; el.style.top = (sp[1] - 4).toFixed(0) + 'px';
+      el.style.fontSize = fs.toFixed(1) + 'px'; el.style.opacity = (0.62 + imp * 0.38).toFixed(2);
+      el.classList.toggle('wp', p.kind === 'wp');
+      const st = poiStyle(p), gly = el.firstChild as HTMLElement, txt = el.lastChild as Text;
+      if (gly.textContent !== st.glyph) gly.textContent = st.glyph;
+      gly.style.color = `rgb(${st.color[0]},${st.color[1]},${st.color[2]})`;
+      const text = ` ${p.name}\n${Math.round(p.ele)} m`;
+      if (txt.nodeValue !== text) txt.nodeValue = text;
+      n++;
+    }
+  } catch { /* projection unavailable this frame */ }
+  for (let i = n; i < poiEls.length; i++) poiEls[i].style.display = 'none';
 }
 
 function updateCelestial(): void {
@@ -726,7 +827,9 @@ export function render(): void {
   updateLegendLocal();
   feedVarioSound();
   updateCelestial();
+  updatePeakFetch();
   updateLabels();
+  updatePeakLabels();
   drawGraphs();
   drawTraffic();
 }

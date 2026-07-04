@@ -5,7 +5,7 @@ import { API_BASE, REPO_URL, MINZ, MAXZ, PMIN, PMAX, CHASE, clampv, BASEMAPS, IG
 import { APP_VERSION, GIT_HASH } from './version';
 import {
   subjEl, viewsEl, cammodeEl, traceEl, trailFxEl, smoothBtn, compBtn, bankBtn, soundBtn, trafficModeEl, graphModeEl, graphClose, winEl, winval, playBtn, revBtn, segEl,
-  exoEl, exval, groundEl, groundval, cacheEl, cacheval, acscaleEl, acscaleval, coneBtn, finesseEl, finval, safetyEl, safeval, coneRadEl, coneradval, labelsBtn, labelFieldsEl, shadowsEl, basemapEl, ignDemBtn, attribEl, curtainBtn, attrBtn, pitchEl, pitchval, scrub, scrubMin, scrubMax, clkEl, lglist, rose, altsl, icaoEl, fblink, acEl,
+  exoEl, exval, groundEl, groundval, cacheEl, cacheval, acscaleEl, acscaleval, coneBtn, finesseEl, finval, safetyEl, safeval, coneRadEl, coneradval, labelsBtn, labelFieldsEl, shadowsEl, basemapEl, ignDemBtn, peaksBtn, peakDensityEl, attribEl, curtainBtn, attrBtn, pitchEl, pitchval, scrub, scrubMin, scrubMax, clkEl, lglist, rose, altsl, icaoEl, fblink, acEl,
   dateEl, loadBtn, langEl, discEl, infoBtn, copyBtn, shareBtn, collapseBtn, liveBtn, igcBtn, igcInput, mapDiv, prevAc, nextAc, resetSettingsBtn, afInfo,
 } from './dom';
 import { codeFlag } from './flags';
@@ -18,6 +18,8 @@ import { subjectTrack, airborne, headingAt, clampCur, fmt, statsFor } from './fl
 import { makeTerrain, clearDemCache } from './terrain';
 import { render, updateHUD } from './render';
 import { loadFlights, refreshLive, statusMsg, setStatus, rebuild, syncUrl, loadTrackFiles } from './data';
+import { importCup, clearWaypoints } from './poi';
+import { TRACK_EXT } from './track-import';
 import { varioAudio } from './vario-audio';
 import { refreshGraphTabs } from './graphs';
 import { syncGuide, openGuide } from './guide';
@@ -233,6 +235,7 @@ export function syncControls(): void {
   trafficModeEl.value = S.trafficMode; graphModeEl.value = S.graphMode;
   shadowsEl.value = S.shadowMode; langEl.value = langValue();
   if (BASEMAPS[S.basemap]) basemapEl.value = S.basemap;
+  peakDensityEl.value = String(S.peakDensity); document.body.classList.toggle('peaks', S.showPeaks);
   exoEl.value = String(S.exo); exval.textContent = S.exo.toFixed(1) + '×';
   groundEl.value = String(S.groundZoom); groundval.textContent = 'z' + S.groundZoom;
   cacheEl.value = String(S.cacheScale); cacheval.textContent = '×' + S.cacheScale;
@@ -314,12 +317,21 @@ ignDemBtn.onclick = () => {
   ignDemBtn.textContent = S.ignDem ? t('on') : t('off'); ignDemBtn.classList.toggle('on', S.ignDem);
   clearDemCache(); S.terrainInst = makeTerrain(); updateMapCredit(); render();
 };
+// ---- named summits (OSM) + waypoints, with a density slider ----
+peaksBtn.onclick = () => {
+  S.showPeaks = !S.showPeaks;
+  peaksBtn.textContent = S.showPeaks ? t('on') : t('off'); peaksBtn.classList.toggle('on', S.showPeaks);
+  document.body.classList.toggle('peaks', S.showPeaks);
+  updateMapCredit(); render();   // render() triggers the view-driven summit fetch
+};
+peakDensityEl.addEventListener('input', e => { S.peakDensity = parseFloat((e.target as HTMLInputElement).value); render(); });
 // Imagery credit (per base map) + shared terrain credit, kept in sync in BOTH
 // the on-map overlay and the ⓘ info panel (the latter isn't rebuilt on a
 // base-map switch, so update its copy directly).
 function mapCreditHtml(): string {
   const ign = S.ignDem ? ` · ${IGN_CREDIT}` : '';   // IGN RGE ALTI / BD ORTHO used over France
-  return `${(BASEMAPS[S.basemap] || BASEMAPS.esri).credit}${ign} · ${t('terrainCredit')}`;
+  const osm = S.showPeaks ? ` · ${t('peaks')} © <a href='https://www.openstreetmap.org/copyright' target='_blank' rel='noopener'>OpenStreetMap</a>` : '';
+  return `${(BASEMAPS[S.basemap] || BASEMAPS.esri).credit}${ign}${osm} · ${t('terrainCredit')}`;
 }
 export function updateMapCredit(): void {
   const html = mapCreditHtml();
@@ -470,10 +482,23 @@ liveBtn.onclick = setLive;
 // ---- local IGC files (offline replay) ----
 // Picker replaces the scene; drag-drop onto the map adds to it. Either way we
 // leave any live/OGN session first.
+// Import: IGC/GPX/KML tracks go to the replay; a .cup file adds its waypoints
+// (SeeYou) as POIs. A file set may contain both.
+async function importFiles(files: FileList | File[], replace: boolean): Promise<void> {
+  const arr = [...files], cups = arr.filter(f => /\.cup$/i.test(f.name));
+  if (cups.length) {
+    let added = 0;
+    clearWaypoints();   // a .cup import replaces the previous waypoint set (no duplicates on re-import)
+    for (const f of cups) { try { added += importCup(await f.text()); } catch { /* bad file */ } }
+    if (added && !S.showPeaks) { S.showPeaks = true; document.body.classList.add('peaks'); peaksBtn.textContent = t('on'); peaksBtn.classList.add('on'); }
+    render(); setStatus(`${added} ${t('peakWaypoints')}`);
+  }
+  if (arr.some(f => TRACK_EXT.test(f.name))) { stopLive(); loadTrackFiles(arr, replace); }
+}
 igcBtn.onclick = () => igcInput.click();
 igcInput.addEventListener('change', e => {
   const files = (e.target as HTMLInputElement).files;
-  if (files && files.length) { stopLive(); loadTrackFiles(files, false); }
+  if (files && files.length) importFiles(files, false);
   igcInput.value = ''; // allow re-selecting the same file
 });
 ['dragenter', 'dragover'].forEach(ev => mapDiv.addEventListener(ev, e => {
@@ -485,7 +510,7 @@ igcInput.addEventListener('change', e => {
 }));
 mapDiv.addEventListener('drop', e => {
   const files = (e as DragEvent).dataTransfer?.files;
-  if (files && files.length) { e.preventDefault(); stopLive(); loadTrackFiles(files, true); }
+  if (files && files.length) { e.preventDefault(); importFiles(files, true); }
 });
 
 // ---- collapse panel (keeps the map visible, esp. on phones) ----
@@ -530,6 +555,7 @@ export function applyI18n(): void {
   [...shadowsEl.options].forEach(o => { o.textContent = t(o.dataset.k!); });
   curtainBtn.textContent = S.altCurtain ? t('on') : t('off'); curtainBtn.classList.toggle('on', S.altCurtain);
   ignDemBtn.textContent = S.ignDem ? t('on') : t('off'); ignDemBtn.classList.toggle('on', S.ignDem);
+  peaksBtn.textContent = S.showPeaks ? t('on') : t('off'); peaksBtn.classList.toggle('on', S.showPeaks);
   attrBtn.textContent = S.showAttribution ? t('on') : t('off'); attrBtn.classList.toggle('on', S.showAttribution);
   [...trafficModeEl.options].forEach(o => o.textContent = t(o.dataset.k!));
   document.body.classList.toggle('traffic', S.trafficMode !== 'off');

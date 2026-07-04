@@ -16,6 +16,7 @@
 <div id="sun"></div>
 <div id="moon"></div>
 <div id="labels"></div>
+<div id="poiLabels"></div>
 <div id="attribution"></div>
 
 <div id="panel" class="card">
@@ -56,7 +57,7 @@
   </div>
   <div class="row"><button id="liveBtn" data-i18n="live" style="flex:1">🔴 En direct</button></div>
   <div class="row"><button id="igcBtn" data-i18n="loadIgc" data-i18n-title="igcHint" style="flex:1">📂 Fichier de trace…</button></div>
-  <input id="igcInput" type="file" accept=".igc,.IGC,.gpx,.GPX,.kml,.KML" multiple hidden>
+  <input id="igcInput" type="file" accept=".igc,.IGC,.gpx,.GPX,.kml,.KML,.cup,.CUP" multiple hidden>
   <div class="status" id="status"></div>
 
   <div id="controls">
@@ -135,6 +136,14 @@
     <div class="row spread">
       <label class="lbl" style="margin:0" data-i18n="ignDem" data-i18n-title="ignDemHint" title="">Détail France (IGN)</label>
       <button id="ignDemBtn">Désactivé</button>
+    </div>
+    <div class="row spread">
+      <label class="lbl" style="margin:0" data-i18n="peaks" data-i18n-title="peaksHint" title="">Sommets (OSM)</label>
+      <button id="peaksBtn">Désactivé</button>
+    </div>
+    <div class="row peaksOnly" style="flex-direction:column;align-items:stretch">
+      <label class="lbl"><span data-i18n="peakDensity">Densité des sommets</span></label>
+      <input id="peakDensity" type="range" min="0" max="1" value="0.35" step="0.05">
     </div>
     <div class="row" style="flex-direction:column;align-items:stretch">
       <label class="lbl"><span data-i18n="cacheScale">Taille du cache :</span> <b id="cacheszval">×1</b></label>
