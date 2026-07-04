@@ -9,7 +9,7 @@ interface Strings {
 
 export const I18N: Record<Lang, Strings> = {
   fr: {
-    h1: 'OGN — rejeu 3D',
+    h1: 'OGN 3D Viewer',
     sub: 'Choisissez un aérodrome (OACI) et une date, puis « Charger ».',
     airfieldLabel: 'Aérodrome (OACI)', dateLabel: 'Date', loadBtn: 'Charger',
     today: "Aujourd'hui", yesterday: 'Hier', collapse: 'Réduire le panneau', expand: 'Afficher le panneau',
@@ -65,7 +65,7 @@ export const I18N: Record<Lang, Strings> = {
     ],
   },
   en: {
-    h1: 'OGN — 3D replay',
+    h1: 'OGN 3D Viewer',
     sub: 'Pick an airfield (ICAO) and a date, then “Load”.',
     airfieldLabel: 'Airfield (ICAO)', dateLabel: 'Date', loadBtn: 'Load',
     today: 'Today', yesterday: 'Yesterday', collapse: 'Collapse panel', expand: 'Show panel',
@@ -121,7 +121,7 @@ export const I18N: Record<Lang, Strings> = {
     ],
   },
   de: {
-    h1: 'OGN — 3D-Wiedergabe',
+    h1: 'OGN 3D Viewer',
     sub: 'Wählen Sie einen Flugplatz (ICAO) und ein Datum, dann „Laden“.',
     airfieldLabel: 'Flugplatz (ICAO)', dateLabel: 'Datum', loadBtn: 'Laden',
     today: 'Heute', yesterday: 'Gestern', collapse: 'Panel einklappen', expand: 'Panel anzeigen',
@@ -177,7 +177,7 @@ export const I18N: Record<Lang, Strings> = {
     ],
   },
   es: {
-    h1: 'OGN — repetición 3D',
+    h1: 'OGN 3D Viewer',
     sub: 'Elija un aeródromo (OACI) y una fecha, luego «Cargar».',
     airfieldLabel: 'Aeródromo (OACI)', dateLabel: 'Fecha', loadBtn: 'Cargar',
     today: 'Hoy', yesterday: 'Ayer', collapse: 'Contraer panel', expand: 'Mostrar panel',
@@ -233,7 +233,7 @@ export const I18N: Record<Lang, Strings> = {
     ],
   },
   it: {
-    h1: 'OGN — replay 3D',
+    h1: 'OGN 3D Viewer',
     sub: 'Scegli un aeroporto (ICAO) e una data, poi «Carica».',
     airfieldLabel: 'Aeroporto (ICAO)', dateLabel: 'Data', loadBtn: 'Carica',
     today: 'Oggi', yesterday: 'Ieri', collapse: 'Comprimi pannello', expand: 'Mostra pannello',
