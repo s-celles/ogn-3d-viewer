@@ -36,8 +36,8 @@ d'info renvoie vers la page FlightBook correspondante.
 
 ## Fonctionnalités
 
-- **Chargement** — recherche d'aérodrome (code OACI ou national/FAA), **mode direct** temps réel, import **IGC / GPX / KML**, **découverte de spots** mondiaux par continent (records, championnats) — la liste est un [Tabular Data Package](data/spots.csv) maintenu par `just check-spots` — et **points chauds en direct** classant où les planeurs volent en ce moment.
-- **Scène 3D** — relief avec imagerie satellite (résolution réglable) et fond de carte au choix, un détail **IGN RGE ALTI / BD ORTHO** plus fin sur la France (*expérimental*), trois vues (ensemble, cockpit, poursuite), HUD, cône de finesse, ombres au sol, rideau d'altitude, étiquettes par aéronef.
+- **Chargement** — recherche d'aérodrome (code OACI ou national/FAA), **mode direct** temps réel, import de traces **IGC / GPX / KML** et de waypoints SeeYou **`.cup`**, **découverte de spots** mondiaux par continent (records, championnats) — la liste est un [Tabular Data Package](data/spots.csv) maintenu par `just check-spots` — et **points chauds en direct** classant où les planeurs volent en ce moment.
+- **Scène 3D** — relief avec imagerie satellite (résolution réglable) et fond de carte au choix, un détail **IGN RGE ALTI / BD ORTHO** plus fin sur la France (*expérimental*), trois vues (ensemble, cockpit, poursuite), HUD, cône de finesse, ombres au sol, rideau d'altitude, étiquettes par aéronef, et des **points d'intérêt** — sommets OSM nommés et waypoints `.cup` importés, avec icônes par type (aérodrome, vachable, sommet, obstacle, repère).
 - **Lecture** — curseur d'heure de la journée, lecture avant/arrière, préréglages 0,25× / 1× / 4× / 8× / 30× + champ de vitesse libre, modes de trace, effets (néon / contrail / bloom), lissage spline, graphes.
 - **Instruments & trafic** — attitude estimée, vario compensé (énergie totale), son du vario, radar cap-en-haut ou anti-collision directionnel.
 - **Application** — interface en **5 langues** (fr / en / de / es / it), liens partageables (site, date, vue, aéronef, vitesse, instant) avec **QR code**, **fond de carte** au choix (Esri / OpenTopoMap / OpenStreetMap), **réglages persistants** (localStorage + reset), **PWA hors ligne** avec cache de tuiles réglable, raccourcis clavier, et un **mode développeur** (`?dev=1` : fil de fer, FPS, compteurs de cache…).
@@ -58,7 +58,10 @@ un état partagé [`state.ts`](src/state.ts), etc.). Il utilise :
 - l'API publique [OGN FlightBook](https://flightbook.glidernet.org/) pour le
   carnet de vol et les traces IGC (appelée directement depuis le navigateur —
   l'API expose un CORS ouvert) ;
-- les tuiles d'élévation AWS Terrarium et l'imagerie Esri World Imagery pour le relief.
+- les tuiles d'élévation AWS Terrarium et l'imagerie Esri World Imagery pour le relief ;
+- l'API publique [Overpass](https://overpass-api.de/) pour les sommets nommés
+  d'OpenStreetMap, ainsi que des waypoints SeeYou `.cup` importés par l'utilisateur,
+  comme points d'intérêt.
 
 Le [script de build](scripts/build.ts) émet également un manifeste d'application
 web, des icônes et un service worker ([`sw.js`](scripts/build.ts)) : l'app est

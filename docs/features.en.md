@@ -8,7 +8,7 @@
 - **Hot spots (live)** — the **🔥** tab scans the OGN live network worldwide and ranks the areas where the most gliders are airborne *right now*, shown both as a list and as sized dots on the world map; click one to fly there (or load its airfield). The list is **filterable and sortable** — by country, a free-text search, and by activity / name / country — and these preferences are **saved** (localStorage) with a **↺** reset. The scan itself is throttled (a shared network): the header shows how long ago it ran and the **↻** button only re-scans after 15 minutes. Only aggregate counts per area are used, never individual aircraft.
 - **Airfield search** — by code (ICAO, or a national/FAA identifier) with autocomplete, for a given date.
 - **Live mode** — a real-time view pinned to the current time, refreshing active gliders every 20 s (recent fixes in full colour, older ones dimmed).
-- **Local file import** — drop or pick your own **IGC / GPX / KML** tracks to replay them the same way, without going through OGN.
+- **Local file import** — drop or pick your own **IGC / GPX / KML** tracks (or a SeeYou **`.cup`** waypoint file — see *Points of interest*) to replay them the same way, without going through OGN.
 
 ## The scene
 
@@ -23,6 +23,7 @@
 - **Ground shadows** — cast straight down (position indicator) or along the sun direction.
 - **Altitude curtain** — a translucent drape from each track down to the ground.
 - **Per-aircraft labels** — registration, altitude, speed, vario, heading.
+- **Points of interest** — show named **OpenStreetMap summits** around the view (a pole + elevation, adjustable density, label size scaling with the summit's importance), and/or import your **SeeYou `.cup`** waypoints (airfields, turnpoints, obstacles…). Each point gets an **icon for its type**: ✈ airfield, ▽ outlanding field, ▲ summit/pass, ✕ obstacle (mast, tower), ◆ landmark.
 
 ## Playback
 

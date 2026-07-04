@@ -4,7 +4,7 @@ description: "Les coulisses techniques d'OGN 3D Viewer : terrain en tuiles, reco
 author: Sébastien Celles
 lang: fr
 date: 2026-06-28
-updated: 2026-06-28
+updated: 2026-07-04
 tags: [vol-a-voile, ogn, deck-gl, typescript, webgl, dataviz, open-source]
 ---
 
@@ -51,6 +51,8 @@ La première est une question de fidélité des altitudes. Servi en http, le dé
 
 La seconde, plus intéressante, est le raccord entre dalles. Le terrain arrive en tuiles indépendantes, chacune transformée en son propre maillage. Tant qu'on construit ces maillages dans un repère métrique local à chaque tuile, les bords de deux dalles voisines ne tombent pas exactement au même endroit, et il apparaît de fines fentes le long des coutures. La solution a été de positionner chaque maillage directement en coordonnées géographiques (longitude/latitude), à partir de la *bounding box* exacte de la tuile : les bords partagés coïncident alors rigoureusement et les dalles se referment proprement. Le même cache de tuiles décodées sert ensuite à retrouver l'altitude du sol sous n'importe quel point chargé — sans requête réseau supplémentaire — pour empêcher les planeurs de passer sous le relief dans les reliefs escarpés.
 
+Sur ce relief se drape un **fond de carte** au choix — satellite Esri, OpenTopoMap ou OpenStreetMap. Et sur la France, une option expérimentale bascule vers un MNT bien plus fin — le **RGE ALTI / LIDAR HD** de l'IGN — texturé par la **BD ORTHO 20 cm**, le tout servi sans clé par la Géoplateforme ; ailleurs, on retombe sur les sources mondiales.
+
 ## Un ciel calculé
 
 L'éclairage n'est pas décoratif : il est calculé à partir de la position réelle du soleil. Pour l'aérodrome chargé, la date et l'heure de lecture, l'application déduit la hauteur du soleil (formule de position solaire NOAA/SunCalc) et en tire la couleur du ciel — bleu franc soleil haut, teintes dorées rasantes au lever et au coucher, crépuscule puis nuit sous l'horizon. La même position oriente la lumière directionnelle qui éclaire le relief : son intensité faiblit le soir, sa teinte se réchauffe près de l'horizon. Le disque solaire et la Lune — avec sa phase, elle aussi calculée — prennent place dans le ciel, et un terminateur jour/nuit évite que le monde soit uniformément sombre la nuit. Comme la lumière est directionnelle, le relief se modèle au fil de la journée : les versants exposés s'éclairent, ceux qui tournent le dos au soleil s'assombrissent, et ce modelé s'accentue quand le soleil rase l'horizon — un ombrage du relief par la lumière, plutôt que des ombres portées calculées. Concrètement, quand on déroule la journée, l'ombre et la lumière suivent le vrai soleil.
@@ -78,6 +80,12 @@ Tout est tiré en direct de l'API [FlightBook](https://flightbook.glidernet.org/
 Un mot, enfin, sur les données : elles sont mises à disposition gratuitement mais ne sont pas « libres de droits ». Leur réutilisation est encadrée par la [politique d'usage de l'OGN](https://www.glidernet.org/ogn-data-usage/), qui les place sous licence ODbL — un cadre qu'on se doit de respecter quand on construit dessus, notamment vis-à-vis des pilotes ayant choisi de ne pas être suivis ou identifiés. L'OGN repose entièrement sur des bénévoles et leurs stations de réception, et mérite d'être crédité à ce titre.
 
 L'interface est trilingue (français, anglais, allemand), installable en PWA, et les modules « purs » — parsing IGC, géométrie de vol, position du soleil — sont couverts par des tests unitaires.
+
+## Des repères dans le paysage : sommets et waypoints
+
+Pour situer un vol dans son terrain, l'application peut planter des repères dans la scène. Les **sommets nommés** proviennent d'OpenStreetMap, interrogé à la volée via l'API publique [Overpass](https://overpass-api.de/) (ouverte, sans clé) autour du point de vue courant ; les résultats sont mis en cache par zone (mémoire + `localStorage`), si bien qu'un panoramique déjà exploré ne relance aucune requête. La taille de l'étiquette croît avec l'altitude du sommet, pour que les grands se détachent des petits, et un curseur règle la densité affichée.
+
+On peut aussi importer ses propres **waypoints au format SeeYou `.cup`** (celui des calculateurs XCSoar / LK8000) — aérodromes, points de virage, vachables, obstacles. Chaque point est catégorisé d'après sa colonne de style et reçoit une icône et une couleur : ✈ aérodrome, ▽ vachable, ▲ sommet ou col, ✕ obstacle (antenne, pylône), ◆ repère. Comme un fichier national peut compter des milliers de points, seul le voisinage du point de vue est dessiné, pour rester fluide.
 
 ## Limites assumées
 

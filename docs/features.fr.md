@@ -8,7 +8,7 @@ Rejeu 3D des vols de planeurs de l'[Open Glider Network](http://wiki.glidernet.o
 - **Points chauds (direct)** — l'onglet **🔥** scanne le réseau OGN en direct dans le monde entier et classe les zones où le plus de planeurs volent *en ce moment*, sous forme de liste et de points dimensionnés sur la carte du monde ; un clic vous y emmène (ou charge l'aérodrome). La liste est **filtrable et triable** — par pays, par recherche libre, et par activité / nom / pays — et ces préférences sont **enregistrées** (localStorage) avec une remise à zéro **↺**. Le scan lui-même est limité (réseau partagé) : l'en-tête indique depuis quand il date et le bouton **↻** ne relance qu'au bout de 15 minutes. Seuls des décomptes agrégés par zone sont utilisés, jamais des aéronefs individuels.
 - **Recherche d'aérodrome** — par code (OACI ou identifiant national/FAA) avec autocomplétion, pour une date donnée.
 - **Mode direct** — vue temps réel épinglée à l'heure courante, rafraîchissant les planeurs actifs toutes les 20 s (balises récentes en couleur, plus anciennes atténuées).
-- **Import de fichiers locaux** — glissez ou choisissez vos propres traces **IGC / GPX / KML** pour les rejouer de la même façon, sans passer par OGN.
+- **Import de fichiers locaux** — glissez ou choisissez vos propres traces **IGC / GPX / KML** (ou un fichier de points **`.cup`** SeeYou — voir *Points d'intérêt*) pour les rejouer de la même façon, sans passer par OGN.
 
 ## La scène
 
@@ -23,6 +23,7 @@ Rejeu 3D des vols de planeurs de l'[Open Glider Network](http://wiki.glidernet.o
 - **Ombres au sol** — projetées à la verticale (indicateur de position) ou selon la direction du soleil.
 - **Rideau d'altitude** — un voile translucide reliant chaque trace au sol.
 - **Étiquettes par aéronef** — immatriculation, altitude, vitesse, vario, cap.
+- **Points d'intérêt** — affichez les **sommets nommés** d'OpenStreetMap autour de la vue (piquet + altitude, densité réglable, taille du texte selon l'importance du sommet), et/ou importez vos **waypoints SeeYou `.cup`** (aérodromes, points de virage, obstacles…). Chaque point reçoit une **icône selon son type** : ✈ aérodrome, ▽ vachable, ▲ sommet/col, ✕ obstacle (antenne, pylône), ◆ repère.
 
 ## Lecture
 

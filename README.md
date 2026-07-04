@@ -35,8 +35,8 @@ matching FlightBook page.
 
 ## Features
 
-- **Loading** — airfield search (ICAO or national/FAA code), real-time **live mode**, **IGC / GPX / KML** import, **spot discovery** of famous gliding sites worldwide by continent (records, championships) — the list is a [Tabular Data Package](data/spots.csv) kept current by `just check-spots` — and **live hot spots** ranking where gliders are airborne right now.
-- **3D scene** — terrain with satellite imagery (adjustable resolution) and a selectable base map, an *experimental* finer **IGN RGE ALTI / BD ORTHO** detail over France, three views (overview, cockpit, chase), HUD, final-glide cone, ground shadows, altitude curtain, per-aircraft labels.
+- **Loading** — airfield search (ICAO or national/FAA code), real-time **live mode**, **IGC / GPX / KML** track and SeeYou **`.cup`** waypoint import, **spot discovery** of famous gliding sites worldwide by continent (records, championships) — the list is a [Tabular Data Package](data/spots.csv) kept current by `just check-spots` — and **live hot spots** ranking where gliders are airborne right now.
+- **3D scene** — terrain with satellite imagery (adjustable resolution) and a selectable base map, an *experimental* finer **IGN RGE ALTI / BD ORTHO** detail over France, three views (overview, cockpit, chase), HUD, final-glide cone, ground shadows, altitude curtain, per-aircraft labels, and **points of interest** — named OSM summits and imported `.cup` waypoints with per-type icons (airfield, outlanding, summit, obstacle, landmark).
 - **Playback** — time-of-day scrubber, forward/reverse play, 0.25× / 1× / 4× / 8× / 30× presets plus a custom-speed field, track modes, trail effects (neon / contrail / bloom), spline smoothing, graphs.
 - **Instruments & traffic** — estimated attitude, total-energy vario, vario audio, track-up radar or directional anti-collision.
 - **App** — **5-language** UI (en / fr / de / es / it), shareable links (site, date, view, aircraft, speed, moment) with a **QR code**, selectable **base map** (Esri / OpenTopoMap / OpenStreetMap), **persisted settings** (localStorage + reset), **offline PWA** with an adjustable tile cache, keyboard shortcuts, and a **developer mode** (`?dev=1`: wireframe, FPS, cache counters…).
@@ -56,7 +56,9 @@ geometry, [`terrain.ts`](src/terrain.ts), [`render.ts`](src/render.ts),
 - the public [OGN FlightBook API](https://flightbook.glidernet.org/) for the
   logbook and IGC tracks (called directly from the browser — the API exposes
   open CORS);
-- AWS Terrarium elevation tiles and Esri World Imagery for the terrain.
+- AWS Terrarium elevation tiles and Esri World Imagery for the terrain;
+- the public [Overpass API](https://overpass-api.de/) for named OpenStreetMap
+  summits, plus optional user-imported SeeYou `.cup` waypoints, as points of interest.
 
 The [build script](scripts/build.ts) also emits a web-app manifest, icons and a
 service worker ([`sw.js`](scripts/build.ts)): the app shell is served
