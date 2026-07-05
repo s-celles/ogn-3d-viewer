@@ -27,6 +27,7 @@
 - **2D-Minikarte** — eine flache Einschub-Karte (oben rechts) mit der gewählten Grundkarte sowie Spur und Position des verfolgten (bzw. in der Übersicht fokussierten) Luftfahrzeugs zur Orientierung; andere fliegende Luftfahrzeuge erscheinen als Punkte. Umschaltbar.
 - **HUD in der Übersicht** *(optional, standardmäßig aus)* — das Telemetrie-Feld (Kennzeichen, Kurs, Geschwindigkeit, Höhe, Vario) des **fokussierten** Luftfahrzeugs auch in der Übersicht anzeigen. **J / K**, die **◀ / ▶** und **1 / 2 / 3** wechseln das fokussierte Luftfahrzeug (beim Verschieben der Ansicht übernimmt wieder das der Mitte nächste).
 - **Nur aktive Luftfahrzeuge** *(optional, standardmäßig aus)* — nur gerade **fliegende** Luftfahrzeuge zeigen und durchschalten; blendet die übrigen Spuren und Legendenzeilen aus (nie das verfolgte).
+- **Luftmasse** *(optional, standardmäßig aus, experimentell)* — rekonstruiert die **Thermik des Tages** aus den Spuren (Kreisen + Steigen) und zeigt sie als **Schläuche** mit **Cumulus** an einer gemeinsamen Basis, in den Wind geneigt. Wolkenbasis und Wind werden per Wettermodell (**Open-Meteo**) verfeinert, sonst aus den Spuren geschätzt. **Sehr grobes Modell** (siehe *Hinweise & Grenzen*).
 
 ## Wiedergabe
 
@@ -68,6 +69,7 @@ Fügen Sie `?dev=1` zur URL hinzu für ein technisches Panel: Gelände-**Drahtgi
 
 ## Hinweise & Grenzen
 
+- Die **Luftmasse** (aus den Spuren rekonstruierte Thermik) und die **Wetter**-Anreicherung (Wolkenbasis, Wind) sind **sehr grobe Modelle**, nur zur Veranschaulichung — weder gemessen noch vorhersagend.
 - OGN-Spuren hängen vom Empfang der Bodenstationen ab — Lücken und Aussetzer sind möglich.
 - Die Fluglage (Quer-/Längsneigung) wird aus Bodenspur und Geschwindigkeit **geschätzt**, nicht gemessen.
 - OGN speichert IGC-Spuren nur **~24 Stunden**, ältere Daten sind daher oft leer.

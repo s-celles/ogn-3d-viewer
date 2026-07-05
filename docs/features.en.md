@@ -27,6 +27,7 @@
 - **2D minimap** — a flat inset map (top-right) with the chosen base map plus the followed aircraft's track and position (or the focused one in the overview), to keep your bearings; other airborne aircraft show as dots. Toggleable.
 - **HUD in the overview** *(opt-in, off by default)* — show the telemetry card (registration, heading, speed, altitude, vario) of the **focused** aircraft in the overview too. **J / K**, the **◀ / ▶** and **1 / 2 / 3** change the focused aircraft (panning hands focus back to the one nearest the centre).
 - **Active aircraft only** *(opt-in, off by default)* — only show and cycle aircraft **airborne at the current time**; hides the others' traces and legend rows (never the one you follow).
+- **Air mass** *(opt-in, off by default, experimental)* — reconstructs the **day's thermals** from the tracks (circling + climb) and shows them as **plumes** capped by **cumulus** at a common base, leaned into the wind. Cloudbase and wind are refined by a weather model (**Open-Meteo**) when available, else estimated from the tracks. **Very approximate model** (see *Notes & limitations*).
 
 ## Playback
 
@@ -68,6 +69,7 @@ Add `?dev=1` to the URL for a technical panel: terrain **wireframe**, **bare rel
 
 ## Notes & limitations
 
+- The **air mass** (thermals reconstructed from the tracks) and the **weather** enrichment (cloudbase, wind) are **very rough models**, illustrative only — neither measured nor predictive.
 - OGN tracks depend on ground-station reception — gaps and dropouts are possible.
 - Attitude (bank/pitch) is **estimated** from ground track and speed, not measured.
 - OGN keeps IGC tracks for only **~24 hours**, so older dates are often empty.

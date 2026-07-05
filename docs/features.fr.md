@@ -27,6 +27,7 @@ Rejeu 3D des vols de planeurs de l'[Open Glider Network](http://wiki.glidernet.o
 - **Mini-carte 2D** — une carte plate en incrustation (coin haut-droit) avec le fond de carte choisi, la trace et la position de l'aéronef suivi (ou focalisé en vue d'ensemble), pour se repérer ; les autres aéronefs en vol y figurent en points. Activable.
 - **HUD en vue d'ensemble** *(option, désactivée par défaut)* — afficher le bandeau (immat, cap, vitesse, altitude, vario) de l'aéronef **focalisé** aussi en vue d'ensemble. **J / K**, les **◀ / ▶** et **1 / 2 / 3** changent l'aéronef focalisé (le déplacement de la vue rend la main au « plus proche du centre »).
 - **Aéronefs actifs seulement** *(option, désactivée par défaut)* — n'afficher et ne faire défiler que les aéronefs **en vol à l'instant courant** ; masque les autres traces et lignes de légende (jamais celui que vous suivez).
+- **Masse d'air** *(option, désactivée par défaut, expérimental)* — reconstruit les **thermiques du jour** à partir des traces (spirales + montées) et les représente en **panaches** coiffés de **cumulus** à une base commune, inclinés au vent. Base des nuages et vent affinés par un modèle météo (**Open-Meteo**) quand disponible, sinon estimés depuis les traces. **Modèle très approximatif** (voir *Notes & limites*).
 
 ## Lecture
 
@@ -68,6 +69,7 @@ Ajoutez `?dev=1` à l'URL pour un panneau technique : **fil de fer** du relief, 
 
 ## Notes & limites
 
+- La **masse d'air** (thermiques reconstruits depuis les traces) et l'enrichissement **météo** (base des nuages, vent) sont des **modèles très approximatifs**, purement illustratifs — ni mesurés ni prédictifs.
 - Les traces OGN dépendent de la réception par les stations au sol — trous et décrochages possibles.
 - L'attitude (inclinaison/assiette) est **estimée** à partir de la trace sol et de la vitesse, non mesurée.
 - L'OGN ne conserve les traces IGC qu'environ **24 h**, les dates anciennes sont donc souvent vides.
