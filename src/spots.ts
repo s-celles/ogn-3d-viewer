@@ -635,7 +635,7 @@ function rebuildDots(): void {
     dot.style.cssText = `position:absolute;width:10px;height:10px;border-radius:50%;transform:translate(-50%,-50%);` +
       `cursor:pointer;transition:transform .1s,left .35s,top .35s;border:1px solid rgba(0,0,0,.7);` +
       `background:${s.user ? '#4ea1ff' : on ? 'var(--accent)' : '#9aa6b2'}`;
-    dot.title = `${s.name} · ${s.code}`;
+    dot.title = `${isoFlag(s.country) || codeFlag(s.code) || '📍'} ${s.name} · ${s.code}`;
     dot.onmouseenter = () => fromMap(s);
     dot.onmouseleave = () => highlight(s.code, false);
     dot.onclick = () => pick(s);
