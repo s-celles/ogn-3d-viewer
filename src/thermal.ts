@@ -75,7 +75,7 @@ function lcParams(g: TGrid, cLat: number, cLon: number, R: number): { alb: Float
 // Replay instant (ms UTC) for the sun position.
 const nowMs = (): number => Date.parse(S.date + 'T00:00:00Z') + (S.G0 + S.cur) * 1000;
 
-let cache: { terr: TGrid; k: number; bucket: number; wxr: boolean; lcv: number; blend: number; meshes: { color: number[]; mesh: any }[] } | null = null;
+let cache: { terr: TGrid; k: number; bucket: number; wxr: boolean; lcv: number; comp: number; meshes: { color: number[]; mesh: any }[] } | null = null;
 
 /** Draped patches coloured by the estimated thermal updraft (Vz), from sun × slope
  *  × heat flux × w*. Empty at night or when the terrain/date is unavailable. */
@@ -95,10 +95,11 @@ export function thermalLayers(k: number): any[] {
   const zi = Number.isFinite(rad.blh) && rad.blh > 200 ? rad.blh : 1500;
 
   const lcp = lcParams(g, cLat, cLon, R);
-  const wind = windBg(cLat, cLon);   // for the slope-lift term of the combined field
-  const blend = S.liftBlend;         // 0 = pure thermal, 1 = pure slope lift
+  const wind = windBg(cLat, cLon);   // for the slope-lift component
+  const kT = S.liftThermal ? 1 : 0, kS = S.liftSlope ? 1 : 0, comp = kT + 2 * kS;   // which components are on
+  if (!comp) return [];              // no component selected → nothing to draw
   const bucket = Math.floor((S.G0 + S.cur) / 900);   // recompute every ~15 min of sim time
-  if (!cache || cache.terr !== g || cache.k !== k || cache.bucket !== bucket || cache.wxr !== !!wx || cache.lcv !== lcp.lcv || cache.blend !== blend) {
+  if (!cache || cache.terr !== g || cache.k !== k || cache.bucket !== bucket || cache.wxr !== !!wx || cache.lcv !== lcp.lcv || cache.comp !== comp) {
     const bins = COLORS.map(() => ({ pos: [] as number[], nrm: [] as number[], idx: [] as number[] }));
     const nlon = (i: number) => g.cLon + (-g.R + i * g.sp) / g.mLng, nlat = (j: number) => g.cLat + (-g.R + j * g.sp) / g.mLat;
     // Vz per node: sun incidence on the slope × heat flux (albedo + sensible fraction
@@ -112,7 +113,7 @@ export function thermalLayers(k: number): any[] {
       const H = (dni * cosInc + diff) * (1 - (alb ? alb[idx] : ALBEDO)) * (sens ? sens[idx] : BETA);
       const thermal = 0.6 * Math.cbrt((G / THETA) * (H / RHOCP) * zi);   // thermal updraft (m/s)
       const slope = wu * n.gx + wv * n.gy;                               // slope: windward + (lee −) (m/s)
-      vzN[idx] = (1 - blend) * thermal + blend * slope;                  // combined lift potential (signed)
+      vzN[idx] = kT * thermal + kS * slope;                              // sum of the selected components (signed)
     }
     // Per-cell Vz into a 2D grid, then a light 3×3 blur — kills the bin checkerboard.
     const NW = GN - 1, W = new Float32Array(NW * NW).fill(NaN);
@@ -150,7 +151,7 @@ export function thermalLayers(k: number): any[] {
         indices: { value: new Uint32Array(B.idx), size: 1 }, mode: 4,
       },
     } : null).filter(Boolean) as { color: number[]; mesh: any }[];
-    cache = { terr: g, k, bucket, wxr: !!wx, lcv: lcp.lcv, blend, meshes };
+    cache = { terr: g, k, bucket, wxr: !!wx, lcv: lcp.lcv, comp, meshes };
   }
   return cache.meshes.map((m, i) => new SimpleMeshLayer({
     id: 'thermal-' + i, data: [{}], getPosition: () => [0, 0, 0], _instanced: false,
