@@ -210,6 +210,10 @@ export interface AppState {
   activeOnly: boolean;
   // Show the reconstructed air mass (thermal columns + cumulus) from the tracks.
   airMass: boolean;
+  // Wind-flow representation: 'off'; 2D draped variants — 'drapeVec' (arrows),
+  // 'drapeCol' (speed colours), 'drapeBoth', 'barbs' (station wind barbs); or 3D
+  // profile views — 'layers' (arrows at altitude bands), 'rings', 'hodograph'.
+  windMode: 'off' | 'drapeVec' | 'drapeCol' | 'drapeBoth' | 'barbs' | 'layers' | 'rings' | 'hodograph';
   // Reference for the parenthetical height next to the altitude:
   // 'af' = above the departure aerodrome (QFE analogue), 'ground' = AGL,
   // 'off' = altitude only (no height shown).

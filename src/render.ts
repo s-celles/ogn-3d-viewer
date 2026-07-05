@@ -17,6 +17,7 @@ import { getPeaks, getWaypoints, loadPeaks, type Poi } from './poi';
 import { updateMinimap } from './minimap';
 import { airMassLayers } from './airmass';
 import { ridgeLayers } from './ridge';
+import { windLayers } from './wind';
 import { poiLabelsDiv } from './dom';
 import { CHASE, FAR_PLANE } from './config';
 import { saveSettings } from './settings';
@@ -509,6 +510,7 @@ function dynamicLayers() {
     })()),
     ...(S.glideCone ? glideConeLayers(k) : []),
     ...(S.airMass ? [...ridgeLayers(k), ...airMassLayers(k)] : []),
+    ...(S.windMode !== 'off' ? windLayers(k) : []),
     ...poiPoleLayers(k),
   ];
 }

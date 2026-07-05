@@ -21,6 +21,13 @@
 <div id="labels"></div>
 <div id="poiLabels"></div>
 <div id="minimap"><span class="mmN">N</span></div>
+<div id="windDial" class="card" data-i18n-title="windHint" title="">
+  <svg viewBox="-16 -16 32 32" width="40" height="40" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="0" cy="0" r="15" fill="#0e141b" stroke="rgba(255,255,255,.28)" stroke-width="1.5"/>
+    <g id="windArrow"><polygon points="0,-11 5,6 0,2 -5,6" fill="#dfe8f4"/></g>
+  </svg>
+  <div class="windTxt"><b id="windSpd">–</b> km/h<br><small id="windDir"></small></div>
+</div>
 <div id="attribution"></div>
 
 <div id="panel" class="card">
@@ -199,6 +206,10 @@
     <div class="row spread">
       <label class="lbl" style="margin:0" data-i18n="airMass" data-i18n-title="airMassHint" title="">Masse d'air</label>
       <button id="airMassBtn">Désactivé</button>
+    </div>
+    <div class="row spread">
+      <label class="lbl" style="margin:0" data-i18n="wind" data-i18n-title="windHint" title="">Vent</label>
+      <select id="windMode" style="width:auto;flex:0 0 auto"></select>
     </div>
     <div class="row spread">
       <label class="lbl" style="margin:0" data-i18n="attribution">Attribution carte</label>

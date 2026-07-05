@@ -43,6 +43,11 @@ body.loaded.minimap #minimap{display:block}
 #minimap .mmN{position:absolute;top:3px;left:50%;transform:translateX(-50%);z-index:3;
   font:700 10px/1 Helvetica,Arial,sans-serif;color:#fff;text-shadow:0 1px 2px #000,0 0 3px #000;pointer-events:none}
 @media (max-width:640px){ #minimap{width:120px;height:120px;right:8px;top:8px} }
+#windDial{left:12px;bottom:12px;z-index:5;display:none;align-items:center;gap:9px;padding:7px 11px}
+body.windon #windDial{display:flex}
+#windDial .windTxt{font-size:12px;line-height:1.25;color:#e8eef5;white-space:nowrap}
+#windDial .windTxt b{font-size:15px}
+#windDial small{color:var(--mut)}
 .card{position:fixed;background:var(--card);backdrop-filter:blur(8px);
       border:1px solid var(--line);border-radius:12px;padding:12px 14px;
       box-shadow:0 8px 30px rgba(0,0,0,.45)}

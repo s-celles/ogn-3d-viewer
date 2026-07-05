@@ -5,7 +5,7 @@ import { API_BASE, REPO_URL, MINZ, MAXZ, PMIN, PMAX, CHASE, clampv, BASEMAPS, IG
 import { APP_VERSION, GIT_HASH } from './version';
 import {
   subjEl, viewsEl, cammodeEl, traceEl, trailFxEl, smoothBtn, compBtn, bankBtn, soundBtn, trafficModeEl, graphModeEl, graphClose, winEl, winval, playBtn, revBtn, segEl,
-  exoEl, exval, groundEl, groundval, cacheEl, cacheval, acscaleEl, acscaleval, coneBtn, finesseEl, finval, safetyEl, safeval, coneRadEl, coneradval, labelsBtn, labelFieldsEl, shadowsEl, basemapEl, ignDemBtn, peaksBtn, peakDensityEl, minimapBtn, overviewHudBtn, activeOnlyBtn, airMassBtn, heightRefEl, clock12Btn, clearWpBtn, attribEl, curtainBtn, attrBtn, pitchEl, pitchval, scrub, scrubMin, scrubMax, clkEl, tzEl, lglist, rose, altsl, icaoEl, fblink, acEl,
+  exoEl, exval, groundEl, groundval, cacheEl, cacheval, acscaleEl, acscaleval, coneBtn, finesseEl, finval, safetyEl, safeval, coneRadEl, coneradval, labelsBtn, labelFieldsEl, shadowsEl, basemapEl, ignDemBtn, peaksBtn, peakDensityEl, minimapBtn, overviewHudBtn, activeOnlyBtn, airMassBtn, windModeEl, heightRefEl, clock12Btn, clearWpBtn, attribEl, curtainBtn, attrBtn, pitchEl, pitchval, scrub, scrubMin, scrubMax, clkEl, tzEl, lglist, rose, altsl, icaoEl, fblink, acEl,
   dateEl, loadBtn, langEl, discEl, infoBtn, copyBtn, shareBtn, collapseBtn, liveBtn, igcBtn, igcInput, mapDiv, prevAc, nextAc, resetSettingsBtn, afInfo,
 } from './dom';
 import { codeFlag, flag } from './flags';
@@ -281,6 +281,8 @@ export function syncControls(): void {
   activeOnlyBtn.textContent = S.activeOnly ? t('on') : t('off'); activeOnlyBtn.classList.toggle('on', S.activeOnly);
   heightRefEl.value = S.heightRef;
   airMassBtn.textContent = S.airMass ? t('on') : t('off'); airMassBtn.classList.toggle('on', S.airMass);
+  windModeEl.value = S.windMode;
+  document.body.classList.toggle('windon', S.windMode !== 'off');
   clock12Btn.textContent = S.clock12 ? '12 h' : '24 h';
   document.body.classList.toggle('haswp', getWaypoints().length > 0);
   exoEl.value = String(S.exo); exval.textContent = S.exo.toFixed(1) + '×';
@@ -425,6 +427,14 @@ airMassBtn.onclick = () => {
   S.airMass = !S.airMass;
   airMassBtn.textContent = S.airMass ? t('on') : t('off'); airMassBtn.classList.toggle('on', S.airMass); render();
 };
+// ---- wind-flow representation: off / 2D drape / 3D altitude layers ----
+([['off', 'off'], ['drapeVec', 'windDrapeVec'], ['drapeCol', 'windDrapeCol'], ['drapeBoth', 'windDrapeBoth'], ['barbs', 'windBarbs'], ['layers', 'windLayers'], ['rings', 'windRings'], ['hodograph', 'windHodograph']] as const)
+  .forEach(([v, k]) => { const o = document.createElement('option'); o.value = v; o.dataset.k = k; windModeEl.appendChild(o); });
+windModeEl.value = S.windMode;
+windModeEl.addEventListener('change', e => {
+  S.windMode = (e.target as HTMLSelectElement).value as 'off' | 'drapeVec' | 'drapeCol' | 'drapeBoth' | 'barbs' | 'layers' | 'rings' | 'hodograph';
+  document.body.classList.toggle('windon', S.windMode !== 'off'); render();
+});
 // ---- cartographic attribution overlay (on by default) ----
 attrBtn.onclick = () => {
   S.showAttribution = !S.showAttribution;
@@ -641,6 +651,7 @@ export function applyI18n(): void {
   [...labelFieldsEl.children].forEach(b => { asEl(b).textContent = t(asEl(b).dataset.k!); });
   [...shadowsEl.options].forEach(o => { o.textContent = t(o.dataset.k!); });
   [...heightRefEl.options].forEach(o => { o.textContent = t(o.dataset.k!); });
+  [...windModeEl.options].forEach(o => { o.textContent = t(o.dataset.k!); });
   curtainBtn.textContent = S.altCurtain ? t('on') : t('off'); curtainBtn.classList.toggle('on', S.altCurtain);
   ignDemBtn.textContent = S.ignDem ? t('on') : t('off'); ignDemBtn.classList.toggle('on', S.ignDem);
   peaksBtn.textContent = S.showPeaks ? t('on') : t('off'); peaksBtn.classList.toggle('on', S.showPeaks);
