@@ -5,7 +5,7 @@ import { API_BASE, REPO_URL, MINZ, MAXZ, PMIN, PMAX, CHASE, clampv, BASEMAPS, IG
 import { APP_VERSION, GIT_HASH } from './version';
 import {
   subjEl, viewsEl, cammodeEl, traceEl, trailFxEl, smoothBtn, compBtn, bankBtn, soundBtn, trafficModeEl, graphModeEl, graphClose, winEl, winval, playBtn, revBtn, segEl,
-  exoEl, exval, groundEl, groundval, cacheEl, cacheval, acscaleEl, acscaleval, coneBtn, finesseEl, finval, safetyEl, safeval, coneRadEl, coneradval, labelsBtn, labelFieldsEl, shadowsEl, basemapEl, ignDemBtn, peaksBtn, peakDensityEl, minimapBtn, overviewHudBtn, activeOnlyBtn, clearWpBtn, attribEl, curtainBtn, attrBtn, pitchEl, pitchval, scrub, scrubMin, scrubMax, clkEl, tzEl, lglist, rose, altsl, icaoEl, fblink, acEl,
+  exoEl, exval, groundEl, groundval, cacheEl, cacheval, acscaleEl, acscaleval, coneBtn, finesseEl, finval, safetyEl, safeval, coneRadEl, coneradval, labelsBtn, labelFieldsEl, shadowsEl, basemapEl, ignDemBtn, peaksBtn, peakDensityEl, minimapBtn, overviewHudBtn, activeOnlyBtn, clock12Btn, clearWpBtn, attribEl, curtainBtn, attrBtn, pitchEl, pitchval, scrub, scrubMin, scrubMax, clkEl, tzEl, lglist, rose, altsl, icaoEl, fblink, acEl,
   dateEl, loadBtn, langEl, discEl, infoBtn, copyBtn, shareBtn, collapseBtn, liveBtn, igcBtn, igcInput, mapDiv, prevAc, nextAc, resetSettingsBtn, afInfo,
 } from './dom';
 import { codeFlag } from './flags';
@@ -14,7 +14,7 @@ import qrcode from 'qrcode-generator';
 const HAS_SHARE = typeof navigator !== 'undefined' && 'share' in navigator;   // Web Share API available?
 import { clearStored } from './settings';
 import { postCacheCap } from './sw-cache';
-import { subjectTrack, airborne, isActive, headingAt, clampCur, fmt, dayShift, statsFor } from './flight-math';
+import { subjectTrack, airborne, isActive, headingAt, clampCur, fmt, fmtTod, dayShift, statsFor } from './flight-math';
 import { makeTerrain, clearDemCache } from './terrain';
 import { render, updateHUD } from './render';
 import { loadFlights, refreshLive, statusMsg, setStatus, rebuild, syncUrl, loadTrackFiles } from './data';
@@ -45,8 +45,7 @@ export function syncUI(): void {
   } else if (S.live) {
     // Live with an empty sky (no aircraft yet): still show the current wall-clock time.
     const tz = S.clockUTC ? 0 : (S.AF ? S.AF.tz_off : 0);
-    const s = (((Math.floor(Date.now() / 1000 + tz * 3600)) % 86400) + 86400) % 86400, z = (n: number) => String(n).padStart(2, '0');
-    clkEl.textContent = `${z(Math.floor(s / 3600))}:${z(Math.floor(s / 60) % 60)}:${z(s % 60)}`;
+    clkEl.textContent = fmtTod(Date.now() / 1000 + tz * 3600);
     tzEl.textContent = tzLabel;
   } else {
     clkEl.textContent = '--:--'; tzEl.textContent = tzLabel;
@@ -54,13 +53,14 @@ export function syncUI(): void {
   scrub.value = String(Math.round(S.cur / S.SPAN * 1000));
   // Anchor the time-of-day slider to local clock times (first → last beacon), so
   // its scale reads as the local time of day rather than abstract 0…100%.
-  scrubMin.textContent = S.ready ? fmt(0).slice(0, 5) : '--:--';
-  scrubMax.textContent = S.ready ? fmt(S.SPAN).slice(0, 5) : '--:--';
+  scrubMin.textContent = S.ready ? fmt(0, false) : '--:--';
+  scrubMax.textContent = S.ready ? fmt(S.SPAN, false) : '--:--';
   updateFbLink();
 }
 scrub.addEventListener('input', e => { if (!S.ready) return; S.cur = +(e.target as HTMLInputElement).value / 1000 * S.SPAN; render(); syncUI(); });
 // Click the clock to toggle UTC ↔ the airfield's local time (persisted via settings).
 clkEl.parentElement?.addEventListener('click', () => { S.clockUTC = !S.clockUTC; syncUI(); });
+clock12Btn.onclick = () => { S.clock12 = !S.clock12; clock12Btn.textContent = S.clock12 ? '12 h' : '24 h'; syncUI(); };
 
 // ---- view toggle ----
 (['over', 'fpv', 'chase'] as Mode[]).forEach(m => {
@@ -279,6 +279,7 @@ export function syncControls(): void {
   document.body.classList.toggle('ovhud', S.overviewHud);
   overviewHudBtn.textContent = S.overviewHud ? t('on') : t('off'); overviewHudBtn.classList.toggle('on', S.overviewHud);
   activeOnlyBtn.textContent = S.activeOnly ? t('on') : t('off'); activeOnlyBtn.classList.toggle('on', S.activeOnly);
+  clock12Btn.textContent = S.clock12 ? '12 h' : '24 h';
   document.body.classList.toggle('haswp', getWaypoints().length > 0);
   exoEl.value = String(S.exo); exval.textContent = S.exo.toFixed(1) + '×';
   groundEl.value = String(S.groundZoom); groundval.textContent = 'z' + S.groundZoom;

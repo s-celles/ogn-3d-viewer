@@ -208,6 +208,8 @@ export interface AppState {
   activeOnly: boolean;
   // Show the clock in UTC instead of the airfield's local time.
   clockUTC: boolean;
+  // 12-hour clock (AM/PM) instead of 24-hour.
+  clock12: boolean;
   // Follow the browser locale for the UI language (the "Auto" language choice).
   langAuto: boolean;
   windowMin: number;

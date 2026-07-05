@@ -282,14 +282,21 @@ export function gliderArrow(tr: RenderTrack, time: number): [Pos3, Pos3, Pos3] {
 }
 
 /** Format a relative time as a local HH:MM:SS clock string. */
-export function fmt(secRel: number): string {
-  // Time of day, in UTC or at the airfield's local time (S.clockUTC). Wrap into
-  // [0, 86400) BEFORE splitting so a western time zone / midnight roll-over never
-  // yields negative H:M:S (e.g. CYHE at UTC-7 showing "-7:-34:-22").
-  const tz = S.clockUTC ? 0 : (S.AF ? S.AF.tz_off : 0);
-  const s = (((Math.floor(S.G0 + secRel + tz * 3600)) % 86400) + 86400) % 86400;
+/** Format a time of day (any real second count) as HH:MM[:SS], 24- or 12-hour
+ *  (S.clock12). Wraps into [0, 86400) first, so a western time zone / midnight
+ *  roll-over never yields negative H:M:S. */
+export function fmtTod(sec: number, withSec = true): string {
+  const s = (((Math.floor(sec)) % 86400) + 86400) % 86400;
   const z = (n: number) => String(n).padStart(2, '0');
-  return `${z(Math.floor(s / 3600))}:${z(Math.floor(s / 60) % 60)}:${z(s % 60)}`;
+  const h = Math.floor(s / 3600), m = Math.floor(s / 60) % 60, ss = s % 60;
+  const tail = withSec ? ':' + z(ss) : '';
+  if (S.clock12) return `${((h + 11) % 12) + 1}:${z(m)}${tail} ${h < 12 ? 'AM' : 'PM'}`;
+  return `${z(h)}:${z(m)}${tail}`;
+}
+/** The replay clock: airfield-local time (or UTC, S.clockUTC) for a relative second. */
+export function fmt(secRel: number, withSec = true): string {
+  const tz = S.clockUTC ? 0 : (S.AF ? S.AF.tz_off : 0);
+  return fmtTod(S.G0 + secRel + tz * 3600, withSec);
 }
 /** Calendar-day offset of the displayed clock (UTC or local) vs the loaded day —
  *  the local day of the first beacon, taken as the loaded date. ±1 when a western
