@@ -208,6 +208,8 @@ export interface AppState {
   overviewHud: boolean;
   // Only show/cycle gliders airborne at the current time (opt-in).
   activeOnly: boolean;
+  // Show the reconstructed air mass (thermal columns + cumulus) from the tracks.
+  airMass: boolean;
   // Reference for the parenthetical height next to the altitude:
   // 'af' = above the departure aerodrome (QFE analogue), 'ground' = AGL,
   // 'off' = altitude only (no height shown).

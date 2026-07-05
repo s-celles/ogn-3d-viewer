@@ -15,6 +15,8 @@ import { subjectTrack, shown, scaled, posAt, presence, airborne, isActive, headi
 import { GLIDER_MESH, PLANE_MESH, PROP_MESH, GLIDER_FLAT, PLANE_FLAT, isPowered } from './aircraft-mesh';
 import { getPeaks, getWaypoints, loadPeaks, type Poi } from './poi';
 import { updateMinimap } from './minimap';
+import { airMassLayers } from './airmass';
+import { ridgeLayers } from './ridge';
 import { poiLabelsDiv } from './dom';
 import { CHASE, FAR_PLANE } from './config';
 import { saveSettings } from './settings';
@@ -506,6 +508,7 @@ function dynamicLayers() {
       } as any)];
     })()),
     ...(S.glideCone ? glideConeLayers(k) : []),
+    ...(S.airMass ? [...ridgeLayers(k), ...airMassLayers(k)] : []),
     ...poiPoleLayers(k),
   ];
 }

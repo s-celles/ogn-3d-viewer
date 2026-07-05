@@ -57,6 +57,7 @@ export const minimapBtn = $<HTMLButtonElement>('minimapBtn');
 export const overviewHudBtn = $<HTMLButtonElement>('overviewHudBtn');
 export const activeOnlyBtn = $<HTMLButtonElement>('activeOnlyBtn');
 export const heightRefEl = $<HTMLSelectElement>('heightRef');
+export const airMassBtn = $<HTMLButtonElement>('airMassBtn');
 export const clearWpBtn = $<HTMLButtonElement>('clearWpBtn');
 export const peakDensityEl = $<HTMLInputElement>('peakDensity');
 export const attribEl   = $('attribution');

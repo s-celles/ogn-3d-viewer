@@ -5,7 +5,7 @@ import { API_BASE, REPO_URL, MINZ, MAXZ, PMIN, PMAX, CHASE, clampv, BASEMAPS, IG
 import { APP_VERSION, GIT_HASH } from './version';
 import {
   subjEl, viewsEl, cammodeEl, traceEl, trailFxEl, smoothBtn, compBtn, bankBtn, soundBtn, trafficModeEl, graphModeEl, graphClose, winEl, winval, playBtn, revBtn, segEl,
-  exoEl, exval, groundEl, groundval, cacheEl, cacheval, acscaleEl, acscaleval, coneBtn, finesseEl, finval, safetyEl, safeval, coneRadEl, coneradval, labelsBtn, labelFieldsEl, shadowsEl, basemapEl, ignDemBtn, peaksBtn, peakDensityEl, minimapBtn, overviewHudBtn, activeOnlyBtn, heightRefEl, clock12Btn, clearWpBtn, attribEl, curtainBtn, attrBtn, pitchEl, pitchval, scrub, scrubMin, scrubMax, clkEl, tzEl, lglist, rose, altsl, icaoEl, fblink, acEl,
+  exoEl, exval, groundEl, groundval, cacheEl, cacheval, acscaleEl, acscaleval, coneBtn, finesseEl, finval, safetyEl, safeval, coneRadEl, coneradval, labelsBtn, labelFieldsEl, shadowsEl, basemapEl, ignDemBtn, peaksBtn, peakDensityEl, minimapBtn, overviewHudBtn, activeOnlyBtn, airMassBtn, heightRefEl, clock12Btn, clearWpBtn, attribEl, curtainBtn, attrBtn, pitchEl, pitchval, scrub, scrubMin, scrubMax, clkEl, tzEl, lglist, rose, altsl, icaoEl, fblink, acEl,
   dateEl, loadBtn, langEl, discEl, infoBtn, copyBtn, shareBtn, collapseBtn, liveBtn, igcBtn, igcInput, mapDiv, prevAc, nextAc, resetSettingsBtn, afInfo,
 } from './dom';
 import { codeFlag, flag } from './flags';
@@ -280,6 +280,7 @@ export function syncControls(): void {
   overviewHudBtn.textContent = S.overviewHud ? t('on') : t('off'); overviewHudBtn.classList.toggle('on', S.overviewHud);
   activeOnlyBtn.textContent = S.activeOnly ? t('on') : t('off'); activeOnlyBtn.classList.toggle('on', S.activeOnly);
   heightRefEl.value = S.heightRef;
+  airMassBtn.textContent = S.airMass ? t('on') : t('off'); airMassBtn.classList.toggle('on', S.airMass);
   clock12Btn.textContent = S.clock12 ? '12 h' : '24 h';
   document.body.classList.toggle('haswp', getWaypoints().length > 0);
   exoEl.value = String(S.exo); exval.textContent = S.exo.toFixed(1) + '×';
@@ -418,6 +419,11 @@ export function updateMapCredit(): void {
 curtainBtn.onclick = () => {
   S.altCurtain = !S.altCurtain;
   curtainBtn.textContent = S.altCurtain ? t('on') : t('off'); curtainBtn.classList.toggle('on', S.altCurtain); render();
+};
+// ---- reconstructed air mass (thermal columns + cumulus, from the tracks) ----
+airMassBtn.onclick = () => {
+  S.airMass = !S.airMass;
+  airMassBtn.textContent = S.airMass ? t('on') : t('off'); airMassBtn.classList.toggle('on', S.airMass); render();
 };
 // ---- cartographic attribution overlay (on by default) ----
 attrBtn.onclick = () => {
