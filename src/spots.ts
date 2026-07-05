@@ -244,16 +244,38 @@ function highlightHot(i: number, on: boolean): void {
   if (it) it.style.background = on ? 'rgba(255,255,255,.12)' : '';
   if (on && it) it.scrollIntoView({ block: 'nearest' });
 }
+// Adjacent grid cells over one busy site (e.g. Vinon straddling a cell edge)
+// produce two zones that resolve to the same airfield — collapse them so the list
+// and the map show a single entry, summing counts and keeping the activity-
+// weighted centroid.
+function mergeZones(zs: HotZone[]): HotZone[] {
+  const groups = new Map<string, HotZone[]>();
+  for (const z of zs) {
+    const sp = nearestSpot(z.lat, z.lon);
+    const key = sp ? 'sp:' + sp.code : (icaoOf(z.label) || z.label || `${z.lat.toFixed(1)}|${z.lon.toFixed(1)}`);
+    const g = groups.get(key); if (g) g.push(z); else groups.set(key, [z]);
+  }
+  const out: HotZone[] = [];
+  for (const g of groups.values()) {
+    if (g.length === 1) { out.push(g[0]); continue; }
+    const count = g.reduce((s, z) => s + z.count, 0);
+    const lat = g.reduce((s, z) => s + z.lat * z.count, 0) / count;
+    const lon = g.reduce((s, z) => s + z.lon * z.count, 0) / count;
+    const label = g.reduce((a, b) => (b.count > a.count ? b : a)).label;   // dominant cell's receiver
+    out.push({ lat, lon, count, label });
+  }
+  return out.sort((a, b) => b.count - a.count);
+}
 async function showHot(force = false): Promise<void> {
   if (!listEl || !mapEl) return;
   for (const el of dots.values()) el.remove(); dots.clear();   // hide spot markers while in hot mode
   clearHot();
   const cached = hotCache();
-  if (!force && cached && hotFresh()) { hotZones = cached.zones; hotAt = cached.at; renderHot(); return; }   // reuse the recent scan
+  if (!force && cached && hotFresh()) { hotZones = mergeZones(cached.zones); hotAt = cached.at; renderHot(); return; }   // reuse the recent scan
   listEl.innerHTML = `<div style="padding:16px;color:var(--mut)">${t('discoverLoading')} …</div>`;
   const res = await fetchHotZones(30, force).catch(() => null);
   if (active !== 'hot') return;                                 // user switched tabs during the fetch
-  if (res) { hotZones = res.zones; hotAt = res.at; }
+  if (res) { hotZones = mergeZones(res.zones); hotAt = res.at; }
   renderHot();
 }
 function hotHeader(): string {                                  // "Updated … ago" + a rate-limited refresh button
