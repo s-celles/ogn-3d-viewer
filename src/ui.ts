@@ -743,11 +743,15 @@ let lastAfKey = '';
 /** Show a discovered spot's name/flag (for terrain-only picks); null clears it. */
 export function setPlace(name: string | null, flag = ''): void { place = name ? { name, flag } : null; renderPlace(); }
 function renderPlace(): void {
-  const p = place || (S.AF && S.AF.name ? { name: S.AF.name, flag: flag(S.AF.country || '') || codeFlag(S.AF.code) } : null);
-  const key = p ? p.flag + '|' + p.name : '';
+  const af = S.AF;
+  const p = place || (af && af.name ? { name: af.name, flag: flag(af.country || '') || codeFlag(af.code) } : null);
+  // Published field elevation (metres, from the logbook) — only for a loaded
+  // airfield, not a terrain-only pick; skip 0 (missing/unknown elevation).
+  const elev = !place && af && af.elev ? Math.round(af.elev) : null;
+  const key = p ? `${p.flag}|${p.name}|${elev ?? ''}` : '';
   if (key === lastAfKey) return;
   lastAfKey = key;
-  if (p) { afInfo.innerHTML = `${p.flag} <b>${p.name}</b>`.trim(); afInfo.style.display = ''; }
+  if (p) { afInfo.innerHTML = `${p.flag} <b>${p.name}</b>${elev != null ? ` · ${elev} m` : ''}`.trim(); afInfo.style.display = ''; }
   else { afInfo.textContent = ''; afInfo.style.display = 'none'; }
 }
 export function updateFbLink(): void {
