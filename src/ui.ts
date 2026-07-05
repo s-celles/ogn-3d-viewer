@@ -5,7 +5,7 @@ import { API_BASE, REPO_URL, MINZ, MAXZ, PMIN, PMAX, CHASE, clampv, BASEMAPS, IG
 import { APP_VERSION, GIT_HASH } from './version';
 import {
   subjEl, viewsEl, cammodeEl, traceEl, trailFxEl, smoothBtn, compBtn, bankBtn, soundBtn, trafficModeEl, graphModeEl, graphClose, winEl, winval, playBtn, revBtn, segEl,
-  exoEl, exval, groundEl, groundval, cacheEl, cacheval, acscaleEl, acscaleval, coneBtn, finesseEl, finval, safetyEl, safeval, coneRadEl, coneradval, labelsBtn, labelFieldsEl, shadowsEl, basemapEl, ignDemBtn, peaksBtn, peakDensityEl, minimapBtn, overviewHudBtn, activeOnlyBtn, clearWpBtn, attribEl, curtainBtn, attrBtn, pitchEl, pitchval, scrub, scrubMin, scrubMax, clkEl, lglist, rose, altsl, icaoEl, fblink, acEl,
+  exoEl, exval, groundEl, groundval, cacheEl, cacheval, acscaleEl, acscaleval, coneBtn, finesseEl, finval, safetyEl, safeval, coneRadEl, coneradval, labelsBtn, labelFieldsEl, shadowsEl, basemapEl, ignDemBtn, peaksBtn, peakDensityEl, minimapBtn, overviewHudBtn, activeOnlyBtn, clearWpBtn, attribEl, curtainBtn, attrBtn, pitchEl, pitchval, scrub, scrubMin, scrubMax, clkEl, tzEl, lglist, rose, altsl, icaoEl, fblink, acEl,
   dateEl, loadBtn, langEl, discEl, infoBtn, copyBtn, shareBtn, collapseBtn, liveBtn, igcBtn, igcInput, mapDiv, prevAc, nextAc, resetSettingsBtn, afInfo,
 } from './dom';
 import { codeFlag } from './flags';
@@ -30,6 +30,7 @@ const asEl = (c: Element) => c as HTMLElement;
 // ---- clock / scrubber ----
 export function syncUI(): void {
   clkEl.textContent = S.ready ? fmt(S.cur) : '--:--';
+  tzEl.textContent = S.clockUTC ? 'UTC' : t('localTz');   // which time zone the clock shows
   scrub.value = String(Math.round(S.cur / S.SPAN * 1000));
   // Anchor the time-of-day slider to local clock times (first → last beacon), so
   // its scale reads as the local time of day rather than abstract 0…100%.
@@ -38,6 +39,8 @@ export function syncUI(): void {
   updateFbLink();
 }
 scrub.addEventListener('input', e => { if (!S.ready) return; S.cur = +(e.target as HTMLInputElement).value / 1000 * S.SPAN; render(); syncUI(); });
+// Click the clock to toggle UTC ↔ the airfield's local time (persisted via settings).
+clkEl.parentElement?.addEventListener('click', () => { S.clockUTC = !S.clockUTC; syncUI(); });
 
 // ---- view toggle ----
 (['over', 'fpv', 'chase'] as Mode[]).forEach(m => {
@@ -584,6 +587,7 @@ export function applyI18n(): void {
   document.querySelectorAll('[data-i18n]').forEach(el => { (el as HTMLElement).textContent = t((el as HTMLElement).dataset.i18n!); });
   document.querySelectorAll('[data-i18n-html]').forEach(el => { (el as HTMLElement).innerHTML = t((el as HTMLElement).dataset.i18nHtml!); });
   document.querySelectorAll('[data-i18n-title]').forEach(el => { (el as HTMLElement).title = t((el as HTMLElement).dataset.i18nTitle!); });
+  tzEl.textContent = S.clockUTC ? 'UTC' : t('localTz');
   const autoOpt = langEl.querySelector('option[value="auto"]'); if (autoOpt) autoOpt.textContent = t('langAuto');
   langEl.value = langValue();
   [...viewsEl.children].forEach(b => {

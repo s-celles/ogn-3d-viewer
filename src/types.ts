@@ -206,6 +206,8 @@ export interface AppState {
   overviewHud: boolean;
   // Only show/cycle gliders airborne at the current time (opt-in).
   activeOnly: boolean;
+  // Show the clock in UTC instead of the airfield's local time.
+  clockUTC: boolean;
   // Follow the browser locale for the UI language (the "Auto" language choice).
   langAuto: boolean;
   windowMin: number;

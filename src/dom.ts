@@ -67,6 +67,7 @@ export const scrub      = $<HTMLInputElement>('scrub');
 export const scrubMin   = $('scrubMin');
 export const scrubMax   = $('scrubMax');
 export const clkEl      = $('clk');
+export const tzEl       = $('tz');
 export const lglist     = $('lglist');
 export const focusBadge = $('focusBadge');
 export const rose       = $<SVGGElement>('rose');

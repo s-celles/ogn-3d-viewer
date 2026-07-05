@@ -283,6 +283,11 @@ export function gliderArrow(tr: RenderTrack, time: number): [Pos3, Pos3, Pos3] {
 
 /** Format a relative time as a local HH:MM:SS clock string. */
 export function fmt(secRel: number): string {
-  const utc = S.G0 + secRel + (S.AF ? S.AF.tz_off : 0) * 3600, z = (n: number) => String(n).padStart(2, '0');
-  return `${z(Math.floor(utc / 3600) % 24)}:${z(Math.floor(utc / 60) % 60)}:${z(Math.floor(utc) % 60)}`;
+  // Time of day, in UTC or at the airfield's local time (S.clockUTC). Wrap into
+  // [0, 86400) BEFORE splitting so a western time zone / midnight roll-over never
+  // yields negative H:M:S (e.g. CYHE at UTC-7 showing "-7:-34:-22").
+  const tz = S.clockUTC ? 0 : (S.AF ? S.AF.tz_off : 0);
+  const s = (((Math.floor(S.G0 + secRel + tz * 3600)) % 86400) + 86400) % 86400;
+  const z = (n: number) => String(n).padStart(2, '0');
+  return `${z(Math.floor(s / 3600))}:${z(Math.floor(s / 60) % 60)}:${z(s % 60)}`;
 }
