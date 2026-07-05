@@ -69,7 +69,11 @@ Add `?dev=1` to the URL for a technical panel: terrain **wireframe**, **bare rel
 
 ## Notes & limitations
 
-- The **air mass** (thermals reconstructed from the tracks) and the **weather** enrichment (cloudbase, wind) are **very rough models**, illustrative only — neither measured nor predictive.
+- **Air mass — a very rough, illustrative model** (neither measured nor predictive; not for flight planning):
+  - *Thermals* — shown only where a glider actually **circled** (no traffic → nothing); their position and strength are the **glider's climb**, not the true air motion (no *netto*); weak or brief lift may be missed.
+  - *Cloudbase* — **estimated** (LCL from temperature/humidity, or a percentile of the tops), not measured: it can be off by hundreds of metres.
+  - *Wind* — a **single low-level value** (coarse weather model, or circle drift); ignores shear, breezes and convergence.
+  - *Slope lift and sink* — `w = wind · ∇terrain`, a **first-order kinematic approximation**: it ignores flow separation, rotor, lee waves and stability; one wind for the whole scene; detail limited by the DEM resolution.
 - OGN tracks depend on ground-station reception — gaps and dropouts are possible.
 - Attitude (bank/pitch) is **estimated** from ground track and speed, not measured.
 - OGN keeps IGC tracks for only **~24 hours**, so older dates are often empty.

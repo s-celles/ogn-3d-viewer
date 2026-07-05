@@ -69,7 +69,11 @@ Fügen Sie `?dev=1` zur URL hinzu für ein technisches Panel: Gelände-**Drahtgi
 
 ## Hinweise & Grenzen
 
-- Die **Luftmasse** (aus den Spuren rekonstruierte Thermik) und die **Wetter**-Anreicherung (Wolkenbasis, Wind) sind **sehr grobe Modelle**, nur zur Veranschaulichung — weder gemessen noch vorhersagend.
+- **Luftmasse — sehr grobes, rein illustratives Modell** (weder gemessen noch vorhersagend; nicht zur Flugvorbereitung):
+  - *Thermik* — nur dort gezeigt, wo ein Flugzeug tatsächlich **kreiste** (kein Verkehr → nichts); Lage und Stärke sind das **Steigen des Flugzeugs**, nicht die echte Luftbewegung (kein *Netto*); schwache oder kurze Aufwinde können übersehen werden.
+  - *Wolkenbasis* — **geschätzt** (LCL aus Temperatur/Feuchte oder Perzentil der Oberkanten), nicht gemessen: Abweichung von einigen hundert Metern möglich.
+  - *Wind* — ein **einzelner Wert in Bodennähe** (grobes Wettermodell oder Kreisdrift); ignoriert Scherung, Brisen und Konvergenz.
+  - *Hangaufwind und Abwind* — `w = Wind · ∇Gelände`, eine **kinematische Näherung erster Ordnung**: ignoriert Strömungsablösung, Rotor, Leewellen und Stabilität; ein Wind für die ganze Szene; Detail durch die DEM-Auflösung begrenzt.
 - OGN-Spuren hängen vom Empfang der Bodenstationen ab — Lücken und Aussetzer sind möglich.
 - Die Fluglage (Quer-/Längsneigung) wird aus Bodenspur und Geschwindigkeit **geschätzt**, nicht gemessen.
 - OGN speichert IGC-Spuren nur **~24 Stunden**, ältere Daten sind daher oft leer.

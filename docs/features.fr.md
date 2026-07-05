@@ -69,7 +69,11 @@ Ajoutez `?dev=1` à l'URL pour un panneau technique : **fil de fer** du relief, 
 
 ## Notes & limites
 
-- La **masse d'air** (thermiques reconstruits depuis les traces) et l'enrichissement **météo** (base des nuages, vent) sont des **modèles très approximatifs**, purement illustratifs — ni mesurés ni prédictifs.
+- **Masse d'air — modèle très approximatif, purement illustratif** (ni mesuré ni prédictif ; à ne pas utiliser pour préparer un vol) :
+  - *Thermiques* — montrés uniquement là où un planeur a réellement **spiralé** (sans trafic, rien) ; position et force = la **montée du planeur**, pas le mouvement réel de l'air (pas de *netto*) ; les ascendances faibles ou brèves peuvent être ratées.
+  - *Base des nuages* — **estimée** (LCL depuis température/humidité, ou percentile des sommets), non mesurée : erreur possible de plusieurs centaines de mètres.
+  - *Vent* — une **seule valeur bas-niveau** (modèle météo à maille large, ou dérive des cercles) ; ignore cisaillement, brises et convergences.
+  - *Pente et dégueulantes* — `w = vent · ∇relief`, **approximation cinématique au 1er ordre** : ignore décollements, rotors, ondes de ressaut et stabilité ; un seul vent pour toute la scène ; finesse limitée par la résolution du MNT.
 - Les traces OGN dépendent de la réception par les stations au sol — trous et décrochages possibles.
 - L'attitude (inclinaison/assiette) est **estimée** à partir de la trace sol et de la vitesse, non mesurée.
 - L'OGN ne conserve les traces IGC qu'environ **24 h**, les dates anciennes sont donc souvent vides.
