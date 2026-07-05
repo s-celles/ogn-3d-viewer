@@ -894,6 +894,7 @@ function feedVarioSound(): void {
 // (buildRel removed the geoid offset), consistent with both S.AF.elev and the DEM.
 function fmtAlt(p: Pos3): string {
   const main = Math.round(p[2]) + ' m';
+  if (S.heightRef === 'off') return main;
   if (S.heightRef === 'ground') {
     const g = terrainElevAt(p[0], p[1]);
     return g != null ? `${main} · ⛰ ${Math.round(p[2] - g)} m` : main;

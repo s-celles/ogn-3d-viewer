@@ -279,7 +279,7 @@ export function syncControls(): void {
   document.body.classList.toggle('ovhud', S.overviewHud);
   overviewHudBtn.textContent = S.overviewHud ? t('on') : t('off'); overviewHudBtn.classList.toggle('on', S.overviewHud);
   activeOnlyBtn.textContent = S.activeOnly ? t('on') : t('off'); activeOnlyBtn.classList.toggle('on', S.activeOnly);
-  heightRefBtn.textContent = t(S.heightRef === 'af' ? 'heightRefAf' : 'heightRefGround');
+  heightRefBtn.textContent = t(S.heightRef === 'af' ? 'heightRefAf' : S.heightRef === 'ground' ? 'heightRefGround' : 'heightRefOff');
   clock12Btn.textContent = S.clock12 ? '12 h' : '24 h';
   document.body.classList.toggle('haswp', getWaypoints().length > 0);
   exoEl.value = String(S.exo); exval.textContent = S.exo.toFixed(1) + '×';
@@ -391,8 +391,8 @@ activeOnlyBtn.onclick = () => {
 };
 // ---- height reference for the parenthetical altitude (departure AD / ground) ----
 heightRefBtn.onclick = () => {
-  S.heightRef = S.heightRef === 'af' ? 'ground' : 'af';
-  heightRefBtn.textContent = t(S.heightRef === 'af' ? 'heightRefAf' : 'heightRefGround');
+  S.heightRef = S.heightRef === 'af' ? 'ground' : S.heightRef === 'ground' ? 'off' : 'af';
+  heightRefBtn.textContent = t(S.heightRef === 'af' ? 'heightRefAf' : S.heightRef === 'ground' ? 'heightRefGround' : 'heightRefOff');
   render();   // persists (debounced) + refreshes the HUD/labels
 };
 // Remove all imported .cup waypoints (summits from OSM are unaffected).
