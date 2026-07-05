@@ -5,7 +5,7 @@ import { API_BASE, REPO_URL, MINZ, MAXZ, PMIN, PMAX, CHASE, clampv, BASEMAPS, IG
 import { APP_VERSION, GIT_HASH } from './version';
 import {
   subjEl, viewsEl, cammodeEl, traceEl, trailFxEl, smoothBtn, compBtn, bankBtn, soundBtn, trafficModeEl, graphModeEl, graphClose, winEl, winval, playBtn, revBtn, segEl,
-  exoEl, exval, groundEl, groundval, cacheEl, cacheval, acscaleEl, acscaleval, coneBtn, finesseEl, finval, safetyEl, safeval, coneRadEl, coneradval, labelsBtn, labelFieldsEl, shadowsEl, basemapEl, ignDemBtn, peaksBtn, peakDensityEl, minimapBtn, overviewHudBtn, activeOnlyBtn, heightRefBtn, clock12Btn, clearWpBtn, attribEl, curtainBtn, attrBtn, pitchEl, pitchval, scrub, scrubMin, scrubMax, clkEl, tzEl, lglist, rose, altsl, icaoEl, fblink, acEl,
+  exoEl, exval, groundEl, groundval, cacheEl, cacheval, acscaleEl, acscaleval, coneBtn, finesseEl, finval, safetyEl, safeval, coneRadEl, coneradval, labelsBtn, labelFieldsEl, shadowsEl, basemapEl, ignDemBtn, peaksBtn, peakDensityEl, minimapBtn, overviewHudBtn, activeOnlyBtn, heightRefEl, clock12Btn, clearWpBtn, attribEl, curtainBtn, attrBtn, pitchEl, pitchval, scrub, scrubMin, scrubMax, clkEl, tzEl, lglist, rose, altsl, icaoEl, fblink, acEl,
   dateEl, loadBtn, langEl, discEl, infoBtn, copyBtn, shareBtn, collapseBtn, liveBtn, igcBtn, igcInput, mapDiv, prevAc, nextAc, resetSettingsBtn, afInfo,
 } from './dom';
 import { codeFlag, flag } from './flags';
@@ -279,7 +279,7 @@ export function syncControls(): void {
   document.body.classList.toggle('ovhud', S.overviewHud);
   overviewHudBtn.textContent = S.overviewHud ? t('on') : t('off'); overviewHudBtn.classList.toggle('on', S.overviewHud);
   activeOnlyBtn.textContent = S.activeOnly ? t('on') : t('off'); activeOnlyBtn.classList.toggle('on', S.activeOnly);
-  heightRefBtn.textContent = t(S.heightRef === 'af' ? 'heightRefAf' : S.heightRef === 'ground' ? 'heightRefGround' : 'heightRefOff');
+  heightRefEl.value = S.heightRef;
   clock12Btn.textContent = S.clock12 ? '12 h' : '24 h';
   document.body.classList.toggle('haswp', getWaypoints().length > 0);
   exoEl.value = String(S.exo); exval.textContent = S.exo.toFixed(1) + '×';
@@ -389,12 +389,14 @@ activeOnlyBtn.onclick = () => {
   activeOnlyBtn.textContent = S.activeOnly ? t('on') : t('off'); activeOnlyBtn.classList.toggle('on', S.activeOnly);
   render();
 };
-// ---- height reference for the parenthetical altitude (departure AD / ground) ----
-heightRefBtn.onclick = () => {
-  S.heightRef = S.heightRef === 'af' ? 'ground' : S.heightRef === 'ground' ? 'off' : 'af';
-  heightRefBtn.textContent = t(S.heightRef === 'af' ? 'heightRefAf' : S.heightRef === 'ground' ? 'heightRefGround' : 'heightRefOff');
+// ---- height reference for the parenthetical altitude (departure AD / ground / none) ----
+([['af', 'heightRefAf'], ['ground', 'heightRefGround'], ['off', 'heightRefOff']] as const)
+  .forEach(([v, k]) => { const o = document.createElement('option'); o.value = v; o.dataset.k = k; heightRefEl.appendChild(o); });
+heightRefEl.value = S.heightRef;
+heightRefEl.addEventListener('change', e => {
+  S.heightRef = (e.target as HTMLSelectElement).value as 'af' | 'ground' | 'off';
   render();   // persists (debounced) + refreshes the HUD/labels
-};
+});
 // Remove all imported .cup waypoints (summits from OSM are unaffected).
 clearWpBtn.onclick = () => {
   clearWaypoints(); document.body.classList.remove('haswp');
@@ -632,6 +634,7 @@ export function applyI18n(): void {
   labelsBtn.textContent = S.labels ? t('on') : t('off'); labelsBtn.classList.toggle('on', S.labels);
   [...labelFieldsEl.children].forEach(b => { asEl(b).textContent = t(asEl(b).dataset.k!); });
   [...shadowsEl.options].forEach(o => { o.textContent = t(o.dataset.k!); });
+  [...heightRefEl.options].forEach(o => { o.textContent = t(o.dataset.k!); });
   curtainBtn.textContent = S.altCurtain ? t('on') : t('off'); curtainBtn.classList.toggle('on', S.altCurtain);
   ignDemBtn.textContent = S.ignDem ? t('on') : t('off'); ignDemBtn.classList.toggle('on', S.ignDem);
   peaksBtn.textContent = S.showPeaks ? t('on') : t('off'); peaksBtn.classList.toggle('on', S.showPeaks);
