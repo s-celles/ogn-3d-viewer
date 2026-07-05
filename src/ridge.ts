@@ -11,9 +11,9 @@ import { terrainElevAt } from './terrain';
 import { getWeather, weatherWind } from './weather';
 import { getThermals } from './airmass';
 
-const R = 15000;         // scene radius sampled around the airfield (m) — covers the overview
-const STEP = 200;        // grid step (m)
 const OFF = 10;          // patch lift off the surface, to avoid z-fighting (m)
+const LU = 900;          // upwind probe distance for terrain sheltering (m)
+const H_SHELTER = 320;   // upwind terrain this much higher → wind ~fully sheltered (m)
 const W_MIN = 0.4;       // m/s: weakest slope lift / sink drawn
 // Strength bins → one mesh each (a single mesh is one colour). Windward lift is a
 // pale→bright teal ramp; leeward sink (w<0) a sand→red ramp, both by |w|.
@@ -27,14 +27,8 @@ const meshParams = {
   blendAlphaOperation: 'add', blendAlphaSrcFactor: 'one', blendAlphaDstFactor: 'one-minus-src-alpha',
 };
 
-// Representative low-level wind [east, north] (m/s): the weather profile just above
-// the field if available, else the mean thermal drift, else null (no prediction).
-function windLow(): [number, number] | null {
-  if (S.AF && S.source !== 'file' && S.date) {
-    const wx = getWeather(S.AF.lat, S.AF.lon, S.date);
-    const w = wx && weatherWind(wx, Math.floor((S.G0 + S.cur) / 3600), S.AF.elev + 300);
-    if (w) return w;
-  }
+// Mean thermal drift (m/s) — the last-resort wind when there is no weather.
+function driftWind(): [number, number] | null {
   const ths = getThermals();
   if (!ths.length) return null;
   let u = 0, v = 0;
@@ -43,6 +37,25 @@ function windLow(): [number, number] | null {
     u += (th.c1[0] - th.c0[0]) / dur * mLng; v += (th.c1[1] - th.c0[1]) / dur * 111320;
   }
   return [u / ths.length, v / ths.length];
+}
+
+/** Wind [east, north] (m/s) at an AMSL altitude: the weather profile at the view
+ *  centre (bucketed ~10 km), else at the airfield, else the mean thermal drift. */
+export function windAtAlt(cLat: number, cLon: number, alt: number): [number, number] | null {
+  if (S.source !== 'file' && S.date) {
+    const hour = Math.floor((S.G0 + S.cur) / 3600);
+    const pick = (la: number, lo: number): [number, number] | null => {
+      const wx = getWeather(la, lo, S.date); return wx ? weatherWind(wx, hour, alt) : null;
+    };
+    const w = pick(Math.round(cLat / 0.1) * 0.1, Math.round(cLon / 0.1) * 0.1) || (S.AF ? pick(S.AF.lat, S.AF.lon) : null);
+    if (w) return w;
+  }
+  return driftWind();
+}
+
+// Background low-level wind: the profile ~mid-ridge above the local surface.
+export function windBg(cLat: number, cLon: number): [number, number] | null {
+  return windAtAlt(cLat, cLon, (terrainElevAt(cLon, cLat) ?? (S.AF ? S.AF.elev : 0)) + 400);
 }
 
 interface Bin { pos: number[]; nrm: number[]; idx: number[] }
@@ -56,32 +69,54 @@ function addPatch(b: Bin, lon: number, lat: number, hC: number, gx: number, gy: 
   b.idx.push(start, start + 1, start + 2, start, start + 2, start + 3);
 }
 
-// Memoised per (airfield, date, hour, rounded wind): the field only changes when the
-// wind does. Not cached until the terrain under the grid has actually loaded, so it
-// refines itself once DEM tiles stream in.
-let cache: { key: string; layers: any[] } | null = null;
+// Memoised on the view (centre + zoom), the hour and the wind: the field is
+// recomputed when the wind changes, the zoom changes markedly, or the view has
+// panned more than a third of its radius. Wind stays sourced from the airfield —
+// one consistent value across the scene (a documented approximation). Not cached
+// until the terrain under the grid has loaded, so it refines as DEM tiles stream in.
+let cache: { cLon: number; cLat: number; R: number; hour: number; wk: string; meshes: { color: number[]; mesh: any }[] } | null = null;
+
+// Fresh layer instances from the cached geometry — a deck layer instance is single
+// use, so we must rebuild them each call (reusing a removed one won't re-render).
+const mkLayers = (meshes: { color: number[]; mesh: any }[]): any[] => meshes.map((m, i) => new SimpleMeshLayer({
+  id: 'ridge-' + i, data: [{}], getPosition: () => [0, 0, 0], _instanced: false,
+  coordinateSystem: COORDINATE_SYSTEM.LNGLAT, getColor: m.color, material: false, parameters: meshParams, mesh: m.mesh,
+} as any));
 
 export function ridgeLayers(k: number): any[] {
-  const af = S.AF; if (!af) return [];
-  const wind = windLow(); if (!wind) return [];
-  const speed = Math.hypot(wind[0], wind[1]); if (speed < 1.5) return [];   // calm → no slope lift
+  // Centre the grid on the view and size it to what's visible, so the bands follow
+  // the viewpoint instead of staying pinned to the airfield.
+  const cLat = S.mapVS.latitude, cLon = S.mapVS.longitude, zoom = S.mapVS.zoom || 11;
+  const wind = windBg(cLat, cLon); if (!wind) return [];
+  const s0 = Math.hypot(wind[0], wind[1]); if (s0 < 1.5) return [];   // calm → no slope lift
+  const upE = -wind[0] / s0, upN = -wind[1] / s0;                     // upwind unit, for terrain sheltering
+  const mppx = 156543.03392 * Math.cos(cLat * Math.PI / 180) / 2 ** zoom;   // metres per pixel
+  const R = Math.max(4000, Math.min(20000, mppx * 700));
+  const STEP = Math.max(150, Math.min(500, R / 55));
   const hour = Math.floor((S.G0 + S.cur) / 3600);
-  const key = `${af.lon.toFixed(2)}|${af.lat.toFixed(2)}|${S.date}|${hour}|${Math.round(wind[0])}|${Math.round(wind[1])}`;
-  if (cache && cache.key === key) return cache.layers;
-
-  const mLng = 111320 * Math.cos(af.lat * Math.PI / 180), mLat = 111320, half = STEP * 0.62;   // >STEP/2 → patches overlap into continuous bands
+  const wk = `${Math.round(wind[0])}|${Math.round(wind[1])}`;
+  if (cache && cache.hour === hour && cache.wk === wk && Math.abs(Math.log(cache.R / R)) < 0.25) {
+    const cosLat = Math.cos(cLat * Math.PI / 180);
+    const moved = Math.hypot((cache.cLon - cLon) * 111320 * cosLat, (cache.cLat - cLat) * 111320);
+    if (moved < R * 0.33) return mkLayers(cache.meshes);
+  }
+  const mLng = 111320 * Math.cos(cLat * Math.PI / 180), mLat = 111320, half = STEP * 0.62;   // >STEP/2 → patches overlap into continuous bands
   const bins: Bin[] = [0, 1, 2, 3, 4, 5].map(() => ({ pos: [], nrm: [], idx: [] }));   // 0-2 lift, 3-5 sink
   let cells = 0;
   for (let y = -R; y <= R; y += STEP) for (let x = -R; x <= R; x += STEP) {
     if (x * x + y * y > R * R) continue;
-    const lon = af.lon + x / mLng, lat = af.lat + y / mLat;
+    const lon = cLon + x / mLng, lat = cLat + y / mLat;
     const hC = terrainElevAt(lon, lat); if (hC == null) continue;
     const hE = terrainElevAt(lon + STEP / mLng, lat), hW = terrainElevAt(lon - STEP / mLng, lat);
     const hN = terrainElevAt(lon, lat + STEP / mLat), hS = terrainElevAt(lon, lat - STEP / mLat);
     if (hE == null || hW == null || hN == null || hS == null) continue;
     cells++;
     const gx = (hE - hW) / (2 * STEP), gy = (hN - hS) / (2 * STEP);   // terrain gradient (m/m)
-    const w = wind[0] * gx + wind[1] * gy;                            // forced vertical velocity (m/s)
+    // Refine the wind with the terrain: higher ground upwind shelters this cell
+    // (less lift in the lee); an exposed windward crest keeps or boosts it.
+    const hUp = terrainElevAt(lon + upE * LU / mLng, lat + upN * LU / mLat);
+    const scale = hUp == null ? 1 : Math.max(0.2, Math.min(1.4, 1 - (hUp - hC) / H_SHELTER));
+    const w = (wind[0] * gx + wind[1] * gy) * scale;                  // forced vertical velocity (m/s)
     const aw = Math.abs(w);
     if (aw < W_MIN) continue;                                         // near-flat / cross-wind
     const lvl = aw >= 2 ? 2 : aw >= 1 ? 1 : 0;
@@ -89,14 +124,13 @@ export function ridgeLayers(k: number): any[] {
   }
   if (cells < 20) return [];   // terrain not loaded here yet — try again next frame, don't cache
 
-  const layers = bins.map((b, i) => b.idx.length ? new SimpleMeshLayer({
-    id: 'ridge-' + i, data: [{}], getPosition: () => [0, 0, 0], _instanced: false,
-    coordinateSystem: COORDINATE_SYSTEM.LNGLAT, getColor: COLORS[i], material: false, parameters: meshParams,
+  const meshes = bins.map((b, i) => b.idx.length ? {
+    color: COLORS[i],
     mesh: {
       attributes: { POSITION: { value: new Float32Array(b.pos), size: 3 }, NORMAL: { value: new Float32Array(b.nrm), size: 3 } },
       indices: { value: new Uint32Array(b.idx), size: 1 }, mode: 4,
-    } as any,
-  } as any) : null).filter(Boolean);
-  cache = { key, layers };
-  return layers;
+    },
+  } : null).filter(Boolean) as { color: number[]; mesh: any }[];
+  cache = { cLon, cLat, R, hour, wk, meshes };
+  return mkLayers(meshes);
 }

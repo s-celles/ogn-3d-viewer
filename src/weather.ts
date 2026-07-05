@@ -59,14 +59,24 @@ async function fetchWx(lat: number, lon: number, date: string): Promise<Wx | nul
   return { hours };
 }
 
-// ---- lazy, single-flight cache keyed on airfield + date ----
-let key = '', wx: Wx | null = null;
-/** The day's weather at an airfield, or null while loading / on failure. Kicks off
- *  one background fetch per (airfield, date); later frames pick up the result. */
+// ---- lazy, multi-location cache (LRU-capped) ----
+const cache = new Map<string, Wx | null>();   // location key → data (null = failed, don't refetch)
+const inflight = new Set<string>();
+const MAX = 8;                                 // a handful of locations (airfield + view centres)
+/** The day's weather at a location, or null while loading / on failure. Kicks off one
+ *  background fetch per (location, date); later frames pick up the result. Several
+ *  locations coexist (e.g. the airfield and the current view centre). */
 export function getWeather(lat: number, lon: number, date: string): Wx | null {
   const k = `${lat.toFixed(2)}|${lon.toFixed(2)}|${date}`;
-  if (k !== key) { key = k; wx = null; fetchWx(lat, lon, date).then(r => { if (key === k) wx = r; }).catch(() => { /* stay on fallback */ }); }
-  return wx;
+  if (cache.has(k)) return cache.get(k) ?? null;
+  if (!inflight.has(k)) {
+    inflight.add(k);
+    fetchWx(lat, lon, date)
+      .then(r => { cache.set(k, r); while (cache.size > MAX) cache.delete(cache.keys().next().value as string); })
+      .catch(() => cache.set(k, null))
+      .finally(() => inflight.delete(k));
+  }
+  return null;
 }
 
 const clampHour = (wx: Wx, hour: number): number => Math.max(0, Math.min(wx.hours.length - 1, hour | 0));
