@@ -291,3 +291,11 @@ export function fmt(secRel: number): string {
   const z = (n: number) => String(n).padStart(2, '0');
   return `${z(Math.floor(s / 3600))}:${z(Math.floor(s / 60) % 60)}:${z(s % 60)}`;
 }
+/** Calendar-day offset of the displayed clock (UTC or local) vs the loaded day —
+ *  the local day of the first beacon, taken as the loaded date. ±1 when a western
+ *  time zone / UTC view rolls the time onto another day. */
+export function dayShift(secRel: number): number {
+  const tzo = (S.AF ? S.AF.tz_off : 0) * 3600;
+  const ref = Math.floor((S.G0 + tzo) / 86400);            // local day-0 = the loaded date
+  return Math.floor((S.G0 + secRel + (S.clockUTC ? 0 : tzo)) / 86400) - ref;
+}

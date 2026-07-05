@@ -14,7 +14,7 @@ import qrcode from 'qrcode-generator';
 const HAS_SHARE = typeof navigator !== 'undefined' && 'share' in navigator;   // Web Share API available?
 import { clearStored } from './settings';
 import { postCacheCap } from './sw-cache';
-import { subjectTrack, airborne, isActive, headingAt, clampCur, fmt, statsFor } from './flight-math';
+import { subjectTrack, airborne, isActive, headingAt, clampCur, fmt, dayShift, statsFor } from './flight-math';
 import { makeTerrain, clearDemCache } from './terrain';
 import { render, updateHUD } from './render';
 import { loadFlights, refreshLive, statusMsg, setStatus, rebuild, syncUrl, loadTrackFiles } from './data';
@@ -28,9 +28,29 @@ import type { Mode, Trace, TrailFx, ShadowMode, GraphMode, TrafficMode, Lang } f
 const asEl = (c: Element) => c as HTMLElement;
 
 // ---- clock / scrubber ----
+// The loaded day (± an offset) as "DD/MM", to show beside the clock when the
+// displayed UTC/local time falls on another calendar day.
+function clockDate(off: number): string {
+  const base = S.date || dateEl.value;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(base)) return (off > 0 ? '+' : '') + off + ' j';
+  const d = new Date(base + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + off);
+  return String(d.getUTCDate()).padStart(2, '0') + '/' + String(d.getUTCMonth() + 1).padStart(2, '0');
+}
 export function syncUI(): void {
-  clkEl.textContent = S.ready ? fmt(S.cur) : '--:--';
-  tzEl.textContent = S.clockUTC ? 'UTC' : t('localTz');   // which time zone the clock shows
+  const tzLabel = S.clockUTC ? 'UTC' : t('localTz');
+  if (S.ready) {
+    clkEl.textContent = fmt(S.cur);
+    const off = dayShift(S.cur);                          // ±1 day when UTC/local rolls onto another date
+    tzEl.textContent = tzLabel + (off ? ' · ' + clockDate(off) : '');
+  } else if (S.live) {
+    // Live with an empty sky (no aircraft yet): still show the current wall-clock time.
+    const tz = S.clockUTC ? 0 : (S.AF ? S.AF.tz_off : 0);
+    const s = (((Math.floor(Date.now() / 1000 + tz * 3600)) % 86400) + 86400) % 86400, z = (n: number) => String(n).padStart(2, '0');
+    clkEl.textContent = `${z(Math.floor(s / 3600))}:${z(Math.floor(s / 60) % 60)}:${z(s % 60)}`;
+    tzEl.textContent = tzLabel;
+  } else {
+    clkEl.textContent = '--:--'; tzEl.textContent = tzLabel;
+  }
   scrub.value = String(Math.round(S.cur / S.SPAN * 1000));
   // Anchor the time-of-day slider to local clock times (first → last beacon), so
   // its scale reads as the local time of day rather than abstract 0…100%.

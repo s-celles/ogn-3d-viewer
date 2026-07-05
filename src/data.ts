@@ -135,8 +135,13 @@ export async function loadFlights(icao: string, date: string): Promise<void> {
     if (!S.RAW.length) {
       setStatus(t('noFlights'));
       // Still fly to the airfield so the user lands on the zone (e.g. old dates
-      // whose IGC tracks have expired).
-      if (res.af.latlng) S.mapTarget = { longitude: res.af.latlng[1], latitude: res.af.latlng[0], zoom: 11, pitch: 55, bearing: 0, minZoom: OVERVIEW_MINZOOM, maxPitch: 85 };
+      // whose IGC tracks have expired), and keep its timezone so the clock can
+      // show the local time — useful in live mode with an empty sky.
+      if (res.af.latlng) {
+        S.CURAF = res.af; S.CURTZ = res.tzoff;
+        S.AF = { name: res.af.name, code: res.af.code, lon: res.af.latlng[1], lat: res.af.latlng[0], elev: res.af.elevation || 0, tz_off: res.tzoff };
+        S.mapTarget = { longitude: res.af.latlng[1], latitude: res.af.latlng[0], zoom: 11, pitch: 55, bearing: 0, minZoom: OVERVIEW_MINZOOM, maxPitch: 85 };
+      }
       loadBtn.disabled = false; return;
     }
     // Sample the rendered DEM at the airfield so the geoid/datum offset lands

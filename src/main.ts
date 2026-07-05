@@ -59,7 +59,7 @@ const nowSod = () => (Date.now() / 1000) % 86400; // current UTC seconds-of-day
 let last = performance.now();
 function frame(now: number): void {
   const dt = (now - last) / 1000; last = now;
-  if (S.ready && S.live) { S.cur = Math.max(0, nowSod() - S.G0); syncUI(); }       // pin to real time
+  if (S.live) { if (S.ready) S.cur = Math.max(0, nowSod() - S.G0); syncUI(); }      // pin to real time; keep the clock ticking even before any aircraft appear
   else if (S.ready && S.playing) {
     S.cur += dt * S.speed * S.dir;
     if (S.cur > S.SPAN + 300) S.cur = 0; else if (S.cur < 0) S.cur = S.SPAN + 300;   // wrap either way
