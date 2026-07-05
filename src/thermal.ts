@@ -12,7 +12,7 @@ import { sunLightDir } from './sky';
 import { getWeather, weatherRad } from './weather';
 import { getLC, sampleGrid, lcVersion } from './landcover';
 import { windBg } from './ridge';
-import { LIFT_COLORS as VZ_COLORS } from './liftviz';
+import { LIFT_COLORS as VZ_COLORS, SINK_COLORS } from './liftviz';
 
 const GN = 80;           // grid nodes per side (map resolution)
 const GRAD = 80;         // slope-gradient baseline (m) — short, for the true local slope
@@ -23,8 +23,11 @@ const G = 9.81, THETA = 290, RHOCP = 1200;   // gravity, ref pot. temp (K), ρ·
 // Vz bins (m/s) → one mesh each: blue (weak) → red (strong).
 // Highlight only the better-exposed cells (relative to the view), on the shared warm
 // lift ramp; transparent below VZ_MIN so weak areas show clean terrain.
-const VZ_MIN = 0.62;     // draw cells above this fraction of the view's 95th-pct value
+const VZ_MIN = 0.62;     // draw lift cells above this fraction of the view's 95th-pct
 const VZ_FRAC = [0.62, 0.74, 0.85, 0.94];   // sub-levels within [VZ_MIN, 1]
+const SINK_MIN = 0.5;    // draw sink cells below −this fraction of the |neg| 95th-pct
+const SINK_FRAC = [0.7, 0.9];                // sub-levels for sink (3 SINK_COLORS)
+const COLORS = [...VZ_COLORS, ...SINK_COLORS];   // 5 warm (lift) + 3 cool (sink)
 const meshParams = {
   depthCompare: 'less-equal', depthWriteEnabled: false, blend: true, cullMode: 'none',
   blendColorOperation: 'add', blendColorSrcFactor: 'src-alpha', blendColorDstFactor: 'one-minus-src-alpha',
@@ -96,7 +99,7 @@ export function thermalLayers(k: number): any[] {
   const blend = S.liftBlend;         // 0 = pure thermal, 1 = pure slope lift
   const bucket = Math.floor((S.G0 + S.cur) / 900);   // recompute every ~15 min of sim time
   if (!cache || cache.terr !== g || cache.k !== k || cache.bucket !== bucket || cache.wxr !== !!wx || cache.lcv !== lcp.lcv || cache.blend !== blend) {
-    const bins = VZ_COLORS.map(() => ({ pos: [] as number[], nrm: [] as number[], idx: [] as number[] }));
+    const bins = COLORS.map(() => ({ pos: [] as number[], nrm: [] as number[], idx: [] as number[] }));
     const nlon = (i: number) => g.cLon + (-g.R + i * g.sp) / g.mLng, nlat = (j: number) => g.cLat + (-g.R + j * g.sp) / g.mLat;
     // Vz per node: sun incidence on the slope × heat flux (albedo + sensible fraction
     // from land-cover, else uniform) → w*.
@@ -108,8 +111,8 @@ export function thermalLayers(k: number): any[] {
       const cosInc = Math.max(0, (su[0] * -n.gx + su[1] * -n.gy + su[2]) / nl);
       const H = (dni * cosInc + diff) * (1 - (alb ? alb[idx] : ALBEDO)) * (sens ? sens[idx] : BETA);
       const thermal = 0.6 * Math.cbrt((G / THETA) * (H / RHOCP) * zi);   // thermal updraft (m/s)
-      const slope = Math.max(0, wu * n.gx + wv * n.gy);                  // windward slope lift (m/s)
-      vzN[idx] = (1 - blend) * thermal + blend * slope;                  // combined lift potential
+      const slope = wu * n.gx + wv * n.gy;                               // slope: windward + (lee −) (m/s)
+      vzN[idx] = (1 - blend) * thermal + blend * slope;                  // combined lift potential (signed)
     }
     // Per-cell Vz into a 2D grid, then a light 3×3 blur — kills the bin checkerboard.
     const NW = GN - 1, W = new Float32Array(NW * NW).fill(NaN);
@@ -126,20 +129,22 @@ export function thermalLayers(k: number): any[] {
       }
       if (n) Ws[j * NW + i] = s / n;
     }
-    const vals = [...Ws].filter(v => !Number.isNaN(v)).sort((x, y) => x - y);
-    const vmax = Math.max(0.3, vals[Math.floor(vals.length * 0.95)] || 1);   // 95th pct → relative scale
+    // Relative scale on each side: 95th pct of the lift, and of the |sink|.
+    const posv = [...Ws].filter(v => v > 0).sort((x, y) => x - y), negv = [...Ws].filter(v => v < 0).map(v => -v).sort((x, y) => x - y);
+    const posMax = Math.max(0.3, posv[Math.floor(posv.length * 0.95)] || 1), negMax = Math.max(0.3, negv[Math.floor(negv.length * 0.95)] || 1);
     for (let j = 0; j < NW; j++) for (let i = 0; i < NW; i++) {
       const w = Ws[j * NW + i]; if (Number.isNaN(w)) continue;
-      const f = w / vmax; if (f < VZ_MIN) continue;   // weak → transparent (clean terrain)
+      let bin: number;
+      if (w >= 0) { const f = w / posMax; if (f < VZ_MIN) continue; bin = 0; while (bin < VZ_FRAC.length && f >= VZ_FRAC[bin]) bin++; }   // lift → warm (0-4)
+      else { const s = -w / negMax; if (s < SINK_MIN) continue; bin = VZ_COLORS.length; while (bin - VZ_COLORS.length < SINK_FRAC.length && s >= SINK_FRAC[bin - VZ_COLORS.length]) bin++; }   // sink → cool (5-7)
       const a = g.nodes[j * GN + i], b = g.nodes[j * GN + i + 1], cc = g.nodes[(j + 1) * GN + i], d = g.nodes[(j + 1) * GN + i + 1];
-      let bin = 0; while (bin < VZ_FRAC.length && f >= VZ_FRAC[bin]) bin++;
       const B = bins[bin], st = B.pos.length / 3;
       const P = (ii: number, jj: number, h: number) => { B.pos.push(nlon(ii), nlat(jj), h * k + OFF); B.nrm.push(0, 0, 1); };
       P(i, j, a.h); P(i + 1, j, b.h); P(i + 1, j + 1, d.h); P(i, j + 1, cc.h);
       B.idx.push(st, st + 1, st + 2, st, st + 2, st + 3);
     }
     const meshes = bins.map((B, i) => B.idx.length ? {
-      color: VZ_COLORS[i],
+      color: COLORS[i],
       mesh: {
         attributes: { POSITION: { value: new Float32Array(B.pos), size: 3 }, NORMAL: { value: new Float32Array(B.nrm), size: 3 } },
         indices: { value: new Uint32Array(B.idx), size: 1 }, mode: 4,
