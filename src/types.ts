@@ -208,6 +208,9 @@ export interface AppState {
   overviewHud: boolean;
   // Only show/cycle gliders airborne at the current time (opt-in).
   activeOnly: boolean;
+  // Reference for the parenthetical height next to the altitude:
+  // 'af' = above the departure aerodrome (QFE analogue), 'ground' = AGL.
+  heightRef: 'af' | 'ground';
   // Show the clock in UTC instead of the airfield's local time.
   clockUTC: boolean;
   // 12-hour clock (AM/PM) instead of 24-hour.

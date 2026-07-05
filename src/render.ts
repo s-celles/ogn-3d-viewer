@@ -544,7 +544,7 @@ function projectToScreen(vp: any, lon: number, lat: number, alt: number, w: numb
 }
 function labelText(tr: RenderTrack, time: number): string {
   const lf = S.labelFields, p = posAt(tr, time), parts: string[] = [];
-  if (lf.alt) parts.push(Math.round(p[2]) + ' m');
+  if (lf.alt) parts.push(fmtAlt(p));
   if (lf.speed) parts.push(Math.round(groundSpeedAt(tr, time) * 3.6) + ' km/h');
   if (lf.vario) { const v = S.compensated ? compVarioAt(tr, time) : varioAt(tr, time); parts.push((v >= 0 ? '+' : '') + v.toFixed(1) + ' m/s'); }
   if (lf.hdg) parts.push(Math.round(headingAt(tr, time)).toString().padStart(3, '0') + '°');
@@ -887,6 +887,23 @@ function feedVarioSound(): void {
   varioAudio.update(vz, active);
 }
 
+// Aircraft altitude in the aviation "altitude (height)" style: the AMSL altitude
+// is primary, a height above a datum is the parenthetical. Datum = the departure
+// aerodrome's published elevation (a solid value, QFE analogue) or — for the
+// ground option — the DEM directly below (AGL). p[2] is already orthometric
+// (buildRel removed the geoid offset), consistent with both S.AF.elev and the DEM.
+function fmtAlt(p: Pos3): string {
+  const main = Math.round(p[2]) + ' m';
+  if (S.heightRef === 'ground') {
+    const g = terrainElevAt(p[0], p[1]);
+    return g != null ? `${main} · ⛰ ${Math.round(p[2] - g)} m` : main;
+  }
+  const af = S.AF;   // 'af': height above the departure aerodrome (published elevation)
+  if (!af) return main;
+  const h = Math.round(p[2] - af.elev);
+  return `${main} (${h >= 0 ? '+' : ''}${h} m)`;
+}
+
 // ---- HUD ----
 export function updateHUD(): void {
   if (!S.ready) return;
@@ -900,7 +917,7 @@ export function updateHUD(): void {
   }
   const time = pr.time;
   const p = posAt(tr, time), h = headingAt(tr, time), v = S.compensated ? compVarioAt(tr, time) : varioAt(tr, time);
-  hudhdg.textContent = Math.round(h).toString().padStart(3, '0') + '°'; hudalt.textContent = Math.round(p[2]) + ' m';
+  hudhdg.textContent = Math.round(h).toString().padStart(3, '0') + '°'; hudalt.textContent = fmtAlt(p);
   hudspd.textContent = Math.round(groundSpeedAt(tr, time) * 3.6) + ' km/h';
   hudvar.textContent = (v >= 0 ? '+' : '') + v.toFixed(1) + ' m/s' + (S.compensated ? ' TE' : ''); hudvar.className = 'vario ' + (v >= 0.1 ? 'pos' : (v <= -0.1 ? 'neg' : ''));
 }

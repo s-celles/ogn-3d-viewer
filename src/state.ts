@@ -24,7 +24,7 @@ export const S: AppState = {
   glideCone: false, glideRatio: 10, safetyHeight: 0, coneRadiusKm: 25,
   labels: false, labelFields: { reg: true, alt: true, speed: false, vario: false, hdg: false },
   shadowMode: 'off', altCurtain: false, showAttribution: true, basemap: DEFAULT_BASEMAP, ignDem: false,   // experimental, opt-in
-  showPeaks: false, peakDensity: 0.35, minimap: true, overviewHud: false, activeOnly: false, clockUTC: false, clock12: false,
+  showPeaks: false, peakDensity: 0.35, minimap: true, overviewHud: false, activeOnly: false, heightRef: 'af', clockUTC: false, clock12: false,
   live: false, liveTimer: null,
   INIT: { ...INIT },
   mapVS: { ...INIT },
