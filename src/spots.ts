@@ -468,8 +468,10 @@ function zoneInfo(z: HotZone): ZoneInfo {   // resolve a name / country / flag f
   const hit = cand ? nameCache.get(z.label) : undefined;
   const code = hit?.code || z.label;                 // canonical airfield code once resolved (LKDK → LKDKH)
   const iso = hit?.code || cand;                     // for flag/country: resolved code, else the derived ICAO
-  let country = iso ? codeCountry(iso) : '', flag = iso ? codeFlag(iso) : '';
-  if (!country) { country = nearestCountry(z.lat, z.lon); flag = isoFlag(country); }   // named receiver (UKDUN2) → country by location
+  // Prefer the country of where the zone actually is: the ICAO-prefix guess is
+  // unreliable for OGN short codes (e.g. UK "EDG" → "ED" reads as Germany).
+  let country = nearestCountry(z.lat, z.lon) || (iso ? codeCountry(iso) : '');
+  let flag = isoFlag(country) || (iso ? codeFlag(iso) : '');
   return { code, name: hit?.name || '', country, flag, loadable: !!hit?.found };   // loadable = maps to a real FlightBook airfield
 }
 function hotRowText(info: ZoneInfo): string {

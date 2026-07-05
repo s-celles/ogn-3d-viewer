@@ -72,6 +72,7 @@ export interface Airfield {
   lat: number;
   elev: number;
   tz_off: number;
+  country?: string;   // ISO country from the logbook (authoritative — beats the ICAO-prefix guess)
 }
 
 /** A minimal map/first-person view-state. */
@@ -104,6 +105,7 @@ export interface FBFlight {
 export interface FBAirfield {
   name: string;
   code: string;
+  country?: string;
   latlng: [number, number];
   elevation?: number;
   time_info?: { tz_offset?: string };

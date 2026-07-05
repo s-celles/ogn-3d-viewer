@@ -8,7 +8,7 @@ import {
   exoEl, exval, groundEl, groundval, cacheEl, cacheval, acscaleEl, acscaleval, coneBtn, finesseEl, finval, safetyEl, safeval, coneRadEl, coneradval, labelsBtn, labelFieldsEl, shadowsEl, basemapEl, ignDemBtn, peaksBtn, peakDensityEl, minimapBtn, overviewHudBtn, activeOnlyBtn, clock12Btn, clearWpBtn, attribEl, curtainBtn, attrBtn, pitchEl, pitchval, scrub, scrubMin, scrubMax, clkEl, tzEl, lglist, rose, altsl, icaoEl, fblink, acEl,
   dateEl, loadBtn, langEl, discEl, infoBtn, copyBtn, shareBtn, collapseBtn, liveBtn, igcBtn, igcInput, mapDiv, prevAc, nextAc, resetSettingsBtn, afInfo,
 } from './dom';
-import { codeFlag } from './flags';
+import { codeFlag, flag } from './flags';
 import qrcode from 'qrcode-generator';
 
 const HAS_SHARE = typeof navigator !== 'undefined' && 'share' in navigator;   // Web Share API available?
@@ -733,7 +733,7 @@ let lastAfKey = '';
 /** Show a discovered spot's name/flag (for terrain-only picks); null clears it. */
 export function setPlace(name: string | null, flag = ''): void { place = name ? { name, flag } : null; renderPlace(); }
 function renderPlace(): void {
-  const p = place || (S.AF && S.AF.name ? { name: S.AF.name, flag: codeFlag(S.AF.code) } : null);
+  const p = place || (S.AF && S.AF.name ? { name: S.AF.name, flag: flag(S.AF.country || '') || codeFlag(S.AF.code) } : null);
   const key = p ? p.flag + '|' + p.name : '';
   if (key === lastAfKey) return;
   lastAfKey = key;

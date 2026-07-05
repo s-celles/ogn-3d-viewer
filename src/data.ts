@@ -143,7 +143,7 @@ export async function loadFlights(icao: string, date: string): Promise<void> {
       [...viewsEl.children].forEach(c => (c as HTMLElement).classList.toggle('on', (c as HTMLElement).dataset.m === 'over'));
       if (res.af.latlng) {
         S.CURAF = res.af; S.CURTZ = res.tzoff;
-        S.AF = { name: res.af.name, code: res.af.code, lon: res.af.latlng[1], lat: res.af.latlng[0], elev: res.af.elevation || 0, tz_off: res.tzoff };
+        S.AF = { name: res.af.name, code: res.af.code, lon: res.af.latlng[1], lat: res.af.latlng[0], elev: res.af.elevation || 0, tz_off: res.tzoff, country: res.af.country };
         S.mapTarget = { longitude: res.af.latlng[1], latitude: res.af.latlng[0], zoom: 11, pitch: 55, bearing: 0, minZoom: OVERVIEW_MINZOOM, maxPitch: 85 };
         document.body.classList.add('loaded');
       }
@@ -227,7 +227,7 @@ export function rebuild(af: FBAirfield | null, tzoff: number | null, preserve: b
   const tracks = S.RAW.slice().sort((a, b) => a.tstart - b.tstart);
   tracks.forEach(tr => tr.color = colorFor(tr.reg));
   const g0 = Math.min(...tracks.map(x => x.tstart)), g1 = Math.max(...tracks.map(x => x.tend));
-  S.AF = { name: curaf.name, code: curaf.code, lon: curaf.latlng[1], lat: curaf.latlng[0], elev: curaf.elevation || 0, tz_off: S.CURTZ };
+  S.AF = { name: curaf.name, code: curaf.code, lon: curaf.latlng[1], lat: curaf.latlng[0], elev: curaf.elevation || 0, tz_off: S.CURTZ, country: curaf.country };
   S.G0 = g0; S.G1 = g1; S.SPAN = Math.max(1, S.G1 - S.G0);
   // before buildRel (which subtracts it). IGC sessions use a field-agnostic
   // per-point geoid estimate computed at load (works across several airfields).
