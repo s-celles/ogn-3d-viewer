@@ -878,11 +878,13 @@ function updateLegendLocal(): void {
 // Drive the audio variometer from the followed glider's Vz (cockpit & chase only,
 // when present & live/online and sound is on). Uses the same compensated/raw
 // setting as the HUD. A stale (offline) live fix is muted — its Vz is meaningless.
+// Also muted when replay is paused: the scene is frozen, so the Vz is stale
+// (the scene only advances in live mode or while playing).
 function feedVarioSound(): void {
   const following = S.mode === 'fpv' || S.mode === 'chase';
   const tr = following && S.ready ? subjectTrack() : undefined;
   const pr = tr ? presence(tr) : null;
-  const active = !!(S.sound && pr && !pr.offline);
+  const active = !!(S.sound && (S.live || S.playing) && pr && !pr.offline);
   const vz = active ? (S.compensated ? compVarioAt(tr!, pr!.time) : varioAt(tr!, pr!.time)) : 0;
   varioAudio.update(vz, active);
 }
