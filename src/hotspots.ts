@@ -36,6 +36,11 @@ export async function fetchHotZones(topN = 30, force = false): Promise<HotResult
     for (const m of txt.matchAll(/<m a="([^"]+)"/g)) {
       const t = m[1].split(',');
       if (t[10] !== '1') continue;                       // gliders only
+      // Airborne only. A glider parked on the ground still beacons (FLARM on) with
+      // speed 0 and no climb; counting those makes "hot spots" rank where gliders
+      // are parked, not where soaring is happening. Real flight always shows ground
+      // speed and/or a climb/sink rate (speed is km/h, vz m/s).
+      if (!(+t[8] >= 30 || Math.abs(+t[9]) >= 1)) continue;
       if (t[13] && seen.has(t[13])) continue;            // dedup across tile overlaps
       if (t[13]) seen.add(t[13]);
       const lat = +t[0], lon = +t[1];
