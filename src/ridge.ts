@@ -10,16 +10,15 @@ import { SimpleMeshLayer, COORDINATE_SYSTEM } from './deck';
 import { terrainElevAt } from './terrain';
 import { getWeather, weatherWind } from './weather';
 import { getThermals } from './airmass';
+import { LIFT_COLORS, SINK_COLORS } from './liftviz';
 
 const OFF = 10;          // patch lift off the surface, to avoid z-fighting (m)
 const LU = 900;          // upwind probe distance for terrain sheltering (m)
 const H_SHELTER = 320;   // upwind terrain this much higher → wind ~fully sheltered (m)
 const W_MIN = 0.4;       // m/s: weakest slope lift / sink drawn
-// Strength bins → one mesh each (a single mesh is one colour). Windward lift is a
-// pale→bright teal ramp; leeward sink (w<0) a sand→red ramp, both by |w|.
-const LIFT: [number, number, number, number][] = [[90, 210, 200, 40], [120, 232, 212, 66], [175, 245, 228, 98]];
-const SINK: [number, number, number, number][] = [[205, 165, 95, 34], [212, 120, 68, 58], [205, 78, 54, 92]];
-const COLORS = [...LIFT, ...SINK];
+// Strength bins → one mesh each. Shared lift ramp: windward lift is warm (it climbs),
+// leeward sink (w<0) cool blue (it descends), both keyed by |w|.
+const COLORS = [LIFT_COLORS[0], LIFT_COLORS[2], LIFT_COLORS[4], ...SINK_COLORS];
 
 const meshParams = {
   depthCompare: 'less-equal', depthWriteEnabled: false, blend: true, cullMode: 'none',

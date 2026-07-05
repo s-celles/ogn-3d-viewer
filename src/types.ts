@@ -210,6 +210,10 @@ export interface AppState {
   activeOnly: boolean;
   // Show the reconstructed air mass (thermal columns + cumulus) from the tracks.
   airMass: boolean;
+  // Show the estimated lift-potential field (thermal + slope lift, physics).
+  thermalPot: boolean;
+  // Blend of the lift-potential field: 0 = pure thermal, 1 = pure slope lift.
+  liftBlend: number;
   // Wind-flow representation: 'off'; 2D draped variants — 'drapeVec' (arrows),
   // 'drapeCol' (speed colours), 'drapeBoth', 'barbs' (station wind barbs); or 3D
   // profile views — 'layers' (arrows at altitude bands), 'rings', 'hodograph'.

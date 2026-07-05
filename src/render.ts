@@ -18,6 +18,7 @@ import { updateMinimap } from './minimap';
 import { airMassLayers } from './airmass';
 import { ridgeLayers } from './ridge';
 import { windLayers } from './wind';
+import { thermalLayers } from './thermal';
 import { poiLabelsDiv } from './dom';
 import { CHASE, FAR_PLANE } from './config';
 import { saveSettings } from './settings';
@@ -509,6 +510,7 @@ function dynamicLayers() {
       } as any)];
     })()),
     ...(S.glideCone ? glideConeLayers(k) : []),
+    ...(S.thermalPot ? thermalLayers(k) : []),
     ...(S.airMass ? [...ridgeLayers(k), ...airMassLayers(k)] : []),
     ...(S.windMode !== 'off' ? windLayers(k) : []),
     ...poiPoleLayers(k),

@@ -7,7 +7,7 @@
 import { S } from './state';
 
 interface Prof { alt: number; u: number; v: number }   // AMSL height + wind vector (m/s, east/north)
-interface WxHour { cloudbase: number | null; prof: Prof[] }
+interface WxHour { cloudbase: number | null; prof: Prof[]; sw: number; diff: number; blh: number }   // + shortwave/diffuse radiation (W/m²), boundary-layer height (m)
 export interface Wx { hours: WxHour[] }
 
 const LEVELS = [925, 850, 700];   // hPa: through the convective layer
@@ -34,7 +34,7 @@ const daysAgo = (date: string): number => (Date.parse(new Date().toISOString().s
 async function fetchWx(lat: number, lon: number, date: string): Promise<Wx | null> {
   const recent = daysAgo(date) <= 5;   // ERA5 archive lags; use the forecast API for recent days
   const host = recent ? 'https://api.open-meteo.com/v1/forecast' : 'https://archive-api.open-meteo.com/v1/archive';
-  const surf = 'temperature_2m,relative_humidity_2m,wind_speed_10m,wind_direction_10m';
+  const surf = 'temperature_2m,relative_humidity_2m,wind_speed_10m,wind_direction_10m,shortwave_radiation,diffuse_radiation,boundary_layer_height';
   const lvl = LEVELS.flatMap(p => [`wind_speed_${p}hPa`, `wind_direction_${p}hPa`, `geopotential_height_${p}hPa`]).join(',');
   const url = `${host}?latitude=${lat.toFixed(3)}&longitude=${lon.toFixed(3)}&start_date=${date}&end_date=${date}`
     + `&hourly=${surf},${lvl}&wind_speed_unit=ms&timezone=UTC`;
@@ -54,7 +54,10 @@ async function fetchWx(lat: number, lon: number, date: string): Promise<Wx | nul
       if (Number.isFinite(hh) && Number.isFinite(sp) && Number.isFinite(dr)) prof.push({ ...toUV(sp, dr), alt: hh });
     }
     prof.sort((a, b) => a.alt - b.alt);
-    hours.push({ cloudbase: lclBase(num(h.temperature_2m?.[i]), num(h.relative_humidity_2m?.[i]), ref), prof });
+    hours.push({
+      cloudbase: lclBase(num(h.temperature_2m?.[i]), num(h.relative_humidity_2m?.[i]), ref), prof,
+      sw: num(h.shortwave_radiation?.[i]), diff: num(h.diffuse_radiation?.[i]), blh: num(h.boundary_layer_height?.[i]),
+    });
   }
   return { hours };
 }
@@ -84,6 +87,11 @@ const clampHour = (wx: Wx, hour: number): number => Math.max(0, Math.min(wx.hour
 /** Cloudbase AMSL (m) at a UTC hour, or null if unavailable. */
 export function weatherCloudbase(wx: Wx, hour: number): number | null {
   return wx.hours[clampHour(wx, hour)]?.cloudbase ?? null;
+}
+/** Shortwave/diffuse radiation (W/m²) and boundary-layer height (m) at a UTC hour. */
+export function weatherRad(wx: Wx, hour: number): { sw: number; diff: number; blh: number } {
+  const h = wx.hours[clampHour(wx, hour)];
+  return { sw: h?.sw ?? NaN, diff: h?.diff ?? NaN, blh: h?.blh ?? NaN };
 }
 /** Wind vector [east, north] (m/s) at an AMSL altitude and UTC hour, or null. */
 export function weatherWind(wx: Wx, hour: number, alt: number): [number, number] | null {
