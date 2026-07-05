@@ -134,14 +134,20 @@ export async function loadFlights(icao: string, date: string): Promise<void> {
     S.RAW = res.tracks;
     if (!S.RAW.length) {
       setStatus(t('noFlights'));
-      // Still fly to the airfield so the user lands on the zone (e.g. old dates
-      // whose IGC tracks have expired), and keep its timezone so the clock can
-      // show the local time — useful in live mode with an empty sky.
+      // No flights: drop any previously loaded ones and reset to a clean, empty
+      // overview (terrain only), but KEEP the airfield + its timezone and mark the
+      // app loaded — so the clock and its UTC/local toggle stay live and usable
+      // (the current time in live mode, otherwise --:--) rather than stale/greyed.
+      S.TRACKS = []; S.ready = false; S.subject = null; S.solo = null; S.focus = null; S.focusLock = null;
+      S.mode = 'over'; document.body.classList.remove('fpv', 'chase'); applyFollowClass();
+      [...viewsEl.children].forEach(c => (c as HTMLElement).classList.toggle('on', (c as HTMLElement).dataset.m === 'over'));
       if (res.af.latlng) {
         S.CURAF = res.af; S.CURTZ = res.tzoff;
         S.AF = { name: res.af.name, code: res.af.code, lon: res.af.latlng[1], lat: res.af.latlng[0], elev: res.af.elevation || 0, tz_off: res.tzoff };
         S.mapTarget = { longitude: res.af.latlng[1], latitude: res.af.latlng[0], zoom: 11, pitch: 55, bearing: 0, minZoom: OVERVIEW_MINZOOM, maxPitch: 85 };
+        document.body.classList.add('loaded');
       }
+      buildLegend(); syncUI(); render();
       loadBtn.disabled = false; return;
     }
     // Sample the rendered DEM at the airfield so the geoid/datum offset lands
