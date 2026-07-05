@@ -28,6 +28,7 @@
 - **HUD in der Übersicht** *(optional, standardmäßig aus)* — das Telemetrie-Feld (Kennzeichen, Kurs, Geschwindigkeit, Höhe, Vario) des **fokussierten** Luftfahrzeugs auch in der Übersicht anzeigen. **J / K**, die **◀ / ▶** und **1 / 2 / 3** wechseln das fokussierte Luftfahrzeug (beim Verschieben der Ansicht übernimmt wieder das der Mitte nächste).
 - **Nur aktive Luftfahrzeuge** *(optional, standardmäßig aus)* — nur gerade **fliegende** Luftfahrzeuge zeigen und durchschalten; blendet die übrigen Spuren und Legendenzeilen aus (nie das verfolgte).
 - **Luftmasse** *(optional, standardmäßig aus, experimentell)* — rekonstruiert die **Thermik des Tages** aus den Spuren (Kreisen + Steigen) und zeigt sie als **Schläuche** mit **Cumulus** an einer gemeinsamen Basis, in den Wind geneigt. Wolkenbasis und Wind werden per Wettermodell (**Open-Meteo**) verfeinert, sonst aus den Spuren geschätzt. **Sehr grobes Modell** (siehe *Hinweise & Grenzen*).
+- **Wind** *(optional, standardmäßig aus, experimentell)* — stellt das Windfeld dar, **lokal und durch das Gelände verfeinert**, nach **Höhe** aufgelöst (Open-Meteo-Profil). Ein Dropdown wählt die Darstellung: **Drapiert (2D)** in 3 Varianten (Pfeile, Geschwindigkeitsfarben, oder beides), **Windfahnen (2D)** (met. Konvention: halbe Fahne 5 kt, ganze 10 kt, Wimpel 50 kt), **Höhenschichten (3D)**, **Ringe pro Höhe (3D)**, **Hodograph (3D)** (Profilspirale → Scherung). Eine **Windrose** (Ecke) zeigt Geschwindigkeit und Herkunft. **Sehr grob** (siehe *Hinweise & Grenzen*).
 
 ## Wiedergabe
 
@@ -72,7 +73,7 @@ Fügen Sie `?dev=1` zur URL hinzu für ein technisches Panel: Gelände-**Drahtgi
 - **Luftmasse — sehr grobes, rein illustratives Modell** (weder gemessen noch vorhersagend; nicht zur Flugvorbereitung):
   - *Thermik* — nur dort gezeigt, wo ein Flugzeug tatsächlich **kreiste** (kein Verkehr → nichts); Lage und Stärke sind das **Steigen des Flugzeugs**, nicht die echte Luftbewegung (kein *Netto*); schwache oder kurze Aufwinde können übersehen werden.
   - *Wolkenbasis* — **geschätzt** (LCL aus Temperatur/Feuchte oder Perzentil der Oberkanten), nicht gemessen: Abweichung von einigen hundert Metern möglich.
-  - *Wind* — ein **einzelner Wert in Bodennähe** (grobes Wettermodell oder Kreisdrift); ignoriert Scherung, Brisen und Konvergenz.
+  - *Wind* — ein **lokaler** Wind (grobes Wettermodell in der Bildmitte oder Kreisdrift), **durch das Gelände verfeinert** (Abschirmung/Ablenkung, Heuristik) und nach **Höhe** aus dem Profil aufgelöst; bleibt grob (ignoriert Rotor, Konvergenz, Brisen, Massenerhaltung). Die 3D-Darstellungen sind **experimentell**.
   - *Hangaufwind und Abwind* — `w = Wind · ∇Gelände`, eine **kinematische Näherung erster Ordnung**: ignoriert Strömungsablösung, Rotor, Leewellen und Stabilität; ein Wind für die ganze Szene; Detail durch die DEM-Auflösung begrenzt.
 - OGN-Spuren hängen vom Empfang der Bodenstationen ab — Lücken und Aussetzer sind möglich.
 - Die Fluglage (Quer-/Längsneigung) wird aus Bodenspur und Geschwindigkeit **geschätzt**, nicht gemessen.

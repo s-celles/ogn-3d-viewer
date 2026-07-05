@@ -28,6 +28,7 @@ Rejeu 3D des vols de planeurs de l'[Open Glider Network](http://wiki.glidernet.o
 - **HUD en vue d'ensemble** *(option, désactivée par défaut)* — afficher le bandeau (immat, cap, vitesse, altitude, vario) de l'aéronef **focalisé** aussi en vue d'ensemble. **J / K**, les **◀ / ▶** et **1 / 2 / 3** changent l'aéronef focalisé (le déplacement de la vue rend la main au « plus proche du centre »).
 - **Aéronefs actifs seulement** *(option, désactivée par défaut)* — n'afficher et ne faire défiler que les aéronefs **en vol à l'instant courant** ; masque les autres traces et lignes de légende (jamais celui que vous suivez).
 - **Masse d'air** *(option, désactivée par défaut, expérimental)* — reconstruit les **thermiques du jour** à partir des traces (spirales + montées) et les représente en **panaches** coiffés de **cumulus** à une base commune, inclinés au vent. Base des nuages et vent affinés par un modèle météo (**Open-Meteo**) quand disponible, sinon estimés depuis les traces. **Modèle très approximatif** (voir *Notes & limites*).
+- **Vent** *(option, désactivée par défaut, expérimental)* — visualise le champ de vent, **local et affiné par le relief**, décliné **par altitude** (profil météo Open-Meteo). Un menu déroulant choisit la représentation : **Drapé (2D)** en 3 variantes (vecteurs, couleurs par la vitesse, ou les deux), **Barbules (2D)** (convention météo : demi-trait 5 kt, trait plein 10 kt, fanion 50 kt), **Couches d'altitude (3D)**, **Anneaux par altitude (3D)**, **Hodographe (3D)** (spirale du profil → cisaillement). Une **rose** (coin) donne vitesse et provenance. **Très approximatif** (voir *Notes & limites*).
 
 ## Lecture
 
@@ -72,7 +73,7 @@ Ajoutez `?dev=1` à l'URL pour un panneau technique : **fil de fer** du relief, 
 - **Masse d'air — modèle très approximatif, purement illustratif** (ni mesuré ni prédictif ; à ne pas utiliser pour préparer un vol) :
   - *Thermiques* — montrés uniquement là où un planeur a réellement **spiralé** (sans trafic, rien) ; position et force = la **montée du planeur**, pas le mouvement réel de l'air (pas de *netto*) ; les ascendances faibles ou brèves peuvent être ratées.
   - *Base des nuages* — **estimée** (LCL depuis température/humidité, ou percentile des sommets), non mesurée : erreur possible de plusieurs centaines de mètres.
-  - *Vent* — une **seule valeur bas-niveau** (modèle météo à maille large, ou dérive des cercles) ; ignore cisaillement, brises et convergences.
+  - *Vent* — vent **local** (météo à maille large au centre de la vue, ou dérive des cercles), **affiné par le relief** (abri/déflexion, heuristique) et décliné **par altitude** via le profil ; reste grossier (ignore rotors, convergences, brises, conservation de masse). Les représentations 3D sont **expérimentales**.
   - *Pente et dégueulantes* — `w = vent · ∇relief`, **approximation cinématique au 1er ordre** : ignore décollements, rotors, ondes de ressaut et stabilité ; un seul vent pour toute la scène ; finesse limitée par la résolution du MNT.
 - Les traces OGN dépendent de la réception par les stations au sol — trous et décrochages possibles.
 - L'attitude (inclinaison/assiette) est **estimée** à partir de la trace sol et de la vitesse, non mesurée.
