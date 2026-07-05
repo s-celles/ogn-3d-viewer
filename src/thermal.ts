@@ -11,7 +11,6 @@ import { terrainElevAt } from './terrain';
 import { sunLightDir } from './sky';
 import { getWeather, weatherRad } from './weather';
 import { getLC, sampleGrid, lcVersion } from './landcover';
-import { windBg } from './ridge';
 import { LIFT_COLORS as VZ_COLORS, SINK_COLORS } from './liftviz';
 
 const GN = 80;           // grid nodes per side (map resolution)
@@ -23,10 +22,13 @@ const G = 9.81, THETA = 290, RHOCP = 1200;   // gravity, ref pot. temp (K), ρ·
 // Vz bins (m/s) → one mesh each: blue (weak) → red (strong).
 // Highlight only the better-exposed cells (relative to the view), on the shared warm
 // lift ramp; transparent below VZ_MIN so weak areas show clean terrain.
-const VZ_MIN = 0.62;     // draw lift cells above this fraction of the view's 95th-pct
-const VZ_FRAC = [0.62, 0.74, 0.85, 0.94];   // sub-levels within [VZ_MIN, 1]
-const SINK_MIN = 0.5;    // draw sink cells below −this fraction of the |neg| 95th-pct
-const SINK_FRAC = [0.7, 0.9];                // sub-levels for sink (3 SINK_COLORS)
+// The field is a per-cell heating anomaly vs a flat reference patch, expressed as a
+// FRACTION of that reference (view-independent — same colour whatever the camera does).
+// A slope heated more than flat ground rises (warm); a shaded/bright one sinks (cool).
+const WARM_MIN = 0.05;   // draw lift cells above this fractional anomaly
+const WARM_FRAC = [0.11, 0.18, 0.27, 0.38]; // sub-levels within the 5 warm colours (red ≥ last)
+const SINK_MIN = 0.045;  // draw sink cells below −this fractional anomaly
+const SINK_FRAC = [0.1, 0.17];               // sub-levels for sink (3 SINK_COLORS)
 const COLORS = [...VZ_COLORS, ...SINK_COLORS];   // 5 warm (lift) + 3 cool (sink)
 const meshParams = {
   depthCompare: 'less-equal', depthWriteEnabled: false, blend: true, cullMode: 'none',
@@ -75,12 +77,12 @@ function lcParams(g: TGrid, cLat: number, cLon: number, R: number): { alb: Float
 // Replay instant (ms UTC) for the sun position.
 const nowMs = (): number => Date.parse(S.date + 'T00:00:00Z') + (S.G0 + S.cur) * 1000;
 
-let cache: { terr: TGrid; k: number; bucket: number; wxr: boolean; lcv: number; comp: number; meshes: { color: number[]; mesh: any }[] } | null = null;
+let cache: { terr: TGrid; k: number; bucket: number; wxr: boolean; lcv: number; meshes: { color: number[]; mesh: any }[] } | null = null;
 
 /** Draped patches coloured by the estimated thermal updraft (Vz), from sun × slope
  *  × heat flux × w*. Empty at night or when the terrain/date is unavailable. */
-export function thermalLayers(k: number): any[] {
-  if (!S.date || !Number.isFinite(nowMs())) return [];
+export function thermalLayers(k: number, alpha = 1): any[] {
+  if (alpha <= 0 || !S.date || !Number.isFinite(nowMs())) return [];
   const cLat = S.mapVS.latitude, cLon = S.mapVS.longitude, zoom = S.mapVS.zoom || 11;
   const R = Math.max(4000, Math.min(20000, 156543.03392 * Math.cos(cLat * Math.PI / 180) / 2 ** zoom * 700));
   const g = ensureTerr(cLat, cLon, R); if (!g) return [];
@@ -93,27 +95,29 @@ export function thermalLayers(k: number): any[] {
   const diff = Number.isFinite(rad.diff) ? rad.diff : 90;
   const dni = Math.min(1050, Math.max(0, ((Number.isFinite(rad.sw) ? rad.sw : 1000 * su[2]) - diff)) / su[2]);   // direct normal irradiance
   const zi = Number.isFinite(rad.blh) && rad.blh > 200 ? rad.blh : 1500;
+  // View-independent reference: the updraught a FLAT patch of reference ground gets
+  // under this sun/weather. Each cell is then coloured by how far above/below this it
+  // is — so a given slope keeps its colour no matter where the camera looks.
+  const wStar = (H: number): number => 0.6 * Math.cbrt((G / THETA) * (H / RHOCP) * zi);
+  const wRef = wStar((dni * su[2] + diff) * (1 - ALBEDO) * BETA);   // flat ground, reference albedo/Bowen
+  const scaleRef = Math.max(0.15, wRef);
 
   const lcp = lcParams(g, cLat, cLon, R);
-  const wind = windBg(cLat, cLon);   // for the slope-lift component
-  const kT = S.liftThermal ? 1 : 0, kS = S.liftSlope ? 1 : 0, comp = kT + 2 * kS;   // which components are on
-  if (!comp) return [];              // no component selected → nothing to draw
   const bucket = Math.floor((S.G0 + S.cur) / 900);   // recompute every ~15 min of sim time
-  if (!cache || cache.terr !== g || cache.k !== k || cache.bucket !== bucket || cache.wxr !== !!wx || cache.lcv !== lcp.lcv || cache.comp !== comp) {
+  if (!cache || cache.terr !== g || cache.k !== k || cache.bucket !== bucket || cache.wxr !== !!wx || cache.lcv !== lcp.lcv) {
     const bins = COLORS.map(() => ({ pos: [] as number[], nrm: [] as number[], idx: [] as number[] }));
     const nlon = (i: number) => g.cLon + (-g.R + i * g.sp) / g.mLng, nlat = (j: number) => g.cLat + (-g.R + j * g.sp) / g.mLat;
-    // Vz per node: sun incidence on the slope × heat flux (albedo + sensible fraction
-    // from land-cover, else uniform) → w*.
-    const alb = lcp.alb, sens = lcp.sens, wu = wind ? wind[0] : 0, wv = wind ? wind[1] : 0, vzN = new Float32Array(GN * GN);
+    // Per node: sun incidence on the slope × heat flux (albedo + sensible fraction
+    // from land-cover, else uniform) → w*, then the fractional anomaly vs the flat
+    // reference. Positive = better-heated than flat (rises), negative = worse (sinks).
+    const alb = lcp.alb, sens = lcp.sens, vzN = new Float32Array(GN * GN);
     for (let idx = 0; idx < GN * GN; idx++) {
       const n = g.nodes[idx];
       if (Number.isNaN(n.h)) { vzN[idx] = NaN; continue; }
       const nl = Math.hypot(n.gx, n.gy, 1);
       const cosInc = Math.max(0, (su[0] * -n.gx + su[1] * -n.gy + su[2]) / nl);
       const H = (dni * cosInc + diff) * (1 - (alb ? alb[idx] : ALBEDO)) * (sens ? sens[idx] : BETA);
-      const thermal = 0.6 * Math.cbrt((G / THETA) * (H / RHOCP) * zi);   // thermal updraft (m/s)
-      const slope = wu * n.gx + wv * n.gy;                               // slope: windward + (lee −) (m/s)
-      vzN[idx] = kT * thermal + kS * slope;                              // sum of the selected components (signed)
+      vzN[idx] = (wStar(H) - wRef) / scaleRef;                          // fractional heating anomaly
     }
     // Per-cell Vz into a 2D grid, then a light 3×3 blur — kills the bin checkerboard.
     const NW = GN - 1, W = new Float32Array(NW * NW).fill(NaN);
@@ -130,14 +134,15 @@ export function thermalLayers(k: number): any[] {
       }
       if (n) Ws[j * NW + i] = s / n;
     }
-    // Relative scale on each side: 95th pct of the lift, and of the |sink|.
-    const posv = [...Ws].filter(v => v > 0).sort((x, y) => x - y), negv = [...Ws].filter(v => v < 0).map(v => -v).sort((x, y) => x - y);
-    const posMax = Math.max(0.3, posv[Math.floor(posv.length * 0.95)] || 1), negMax = Math.max(0.3, negv[Math.floor(negv.length * 0.95)] || 1);
+    // Fixed thresholds on the fractional anomaly (mass continuity: better-heated-than-
+    // flat rises, worse sinks). Absolute, not view-relative — so colours are stable as
+    // the camera moves. Near-flat / average terrain stays below the entry and is clean.
     for (let j = 0; j < NW; j++) for (let i = 0; i < NW; i++) {
       const w = Ws[j * NW + i]; if (Number.isNaN(w)) continue;
       let bin: number;
-      if (w >= 0) { const f = w / posMax; if (f < VZ_MIN) continue; bin = 0; while (bin < VZ_FRAC.length && f >= VZ_FRAC[bin]) bin++; }   // lift → warm (0-4)
-      else { const s = -w / negMax; if (s < SINK_MIN) continue; bin = VZ_COLORS.length; while (bin - VZ_COLORS.length < SINK_FRAC.length && s >= SINK_FRAC[bin - VZ_COLORS.length]) bin++; }   // sink → cool (5-7)
+      if (w >= WARM_MIN) { bin = 0; while (bin < WARM_FRAC.length && w >= WARM_FRAC[bin]) bin++; }   // lift → warm (0-4)
+      else if (w <= -SINK_MIN) { const s = -w; bin = VZ_COLORS.length; while (bin - VZ_COLORS.length < SINK_FRAC.length && s >= SINK_FRAC[bin - VZ_COLORS.length]) bin++; }   // sink → cool (5-7)
+      else continue;
       const a = g.nodes[j * GN + i], b = g.nodes[j * GN + i + 1], cc = g.nodes[(j + 1) * GN + i], d = g.nodes[(j + 1) * GN + i + 1];
       const B = bins[bin], st = B.pos.length / 3;
       const P = (ii: number, jj: number, h: number) => { B.pos.push(nlon(ii), nlat(jj), h * k + OFF); B.nrm.push(0, 0, 1); };
@@ -151,10 +156,11 @@ export function thermalLayers(k: number): any[] {
         indices: { value: new Uint32Array(B.idx), size: 1 }, mode: 4,
       },
     } : null).filter(Boolean) as { color: number[]; mesh: any }[];
-    cache = { terr: g, k, bucket, wxr: !!wx, lcv: lcp.lcv, comp, meshes };
+    cache = { terr: g, k, bucket, wxr: !!wx, lcv: lcp.lcv, meshes };
   }
   return cache.meshes.map((m, i) => new SimpleMeshLayer({
     id: 'thermal-' + i, data: [{}], getPosition: () => [0, 0, 0], _instanced: false,
-    coordinateSystem: COORDINATE_SYSTEM.LNGLAT, getColor: m.color, material: false, parameters: meshParams, mesh: m.mesh,
+    coordinateSystem: COORDINATE_SYSTEM.LNGLAT, getColor: [m.color[0], m.color[1], m.color[2], Math.round(m.color[3] * alpha)],
+    material: false, parameters: meshParams, mesh: m.mesh,
   } as any));
 }

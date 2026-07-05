@@ -4,7 +4,8 @@
 // everywhere, with or without traffic. The terrain-forced vertical air velocity is
 //   w = wind · ∇terrain            (positive where the wind blows uphill)
 // We sample it on a grid around the airfield and drape translucent patches, tilted
-// to the slope, on the windward faces. Rough and illustrative (see the docs).
+// to the slope, on the windward faces. It is the "Pente" component of the lift
+// potential (its opacity set by the mixer weight). Rough and illustrative (see docs).
 import { S } from './state';
 import { SimpleMeshLayer, COORDINATE_SYSTEM } from './deck';
 import { terrainElevAt } from './terrain';
@@ -77,12 +78,14 @@ let cache: { cLon: number; cLat: number; R: number; hour: number; wk: string; me
 
 // Fresh layer instances from the cached geometry — a deck layer instance is single
 // use, so we must rebuild them each call (reusing a removed one won't re-render).
-const mkLayers = (meshes: { color: number[]; mesh: any }[]): any[] => meshes.map((m, i) => new SimpleMeshLayer({
+const mkLayers = (meshes: { color: number[]; mesh: any }[], alpha: number): any[] => meshes.map((m, i) => new SimpleMeshLayer({
   id: 'ridge-' + i, data: [{}], getPosition: () => [0, 0, 0], _instanced: false,
-  coordinateSystem: COORDINATE_SYSTEM.LNGLAT, getColor: m.color, material: false, parameters: meshParams, mesh: m.mesh,
+  coordinateSystem: COORDINATE_SYSTEM.LNGLAT, getColor: [m.color[0], m.color[1], m.color[2], Math.round(m.color[3] * alpha)],
+  material: false, parameters: meshParams, mesh: m.mesh,
 } as any));
 
-export function ridgeLayers(k: number): any[] {
+export function ridgeLayers(k: number, alpha = 1): any[] {
+  if (alpha <= 0) return [];
   // Centre the grid on the view and size it to what's visible, so the bands follow
   // the viewpoint instead of staying pinned to the airfield.
   const cLat = S.mapVS.latitude, cLon = S.mapVS.longitude, zoom = S.mapVS.zoom || 11;
@@ -97,7 +100,7 @@ export function ridgeLayers(k: number): any[] {
   if (cache && cache.hour === hour && cache.wk === wk && Math.abs(Math.log(cache.R / R)) < 0.25) {
     const cosLat = Math.cos(cLat * Math.PI / 180);
     const moved = Math.hypot((cache.cLon - cLon) * 111320 * cosLat, (cache.cLat - cLat) * 111320);
-    if (moved < R * 0.33) return mkLayers(cache.meshes);
+    if (moved < R * 0.33) return mkLayers(cache.meshes, alpha);
   }
   const mLng = 111320 * Math.cos(cLat * Math.PI / 180), mLat = 111320, half = STEP * 0.62;   // >STEP/2 → patches overlap into continuous bands
   const bins: Bin[] = [0, 1, 2, 3, 4, 5].map(() => ({ pos: [], nrm: [], idx: [] }));   // 0-2 lift, 3-5 sink
@@ -131,5 +134,5 @@ export function ridgeLayers(k: number): any[] {
     },
   } : null).filter(Boolean) as { color: number[]; mesh: any }[];
   cache = { cLon, cLat, R, hour, wk, meshes };
-  return mkLayers(meshes);
+  return mkLayers(meshes, alpha);
 }

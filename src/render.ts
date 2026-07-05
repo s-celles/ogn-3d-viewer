@@ -17,6 +17,7 @@ import { getPeaks, getWaypoints, loadPeaks, type Poi } from './poi';
 import { updateMinimap } from './minimap';
 import { airMassLayers } from './airmass';
 import { ridgeLayers } from './ridge';
+import { liftWeight } from './lift';
 import { windLayers } from './wind';
 import { thermalLayers } from './thermal';
 import { poiLabelsDiv } from './dom';
@@ -510,8 +511,14 @@ function dynamicLayers() {
       } as any)];
     })()),
     ...(S.glideCone ? glideConeLayers(k) : []),
-    ...(S.thermalPot ? thermalLayers(k) : []),
-    ...(S.airMass ? [...ridgeLayers(k), ...airMassLayers(k)] : []),
+    ...(S.thermalPot ? (() => {
+      // Blend from the mixer: each component's opacity scales with its weight (gamma
+      // lifts the mid-blend so a 50/50 is still legible). Skip a near-zero component.
+      const wt = liftWeight('thermal'), ws = liftWeight('slope');
+      const at = wt > 0.02 ? Math.pow(wt, 0.55) : 0, as = ws > 0.02 ? Math.pow(ws, 0.55) : 0;
+      return [...(at ? thermalLayers(k, at) : []), ...(as ? ridgeLayers(k, as) : [])];
+    })() : []),
+    ...(S.airMass ? airMassLayers(k) : []),
     ...(S.windMode !== 'off' ? windLayers(k) : []),
     ...poiPoleLayers(k),
   ];

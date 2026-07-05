@@ -9,6 +9,7 @@ import {
   dateEl, loadBtn, langEl, discEl, infoBtn, copyBtn, shareBtn, collapseBtn, liveBtn, igcBtn, igcInput, mapDiv, prevAc, nextAc, resetSettingsBtn, afInfo,
 } from './dom';
 import { codeFlag, flag } from './flags';
+import { buildLiftMixer, syncLiftMixer } from './liftmixer';
 import qrcode from 'qrcode-generator';
 
 const HAS_SHARE = typeof navigator !== 'undefined' && 'share' in navigator;   // Web Share API available?
@@ -282,7 +283,7 @@ export function syncControls(): void {
   heightRefEl.value = S.heightRef;
   airMassBtn.textContent = S.airMass ? t('on') : t('off'); airMassBtn.classList.toggle('on', S.airMass);
   thermalBtn.textContent = S.thermalPot ? t('on') : t('off'); thermalBtn.classList.toggle('on', S.thermalPot);
-  liftComps.querySelectorAll('input').forEach(el => { const cb = el as HTMLInputElement; cb.checked = !!(S as any)[cb.dataset.sk!]; });
+  syncLiftMixer();
   windModeEl.value = S.windMode;
   document.body.classList.toggle('windon', S.windMode !== 'off');
   clock12Btn.textContent = S.clock12 ? '12 h' : '24 h';
@@ -434,18 +435,10 @@ thermalBtn.onclick = () => {
   S.thermalPot = !S.thermalPot;
   thermalBtn.textContent = S.thermalPot ? t('on') : t('off'); thermalBtn.classList.toggle('on', S.thermalPot); render();
 };
-// Lift-potential components as checkboxes — extensible: add a 'wave' entry here
-// (with its state flag + i18n key + a term in thermal.ts) and it appears.
-const LIFT_COMPS: { sk: 'liftThermal' | 'liftSlope'; ik: string }[] = [
-  { sk: 'liftThermal', ik: 'liftThermal' }, { sk: 'liftSlope', ik: 'liftSlope' },
-];
-for (const c of LIFT_COMPS) {
-  const lab = document.createElement('label'); lab.style.cssText = 'display:flex;align-items:center;gap:5px;cursor:pointer';
-  const cb = document.createElement('input'); cb.type = 'checkbox'; cb.dataset.sk = c.sk; cb.checked = S[c.sk];
-  cb.onchange = () => { S[c.sk] = cb.checked; render(); };
-  const sp = document.createElement('span'); sp.dataset.k = c.ik; sp.textContent = t(c.ik);
-  lab.append(cb, sp); liftComps.appendChild(lab);
-}
+// Lift-potential component blend: a simplex "mixer" (axis for 2 components, triangle
+// for 3, N-gon beyond — see liftmixer.ts). Extensible: add a component in lift.ts and
+// it grows a vertex here.
+buildLiftMixer(liftComps, render);
 // ---- wind-flow representation: off / 2D drape / 3D altitude layers ----
 ([['off', 'off'], ['drapeVec', 'windDrapeVec'], ['drapeCol', 'windDrapeCol'], ['drapeBoth', 'windDrapeBoth'], ['barbs', 'windBarbs'], ['isotachs', 'windIsotachs'], ['layers', 'windLayers'], ['rings', 'windRings'], ['hodograph', 'windHodograph']] as const)
   .forEach(([v, k]) => { const o = document.createElement('option'); o.value = v; o.dataset.k = k; windModeEl.appendChild(o); });
@@ -671,7 +664,7 @@ export function applyI18n(): void {
   [...shadowsEl.options].forEach(o => { o.textContent = t(o.dataset.k!); });
   [...heightRefEl.options].forEach(o => { o.textContent = t(o.dataset.k!); });
   [...windModeEl.options].forEach(o => { o.textContent = t(o.dataset.k!); });
-  liftComps.querySelectorAll('span[data-k]').forEach(s => { (s as HTMLElement).textContent = t((s as HTMLElement).dataset.k!); });
+  syncLiftMixer();   // re-label the mixer vertices in the new language
   curtainBtn.textContent = S.altCurtain ? t('on') : t('off'); curtainBtn.classList.toggle('on', S.altCurtain);
   ignDemBtn.textContent = S.ignDem ? t('on') : t('off'); ignDemBtn.classList.toggle('on', S.ignDem);
   peaksBtn.textContent = S.showPeaks ? t('on') : t('off'); peaksBtn.classList.toggle('on', S.showPeaks);
