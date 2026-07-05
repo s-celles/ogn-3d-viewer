@@ -117,21 +117,75 @@ function spotMatch(s: Spot): boolean {
   return !q || `${s.name} ${s.code} ${s.country} ${s.blurb}`.toLowerCase().includes(q);
 }
 
-// Recenter the map on a continent (null = whole world). Pans/zooms the imagery
-// background and repositions the (constant-size) markers accordingly.
+const clampView = (v: { x0: number; y0: number; d: number }) => {
+  const d = Math.min(1, Math.max(0.02, v.d));   // 0.02 ≈ deep zoom, 1 = whole world
+  return { d, x0: Math.max(0, Math.min(1 - d, v.x0)), y0: Math.max(0, Math.min(1 - d, v.y0)) };
+};
+// Refresh the ESRI imagery background for the current `view` (a single sharp image
+// of the visible mercator rect).
+function updateMapBg(): void {
+  if (!bgEl) return;
+  const mx = (f: number) => ((f * 2 - 1) * MERC_E).toFixed(0), my = (f: number) => ((1 - f * 2) * MERC_E).toFixed(0);
+  const bbox = `${mx(view.x0)},${my(view.y0 + view.d)},${mx(view.x0 + view.d)},${my(view.y0)}`;
+  bgEl.style.backgroundImage = `url("${ESRI_EXPORT}?bbox=${bbox}&bboxSR=3857&imageSR=3857&size=512,512&format=jpg&f=image")`;
+}
+const applyView = (): void => { updateMapBg(); positionDots(); positionHot(); };
+// Recenter the map on a continent (null = whole world) — the default view for a tab;
+// also the target of the reset button. Pans/zooms the imagery and repositions markers.
 function setView(cont: string | null): void {
   const bb = cont ? CONT_BBOX[cont] : null;
   if (bb) {
     const x0 = merX(bb.w), x1 = merX(bb.e), y0 = merY(bb.n), y1 = merY(bb.s);
-    const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2, d = Math.min(1, Math.max(x1 - x0, y1 - y0) * 1.3);
-    view = { x0: Math.max(0, Math.min(1 - d, cx - d / 2)), y0: Math.max(0, Math.min(1 - d, cy - d / 2)), d };
+    const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2, d = Math.max(x1 - x0, y1 - y0) * 1.3;
+    view = clampView({ x0: cx - d / 2, y0: cy - d / 2, d });
   } else view = { x0: 0, y0: 0, d: 1 };
-  if (bgEl) {
-    const mx = (f: number) => ((f * 2 - 1) * MERC_E).toFixed(0), my = (f: number) => ((1 - f * 2) * MERC_E).toFixed(0);
-    const bbox = `${mx(view.x0)},${my(view.y0 + view.d)},${mx(view.x0 + view.d)},${my(view.y0)}`;
-    bgEl.style.backgroundImage = `url("${ESRI_EXPORT}?bbox=${bbox}&bboxSR=3857&imageSR=3857&size=512,512&format=jpg&f=image")`;
-  }
-  positionDots(); positionHot();
+  applyView();
+}
+let mapMoved = false;   // set during a drag so the click-to-world shortcut doesn't fire
+// Zoom the map by a factor around its centre (< 1 zooms in). Used by the +/- buttons.
+function zoomBy(factor: number): void {
+  const cx = view.x0 + view.d / 2, cy = view.y0 + view.d / 2, d = view.d * factor;
+  view = clampView({ d, x0: cx - d / 2, y0: cy - d / 2 });
+  applyView();
+}
+// A map control button (zoom / reset), flagged data-ctl so it doesn't start a pan.
+function mapCtl(label: string, title: string, fn: () => void): HTMLButtonElement {
+  const b = document.createElement('button'); b.dataset.ctl = ''; b.textContent = label; b.title = title;
+  b.style.cssText = 'width:30px;height:30px;padding:0;font-size:17px;line-height:1;background:rgba(12,17,25,.78);border:1px solid rgba(255,255,255,.2);color:#e8eef5;cursor:pointer;display:flex;align-items:center;justify-content:center';
+  b.onclick = e => { e.stopPropagation(); fn(); };
+  return b;
+}
+// Make the imagery map interactive: wheel to zoom around the cursor, drag to pan.
+function wireMapNav(el: HTMLElement): void {
+  el.style.cursor = 'grab';
+  el.addEventListener('wheel', e => {
+    e.preventDefault();
+    const r = el.getBoundingClientRect(), fx = (e.clientX - r.left) / r.width, fy = (e.clientY - r.top) / r.height;
+    const wx = view.x0 + fx * view.d, wy = view.y0 + fy * view.d, d = view.d * (e.deltaY < 0 ? 0.8 : 1.25);
+    view = clampView({ d, x0: wx - fx * d, y0: wy - fy * d });   // keep the point under the cursor fixed
+    applyView();
+  }, { passive: false });
+  let down = false, sx = 0, sy = 0, ox = 0, oy = 0;
+  el.addEventListener('pointerdown', e => {
+    if ((e.target as HTMLElement).closest('[data-dot],[data-hot],[data-ctl]')) return;   // markers / control buttons handle their own clicks
+    down = true; mapMoved = false; sx = e.clientX; sy = e.clientY; ox = view.x0; oy = view.y0;
+    el.setPointerCapture(e.pointerId); el.style.cursor = 'grabbing'; el.classList.add('panning');   // kill the marker move-transition so they track the drag
+  });
+  el.addEventListener('pointermove', e => {
+    if (!down) return;
+    const r = el.getBoundingClientRect(), px = e.clientX - sx, py = e.clientY - sy;
+    if (Math.abs(px) + Math.abs(py) > 3) mapMoved = true;
+    view = clampView({ x0: ox - px / r.width * view.d, y0: oy - py / r.height * view.d, d: view.d });
+    positionDots(); positionHot();                                    // markers follow live…
+    if (bgEl) bgEl.style.transform = `translate(${px}px,${py}px)`;    // …and pan the current image (no refetch mid-drag)
+  });
+  const end = (e: PointerEvent) => {
+    if (!down) return; down = false; el.style.cursor = 'grab'; el.classList.remove('panning');
+    try { el.releasePointerCapture(e.pointerId); } catch { /* ignore */ }
+    if (bgEl) bgEl.style.transform = '';
+    updateMapBg();                                                    // fetch a sharp image for the new bbox
+  };
+  el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end);
 }
 function positionDots(): void {
   for (const s of allSpots()) {
@@ -763,10 +817,19 @@ function build(): void {
   const body = document.createElement('div'); body.className = 'disc-body';
   mapEl = document.createElement('div'); mapEl.className = 'disc-map';
   mapEl.title = t('discoverWorld');
-  mapEl.onclick = e => { if (e.target === mapEl || e.target === bgEl) select(''); };   // click the map → back to world (tab + list too)
+  mapEl.onclick = e => { if (!mapMoved && (e.target === mapEl || e.target === bgEl)) select(''); };   // click (not drag) → back to world
   bgEl = document.createElement('div');   // sharp imagery of the current view; markers sit on top at constant size
   bgEl.style.cssText = 'position:absolute;inset:0;background-position:center;background-size:100% 100%;background-repeat:no-repeat';
   mapEl.appendChild(bgEl);
+  // Classic zoom controls (+ / −, top-left) and a reset-to-default-view button (top-right).
+  const zc = document.createElement('div');
+  zc.style.cssText = 'position:absolute;top:6px;left:6px;z-index:3;display:flex;flex-direction:column;border-radius:7px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.45)';
+  const zin = mapCtl('+', t('zoomIn'), () => zoomBy(0.7)); zin.style.borderBottom = 'none';
+  zc.append(zin, mapCtl('−', t('zoomOut'), () => zoomBy(1 / 0.7))); mapEl.appendChild(zc);
+  const resetBtn = mapCtl('⟲', t('discoverResetView'), () => setView(active === 'hot' ? null : (active || null)));
+  resetBtn.style.cssText += ';position:absolute;top:6px;right:6px;z-index:3;border-radius:7px';
+  mapEl.appendChild(resetBtn);
+  wireMapNav(mapEl);   // drag to pan, wheel to zoom
   listEl = document.createElement('div'); listEl.className = 'disc-list';
   body.append(mapEl, listEl);
   const note = document.createElement('div');

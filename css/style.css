@@ -234,6 +234,7 @@ body.collapsed #legend{display:none}
 .disc-intro{padding:4px 16px 8px;color:var(--txt);font-size:12.5px;line-height:1.5;max-width:900px}
 .disc-body{display:flex;gap:16px;padding:8px 16px;flex:1;min-height:0;overflow:hidden}
 .disc-map{position:relative;flex:0 0 auto;align-self:flex-start;width:min(46vw,72vh,560px);aspect-ratio:1;border-radius:8px;overflow:hidden;background:#0a1016;border:1px solid rgba(255,255,255,.12);cursor:pointer}
+.disc-map.panning [data-dot],.disc-map.panning [data-hot]{transition:none}   /* markers track the drag 1:1 instead of easing behind it */
 .disc-list{flex:1 1 auto;min-width:0;overflow-y:auto;display:flex;flex-direction:column;gap:2px;padding-right:4px}
 @media(max-width:640px){
   .disc-overlay{overflow-y:auto}               /* scroll the page under a pinned header, not just the map+list region */
