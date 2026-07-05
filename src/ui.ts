@@ -428,11 +428,11 @@ airMassBtn.onclick = () => {
   airMassBtn.textContent = S.airMass ? t('on') : t('off'); airMassBtn.classList.toggle('on', S.airMass); render();
 };
 // ---- wind-flow representation: off / 2D drape / 3D altitude layers ----
-([['off', 'off'], ['drapeVec', 'windDrapeVec'], ['drapeCol', 'windDrapeCol'], ['drapeBoth', 'windDrapeBoth'], ['barbs', 'windBarbs'], ['layers', 'windLayers'], ['rings', 'windRings'], ['hodograph', 'windHodograph']] as const)
+([['off', 'off'], ['drapeVec', 'windDrapeVec'], ['drapeCol', 'windDrapeCol'], ['drapeBoth', 'windDrapeBoth'], ['barbs', 'windBarbs'], ['isotachs', 'windIsotachs'], ['layers', 'windLayers'], ['rings', 'windRings'], ['hodograph', 'windHodograph']] as const)
   .forEach(([v, k]) => { const o = document.createElement('option'); o.value = v; o.dataset.k = k; windModeEl.appendChild(o); });
 windModeEl.value = S.windMode;
 windModeEl.addEventListener('change', e => {
-  S.windMode = (e.target as HTMLSelectElement).value as 'off' | 'drapeVec' | 'drapeCol' | 'drapeBoth' | 'barbs' | 'layers' | 'rings' | 'hodograph';
+  S.windMode = (e.target as HTMLSelectElement).value as 'off' | 'drapeVec' | 'drapeCol' | 'drapeBoth' | 'barbs' | 'isotachs' | 'layers' | 'rings' | 'hodograph';
   document.body.classList.toggle('windon', S.windMode !== 'off'); render();
 });
 // ---- cartographic attribution overlay (on by default) ----

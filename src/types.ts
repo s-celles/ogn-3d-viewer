@@ -213,7 +213,7 @@ export interface AppState {
   // Wind-flow representation: 'off'; 2D draped variants — 'drapeVec' (arrows),
   // 'drapeCol' (speed colours), 'drapeBoth', 'barbs' (station wind barbs); or 3D
   // profile views — 'layers' (arrows at altitude bands), 'rings', 'hodograph'.
-  windMode: 'off' | 'drapeVec' | 'drapeCol' | 'drapeBoth' | 'barbs' | 'layers' | 'rings' | 'hodograph';
+  windMode: 'off' | 'drapeVec' | 'drapeCol' | 'drapeBoth' | 'barbs' | 'isotachs' | 'layers' | 'rings' | 'hodograph';
   // Reference for the parenthetical height next to the altitude:
   // 'af' = above the departure aerodrome (QFE analogue), 'ground' = AGL,
   // 'off' = altitude only (no height shown).

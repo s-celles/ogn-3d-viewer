@@ -12,7 +12,7 @@ import { windBg, windAtAlt } from './ridge';
 import { windArrow, windSpd, windDir } from './dom';
 import type { Pos3 } from './types';
 
-const GN = 28;           // wind-grid nodes per side
+const GN = 56;           // wind-grid nodes per side (finer → smoother contours)
 const N = 1100;          // particle count
 const DTS = 0.5;         // advection: metres = wind(m/s) x DTS per frame
 const MAXAGE = 90;       // particle lifetime (frames)
@@ -40,7 +40,7 @@ interface Grid { cLon: number; cLat: number; R: number; mLng: number; mLat: numb
 interface Particle { lon: number; lat: number; age: number; band: number }   // band -1 = drape (surface)
 interface Field { cLon: number; cLat: number; R: number; mLng: number; mLat: number; hour: number }
 
-type WMode = 'off' | 'drapeVec' | 'drapeCol' | 'drapeBoth' | 'barbs' | 'layers' | 'rings' | 'hodograph';
+type WMode = 'off' | 'drapeVec' | 'drapeCol' | 'drapeBoth' | 'barbs' | 'isotachs' | 'layers' | 'rings' | 'hodograph';
 let mode: WMode = 'off';
 let grid: Grid | null = null;                                  // drape mode
 let bands: { alt: number; u: number; v: number }[] = [];       // layers mode
@@ -129,28 +129,36 @@ function advance(): void {
 function tick(): void { if (S.windMode !== 'off') advance(); requestAnimationFrame(tick); }
 if (typeof requestAnimationFrame === 'function') requestAnimationFrame(tick);
 
-// Draped patches coloured by wind speed (green calm → red strong), just under the streaks.
+// Speed-backdrop meshes (green calm → red strong), one per bin — computed once per
+// grid (and vertical exaggeration), since the geometry only changes when they do.
+let backCache: { g: Grid; k: number; meshes: { color: number[]; mesh: any }[] } | null = null;
 function backdropLayers(g: Grid, k: number): any[] {
-  const bins = SPEED_COLORS.map(() => ({ pos: [] as number[], nrm: [] as number[], idx: [] as number[] }));
-  for (let j = 0; j < GN - 1; j++) for (let i = 0; i < GN - 1; i++) {
-    const a = g.nodes[j * GN + i], b = g.nodes[j * GN + i + 1], c = g.nodes[(j + 1) * GN + i], d = g.nodes[(j + 1) * GN + i + 1];
-    if (Number.isNaN(a.h) || Number.isNaN(b.h) || Number.isNaN(c.h) || Number.isNaN(d.h)) continue;
-    const sp = (Math.hypot(a.u, a.v) + Math.hypot(b.u, b.v) + Math.hypot(c.u, c.v) + Math.hypot(d.u, d.v)) / 4;
-    let bin = 0; while (bin < SPEED_BINS.length && sp >= SPEED_BINS[bin]) bin++;
-    const B = bins[bin], st = B.pos.length / 3;
-    const x0 = -g.R + i * g.sp, x1 = -g.R + (i + 1) * g.sp, y0 = -g.R + j * g.sp, y1 = -g.R + (j + 1) * g.sp;
-    const P = (x: number, y: number, h: number) => { B.pos.push(g.cLon + x / g.mLng, g.cLat + y / g.mLat, h * k + BACK_OFF); B.nrm.push(0, 0, 1); };
-    P(x0, y0, a.h); P(x1, y0, b.h); P(x1, y1, d.h); P(x0, y1, c.h);
-    B.idx.push(st, st + 1, st + 2, st, st + 2, st + 3);
+  if (!backCache || backCache.g !== g || backCache.k !== k) {
+    const bins = SPEED_COLORS.map(() => ({ pos: [] as number[], nrm: [] as number[], idx: [] as number[] }));
+    for (let j = 0; j < GN - 1; j++) for (let i = 0; i < GN - 1; i++) {
+      const a = g.nodes[j * GN + i], b = g.nodes[j * GN + i + 1], c = g.nodes[(j + 1) * GN + i], d = g.nodes[(j + 1) * GN + i + 1];
+      if (Number.isNaN(a.h) || Number.isNaN(b.h) || Number.isNaN(c.h) || Number.isNaN(d.h)) continue;
+      const sp = (Math.hypot(a.u, a.v) + Math.hypot(b.u, b.v) + Math.hypot(c.u, c.v) + Math.hypot(d.u, d.v)) / 4;
+      let bin = 0; while (bin < SPEED_BINS.length && sp >= SPEED_BINS[bin]) bin++;
+      const B = bins[bin], st = B.pos.length / 3;
+      const x0 = -g.R + i * g.sp, x1 = -g.R + (i + 1) * g.sp, y0 = -g.R + j * g.sp, y1 = -g.R + (j + 1) * g.sp;
+      const P = (x: number, y: number, h: number) => { B.pos.push(g.cLon + x / g.mLng, g.cLat + y / g.mLat, h * k + BACK_OFF); B.nrm.push(0, 0, 1); };
+      P(x0, y0, a.h); P(x1, y0, b.h); P(x1, y1, d.h); P(x0, y1, c.h);
+      B.idx.push(st, st + 1, st + 2, st, st + 2, st + 3);
+    }
+    const meshes = bins.map((B, i) => B.idx.length ? {
+      color: [...SPEED_COLORS[i], BACK_A],
+      mesh: {
+        attributes: { POSITION: { value: new Float32Array(B.pos), size: 3 }, NORMAL: { value: new Float32Array(B.nrm), size: 3 } },
+        indices: { value: new Uint32Array(B.idx), size: 1 }, mode: 4,
+      },
+    } : null).filter(Boolean) as { color: number[]; mesh: any }[];
+    backCache = { g, k, meshes };
   }
-  return bins.map((B, i) => B.idx.length ? new SimpleMeshLayer({
+  return backCache.meshes.map((m, i) => new SimpleMeshLayer({
     id: 'wind-back-' + i, data: [{}], getPosition: () => [0, 0, 0], _instanced: false,
-    coordinateSystem: COORDINATE_SYSTEM.LNGLAT, getColor: [...SPEED_COLORS[i], BACK_A], material: false, parameters: backParams,
-    mesh: {
-      attributes: { POSITION: { value: new Float32Array(B.pos), size: 3 }, NORMAL: { value: new Float32Array(B.nrm), size: 3 } },
-      indices: { value: new Uint32Array(B.idx), size: 1 }, mode: 4,
-    } as any,
-  } as any) : null).filter(Boolean);
+    coordinateSystem: COORDINATE_SYSTEM.LNGLAT, getColor: m.color, material: false, parameters: backParams, mesh: m.mesh,
+  } as any));
 }
 
 // Global wind rose (corner): the arrow points downwind; the text gives the speed and
@@ -179,6 +187,7 @@ export function windLayers(k: number): any[] {
     case 'drapeCol': return drapeMode(cLat, cLon, R, hour, k, bg, false, true);
     case 'drapeBoth': return drapeMode(cLat, cLon, R, hour, k, bg, true, true);
     case 'barbs': return barbsMode(cLat, cLon, R, hour, k, bg);
+    case 'isotachs': return isotachsMode(cLat, cLon, R, hour, k, bg);
     case 'layers': return profileArrows(cLat, cLon, R, hour, k);
     case 'rings': return ringsMode(cLat, cLon, R, k);
     case 'hodograph': return hodographMode(cLat, cLon, R, k);
@@ -253,6 +262,60 @@ function barbsMode(cLat: number, cLon: number, R: number, hour: number, k: numbe
   return [new LineLayer<Seg>({
     id: 'wind-barbs', data: segs, getSourcePosition: (d: any) => d.s, getTargetPosition: (d: any) => d.t,
     getColor: [235, 242, 250, 235], getWidth: 1.6, widthUnits: 'pixels', parameters: streakParams,
+  } as any)];
+}
+
+// Rebuild the drape grid if the view/hour/wind changed; return it (or null).
+function ensureGrid(cLat: number, cLon: number, R: number, hour: number, bg: [number, number]): Grid | null {
+  const wk = `${Math.round(bg[0])}|${Math.round(bg[1])}`;
+  const stale = !grid || grid.hour !== hour || grid.wk !== wk || Math.abs(Math.log(grid.R / R)) > 0.25
+    || Math.hypot((grid.cLon - cLon) * grid.mLng, (grid.cLat - cLat) * grid.mLat) > R * 0.33;
+  if (stale) { const g = buildGrid(cLat, cLon, R); if (g) { g.hour = hour; g.wk = wk; grid = g; parts = []; } }
+  return grid;
+}
+
+// Wind-speed colour for an isotach level (green calm → red strong).
+function isoColor(L: number): [number, number, number] {
+  const t = Math.max(0, Math.min(1, (L - 2) / 16)) * 2, i = Math.min(1, Math.floor(t)), f = t - i;
+  const s: [number, number, number][] = [[90, 200, 100], [225, 215, 80], [220, 80, 60]];
+  const a = s[i], b = s[i + 1];
+  return [Math.round(a[0] + (b[0] - a[0]) * f), Math.round(a[1] + (b[1] - a[1]) * f), Math.round(a[2] + (b[2] - a[2]) * f)];
+}
+
+// 2D: isotachs (equal wind-speed contours) via marching squares on the terrain-
+// refined speed field, over the speed-coloured backdrop. Draped on the terrain.
+const ISO_LEVELS = [3, 6, 9, 12, 15, 18, 21, 24];    // m/s
+const ISO_CONN: number[][][] = [[], [[3, 0]], [[0, 1]], [[1, 3]], [[1, 2]], [[3, 0], [1, 2]], [[0, 2]], [[2, 3]], [[2, 3]], [[0, 2]], [[0, 1], [2, 3]], [[1, 2]], [[1, 3]], [[0, 1]], [[3, 0]], []];
+const ISO_CORN = [[0, 0], [1, 0], [1, 1], [0, 1]], ISO_EDGE = [[0, 1], [1, 2], [2, 3], [3, 0]];
+interface IsoSeg { s: Pos3; t: Pos3; c: [number, number, number] }
+let isoCache: { g: Grid; k: number; segs: IsoSeg[] } | null = null;
+function isotachsMode(cLat: number, cLon: number, R: number, hour: number, k: number, bg: [number, number]): any[] {
+  const g = ensureGrid(cLat, cLon, R, hour, bg); if (!g) return [];
+  if (!isoCache || isoCache.g !== g || isoCache.k !== k) {
+    const nlon = (i: number) => g.cLon + (-g.R + i * g.sp) / g.mLng, nlat = (j: number) => g.cLat + (-g.R + j * g.sp) / g.mLat;
+    const spd = g.nodes.map(n => Number.isNaN(n.h) ? NaN : Math.hypot(n.u, n.v));
+    const segs: IsoSeg[] = [];
+    for (let j = 0; j < GN - 1; j++) for (let i = 0; i < GN - 1; i++) {
+      const ni = ISO_CORN.map(([di, dj]) => (j + dj) * GN + (i + di));
+      const hs = ni.map(x => g.nodes[x].h); if (hs.some(Number.isNaN)) continue;
+      const vs = ni.map(x => spd[x]);
+      for (const L of ISO_LEVELS) {
+        const conns = ISO_CONN[(vs[0] >= L ? 1 : 0) | (vs[1] >= L ? 2 : 0) | (vs[2] >= L ? 4 : 0) | (vs[3] >= L ? 8 : 0)];
+        if (!conns.length) continue;
+        const c = isoColor(L);
+        const pt = (e: number): Pos3 => {
+          const [a, b] = ISO_EDGE[e], t = (L - vs[a]) / ((vs[b] - vs[a]) || 1e-9);
+          const lonA = nlon(i + ISO_CORN[a][0]), latA = nlat(j + ISO_CORN[a][1]), lonB = nlon(i + ISO_CORN[b][0]), latB = nlat(j + ISO_CORN[b][1]);
+          return [lonA + (lonB - lonA) * t, latA + (latB - latA) * t, (hs[a] + (hs[b] - hs[a]) * t) * k + 15];
+        };
+        for (const [e1, e2] of conns) segs.push({ s: pt(e1), t: pt(e2), c });
+      }
+    }
+    isoCache = { g, k, segs };
+  }
+  return [...backdropLayers(g, k), new LineLayer<IsoSeg>({
+    id: 'wind-isotachs', data: isoCache.segs, getSourcePosition: (d: any) => d.s, getTargetPosition: (d: any) => d.t,
+    getColor: (d: any) => [...d.c, 240], getWidth: 2, widthUnits: 'pixels', parameters: streakParams,
   } as any)];
 }
 
