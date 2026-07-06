@@ -5,12 +5,11 @@ import { API_BASE, REPO_URL, MINZ, MAXZ, PMIN, PMAX, CHASE, clampv, BASEMAPS, IG
 import { APP_VERSION, GIT_HASH } from './version';
 import {
   subjEl, viewsEl, cammodeEl, traceEl, trailFxEl, smoothBtn, compBtn, bankBtn, soundBtn, trafficModeEl, graphModeEl, graphClose, winEl, winval, playBtn, revBtn, segEl,
-  exoEl, exval, groundEl, groundval, cacheEl, cacheval, acscaleEl, acscaleval, coneBtn, finesseEl, finval, safetyEl, safeval, coneRadEl, coneradval, labelsBtn, labelFieldsEl, shadowsEl, basemapEl, ignDemBtn, peaksBtn, peakDensityEl, minimapBtn, overviewHudBtn, activeOnlyBtn, airMassBtn, thermalBtn, liftComps, dayStruct, windModeEl, heightRefEl, clock12Btn, clearWpBtn, attribEl, curtainBtn, attrBtn, pitchEl, pitchval, scrub, scrubMin, scrubMax, clkEl, tzEl, lglist, rose, altsl, icaoEl, fblink, acEl,
+  exoEl, exval, groundEl, groundval, cacheEl, cacheval, acscaleEl, acscaleval, coneBtn, finesseEl, finval, safetyEl, safeval, coneRadEl, coneradval, labelsBtn, labelFieldsEl, shadowsEl, basemapEl, ignDemBtn, peaksBtn, peakDensityEl, minimapBtn, overviewHudBtn, activeOnlyBtn, airMassBtn, thermalBtn, liftComps, windModeEl, heightRefEl, clock12Btn, clearWpBtn, attribEl, curtainBtn, attrBtn, pitchEl, pitchval, scrub, scrubMin, scrubMax, clkEl, tzEl, lglist, rose, altsl, icaoEl, fblink, acEl,
   dateEl, loadBtn, langEl, discEl, infoBtn, copyBtn, shareBtn, collapseBtn, liveBtn, igcBtn, igcInput, mapDiv, prevAc, nextAc, resetSettingsBtn, afInfo,
 } from './dom';
 import { codeFlag, flag } from './flags';
 import { buildLiftMixer, syncLiftMixer } from './liftmixer';
-import { updateDayStruct } from './daystruct';
 import qrcode from 'qrcode-generator';
 
 const HAS_SHARE = typeof navigator !== 'undefined' && 'share' in navigator;   // Web Share API available?
@@ -285,7 +284,6 @@ export function syncControls(): void {
   airMassBtn.textContent = S.airMass ? t('on') : t('off'); airMassBtn.classList.toggle('on', S.airMass);
   thermalBtn.textContent = S.thermalPot ? t('on') : t('off'); thermalBtn.classList.toggle('on', S.thermalPot);
   syncLiftMixer();
-  updateDayStruct(dayStruct);
   windModeEl.value = S.windMode;
   document.body.classList.toggle('windon', S.windMode !== 'off');
   clock12Btn.textContent = S.clock12 ? '12 h' : '24 h';
