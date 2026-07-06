@@ -45,7 +45,7 @@ let cache: { tracks: unknown; date: string; wxr: boolean; cal: number } | null =
  *  range. 1 when there aren't enough thermals, or for imported files. Memoised on the
  *  track set, date and weather-readiness. */
 export function liftCalibration(): number {
-  if (S.source === 'file' || !S.date) return 1;
+  if (!S.liftCalibrate || S.source === 'file' || !S.date) return 1;   // opt-in
   const wxr = !!(S.AF && getWeather(S.AF.lat, S.AF.lon, S.date));
   if (cache && cache.tracks === S.TRACKS && cache.date === S.date && cache.wxr === wxr) return cache.cal;
   const ths = getThermals();

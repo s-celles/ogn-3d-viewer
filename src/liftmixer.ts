@@ -110,6 +110,7 @@ let EN: number[] = [], VV: [number, number][] = [], G = geom(3);
 let handle: SVGCircleElement | null = null;
 let labelEls: SVGTextElement[] = [], pctEls: SVGTextElement[] = [];
 let cbInputs: HTMLInputElement[] = [], cbSpans: HTMLElement[] = [];
+let calibCb: HTMLInputElement | null = null, calibSpan: HTMLElement | null = null;
 
 // Enable/disable a component, preserving the others' relative blend: a re-enabled one
 // enters as a peer (the mean weight), a disabled one drops to 0. Never all-off.
@@ -149,6 +150,8 @@ function updateDynamic(): void {
   });
   cbInputs.forEach((cb, i) => { cb.checked = S.liftOn[i] !== false; });
   cbSpans.forEach((sp, i) => { sp.textContent = t(LIFT_COMPS[i].ik); });
+  if (calibCb) calibCb.checked = !!S.liftCalibrate;
+  if (calibSpan) calibSpan.textContent = t('liftCalibrate');
 }
 
 // Build the SVG simplex (outline, vertex dots + labels + percentages, drag handle).
@@ -251,6 +254,17 @@ function rebuild(): void {
   });
   cont.appendChild(row);
   cont.appendChild(buildSvg());
+
+  // "Calibrate on tracks" — opt-in day-scale factor from the observed climbs.
+  const calibLab = document.createElement('label');
+  calibLab.style.cssText = 'display:flex;align-items:center;gap:5px;cursor:pointer;margin-top:6px;font-size:13px;opacity:0.85';
+  calibLab.title = t('liftCalibrateHint');
+  calibCb = document.createElement('input'); calibCb.type = 'checkbox'; calibCb.checked = !!S.liftCalibrate;
+  calibCb.onchange = () => { S.liftCalibrate = calibCb!.checked; onChange(); };
+  calibSpan = document.createElement('span'); calibSpan.textContent = t('liftCalibrate');
+  calibLab.append(calibCb, calibSpan);
+  cont.appendChild(calibLab);
+
   updateDynamic();
 }
 

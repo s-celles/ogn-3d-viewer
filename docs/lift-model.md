@@ -157,6 +157,11 @@ clamped to `[0.4, 3.5]`), and multiply the whole thermal field by it. Red then m
 changes how strong the day reads, not the spatial pattern — memoised on the track set,
 date and weather-readiness; `1` (no change) for imported files or too few thermals.
 
+> **Opt-in, off by default** (a "Calibrate on tracks" checkbox). Because it is a global
+> factor, on a day where the model over-predicts vs the observed climbs it dims the
+> *whole* field — including favourable slopes that simply had no traffic. Left off, the
+> field keeps its fixed physical scale so every good slope reads on its own merit.
+
 > The target is the glider's **climb**, not netto (no polar-sink correction yet), so the
 > scale is in achievable-climb terms.
 

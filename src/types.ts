@@ -219,6 +219,10 @@ export interface AppState {
   // entry to both and a vertex to the mixer.
   liftOn: boolean[];
   liftMix: number[];
+  // Calibrate the thermal magnitude to the day's observed climbs (opt-in): a single
+  // global day-scale factor. Off by default — a global factor can dim favourable
+  // slopes that simply had no traffic.
+  liftCalibrate: boolean;
   // Wind-flow representation: 'off'; 2D draped variants — 'drapeVec' (arrows),
   // 'drapeCol' (speed colours), 'drapeBoth', 'barbs' (station wind barbs); or 3D
   // profile views — 'layers' (arrows at altitude bands), 'rings', 'hodograph'.
