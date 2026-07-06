@@ -17,12 +17,15 @@ const U_MIN = 8, U_FULL = 20;       // m/s: cross-ridge wind for a start / a ful
 const N_MIN = 0.006, N_FULL = 0.014;// 1/s: stability for a start / a full score
 const LAMBDA_MIN = 2500, LAMBDA_MAX = 22000;   // m: plausible lee-wave wavelengths
 const RELIEF_MIN = 250, RELIEF_FULL = 1100;    // m: relief for a start / a full score
-// Terrain class boundaries (m) on the "characteristic relief" = max(local, ½·wide):
-// plain < hills < mid mountains < high mountains.
-const REL_HILLS = 150, REL_MID = 450, REL_HIGH = 1100;
-const RING = 8, RINGS_KM = [9, 18, 28];        // elevation rings (km): inner = local, outer = far ridges
+// Terrain class à la Kapos/Meybeck: local elevation range (LER, ≤ LER_KM) + the region's
+// peak altitude. plain < hills < mountain, and "high mountain" when peaks reach HIGH_ALT.
+const LER_HILLS = 150, LER_MID = 300;          // m: LER boundaries plain → hills → mountain
+const HIGH_ALT = 2500;                         // m: peak altitude for "high mountain" (Kapos)
+const WAVE_REACH = 500;                         // m: wide relief that puts mountains within reach (wave)
+const RING = 8, RINGS_KM = [4, 8, 12, 20, 28]; // elevation rings (km); ≤ LER_KM feed the LER
+const LER_KM = 12;                  // radius of the local-elevation-range disk
 const CHUNK = 50;                   // spots per weather request
-const RELIEF_KEY = 'ogn.relief.v1'; // persisted relief cache (DEM is static)
+const RELIEF_KEY = 'ogn.relief.v2'; // persisted relief cache (DEM is static; v2 = new shape)
 
 const num = (x: unknown): number => (typeof x === 'number' && Number.isFinite(x) ? x : NaN);
 const clamp01 = (x: number): number => Math.max(0, Math.min(1, x));
@@ -33,7 +36,9 @@ const clamp01 = (x: number): number => Math.max(0, Math.min(1, x));
 // triggering ridge may be tens of km upwind). Alignment is judged per wind direction from
 // the relief seen ALONG the wind across all rings (a ridge to cross, at any distance).
 type Ring = { ang: number; e: number }[];
-interface Relief { relief: number; local: number; c: number; rings: Ring[] }   // relief = wide (≤28 km), local = ≤9 km
+// relief = wide range (≤28 km, for wave reach); ler = local range (≤LER_KM); top = peak
+// altitude AMSL in the disk; c = the site's ground elevation.
+interface Relief { relief: number; ler: number; top: number; c: number; rings: Ring[] }
 const reliefCache = new Map<string, Relief>();
 
 // The relief is static → persist it (localStorage), so tags appear instantly after the
@@ -67,23 +72,20 @@ function alongWindRelief(rel: Relief, wdRad: number): number {
 export function siteRelief(code: string): number {
   return reliefCache.get(code)?.relief ?? NaN;
 }
-// "Characteristic relief": the local terrain (≤9 km), lifted by the broader context
-// (≤28 km) so a valley ringed by mountains still reads as mountain, without a plain 25 km
-// from a range being over-classified.
-function charRelief(r: Relief): number { return Math.max(r.local, 0.5 * r.relief); }
-
-/** Terrain class from the relief: plain / hills / mountain / high mountain. '' until
- *  {@link ensureRelief} has run for the spot. */
+/** Terrain class (Kapos/Meybeck-style): the local elevation range sets plain / hills /
+ *  mountain; the region's peak altitude (≥ HIGH_ALT) makes it high mountain. Describes
+ *  the site's own terrain. '' until {@link ensureRelief} has run for the spot. */
 export function siteTerrain(code: string): '' | 'plain' | 'hills' | 'mid' | 'high' {
   const r = reliefCache.get(code);
   if (!r) return '';
-  const c = charRelief(r);
-  return c < REL_HILLS ? 'plain' : c < REL_MID ? 'hills' : c < REL_HIGH ? 'mid' : 'high';
+  if (r.ler < LER_HILLS) return 'plain';
+  if (r.ler < LER_MID) return 'hills';
+  return r.top >= HIGH_ALT ? 'high' : 'mid';
 }
-/** A mountain site (mid/high) — terrain where wave is physically possible (the day's
- *  chance is separate; see the wave scan). */
+/** Mountains within gliding reach (wide relief) — where wave is physically possible.
+ *  Decoupled from the terrain tag: a basin below a range still qualifies. */
 export function isWaveSite(code: string): boolean {
-  const k = siteTerrain(code); return k === 'mid' || k === 'high';
+  const r = reliefCache.get(code); return !!r && r.relief >= WAVE_REACH;
 }
 
 /** Compute + cache the relief of any spots not yet known, sampling the DEM tiles.
@@ -105,9 +107,12 @@ export async function ensureRelief(spots: { code: string; lat: number; lon: numb
     if (c != null) {
       const rings: Ring[] = RINGS_KM.map((_, ri) => Array.from({ length: RING }, (_, a) => ({ ang: a / RING * 2 * Math.PI, e: es[1 + ri * RING + a] })).filter(p => p.e != null) as Ring);
       if (!rings.some(r => r.length < RING)) {
-        let mn = c, mx = c, lmn = c, lmx = c;                    // wide (all rings) + local (inner ring only)
-        rings.forEach((ring, ri) => { for (const { e } of ring) { mn = Math.min(mn, e); mx = Math.max(mx, e); if (ri === 0) { lmn = Math.min(lmn, e); lmx = Math.max(lmx, e); } } });
-        reliefCache.set(s.code, { relief: mx - mn, local: lmx - lmn, c, rings });
+        let mn = c, mx = c, lmn = c, lmx = c;                    // wide range + local range (≤LER_KM)
+        rings.forEach((ring, ri) => {
+          const inLer = RINGS_KM[ri] <= LER_KM;
+          for (const { e } of ring) { mn = Math.min(mn, e); mx = Math.max(mx, e); if (inLer) { lmn = Math.min(lmn, e); lmx = Math.max(lmx, e); } }
+        });
+        reliefCache.set(s.code, { relief: mx - mn, ler: lmx - lmn, top: mx, c, rings });
         changed = true;
       }
     }
