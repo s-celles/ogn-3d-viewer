@@ -60,6 +60,14 @@ climbing, the air is rising.**
 of the observed climb tops. **Wind** for the lean comes from the Open-Meteo profile at
 mid-plume height, else the circle drift.
 
+**Observed wave** (`wavemass.ts`) is the mirror image: a thermal climb circles, a wave
+climb is smooth and nearly **straight**. Where the thermal detector needs ≥ 1 full turn,
+this one keeps sustained climbs with a **low turn rate** (`< 3.2°/s`), net heading under
+`300°`, and a top well above the terrain (`≥ 250 m AGL`, excluding ridge beats). Each
+becomes a vertical **violet ribbon** (a wave bar) aligned with the climb heading, shown
+under the same *Air mass* toggle. So on a wave day — when the thermal reconstruction is
+nearly empty — the lee-wave lift still shows.
+
 > The plume *position and strength are the glider's climb*, not the true air motion
 > (no netto). Weak or brief lift is missed; no traffic → nothing shown.
 

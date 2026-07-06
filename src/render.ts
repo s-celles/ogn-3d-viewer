@@ -16,6 +16,7 @@ import { GLIDER_MESH, PLANE_MESH, PROP_MESH, GLIDER_FLAT, PLANE_FLAT, isPowered 
 import { getPeaks, getWaypoints, loadPeaks, type Poi } from './poi';
 import { updateMinimap } from './minimap';
 import { airMassLayers } from './airmass';
+import { waveMassLayers } from './wavemass';
 import { ridgeLayers } from './ridge';
 import { convergLayers } from './converg';
 import { waveLayers } from './wave';
@@ -521,7 +522,7 @@ function dynamicLayers() {
       return [...(at ? thermalLayers(k, at) : []), ...(as ? ridgeLayers(k, as) : []),
         ...(ac ? convergLayers(k, ac) : []), ...(aw ? waveLayers(k, aw) : [])];
     })() : []),
-    ...(S.airMass ? airMassLayers(k) : []),
+    ...(S.airMass ? [...airMassLayers(k), ...waveMassLayers(k)] : []),
     ...(S.windMode !== 'off' ? windLayers(k) : []),
     ...poiPoleLayers(k),
   ];
