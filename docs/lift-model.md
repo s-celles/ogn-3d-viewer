@@ -1,0 +1,220 @@
+# Air mass & lift-potential model — technical reference
+
+This document describes how OGN 3D Viewer reconstructs the day's **air mass** and
+estimates the **lift potential** (where the air rises), the physics behind each
+component, the data it uses, and its limitations.
+
+> **These are illustrative, first-order diagnostics — not measurements and not a
+> forecast.** They are meant to *build intuition* about a day, not to plan a flight.
+> Every model here is deliberately simple and makes strong assumptions (see
+> *Limitations*). Treat the output as a sketch, always subordinate to real
+> observation and official meteorology.
+
+All of it runs 100 % client-side in the browser.
+
+## Contents
+
+- [Data sources](#data-sources)
+- [Air mass — reconstruction from tracks](#air-mass--reconstruction-from-tracks)
+- [Lift potential — a physics estimate](#lift-potential--a-physics-estimate)
+  - [Thermal](#thermal-thermalts)
+  - [Slope lift](#slope-lift-ridgets)
+  - [Convergence](#convergence-convergts)
+- [The mixer](#the-mixer-liftts--liftmixerts)
+- [Wind field](#wind-field-ridgets)
+- [Colour language](#colour-language-liftvizts)
+- [Design principle: view independence](#design-principle-view-independence)
+- [Limitations](#limitations)
+- [Roadmap](#roadmap)
+
+## Data sources
+
+| Source | Used for | Notes |
+| --- | --- | --- |
+| **Terrain DEM** (`terrain.ts`, `terrainElevAt`) | slope, aspect, curvature, cast shadows, convective depth | synchronous mesh sample; refines as tiles stream in |
+| **Sun geometry** (`sky.ts`, `sunLightDir`) | incidence on each facet, cast-shadow direction | ENU unit vector toward the sun |
+| **Open-Meteo** (`weather.ts`, keyless) | radiation, boundary-layer height, temperature sounding, wind profile, cloudbase | forecast API ≤ 5 days, ERA5 archive beyond; offline-first |
+| **OSM land-cover** (`landcover.ts`, Overpass) | per-cell albedo & Bowen ratio | offline-first; uniform fallback when Overpass is down |
+| **OGN tracks** | the reconstructed air mass (circling detection) | the only *observed* input |
+
+## Air mass — reconstruction from tracks
+
+`airmass.ts` treats each glider as an atmospheric probe: **where one circles while
+climbing, the air is rising.**
+
+1. **Detect circling-climb runs** in every track: a smoothed turn rate over a
+   threshold, with brief interruptions bridged so one climb stays one thermal.
+   Kept only if it sweeps ≥ 1 full turn (`MIN_TURN = 360°`), climbs ≥ `MIN_GAIN = 80 m`
+   and averages ≥ `MIN_STRENGTH = 0.3 m/s` — this rejects ridge S-turns.
+2. **Merge** thermals from different gliders that overlap in time and lie within
+   `MERGE_M = 500 m` (the same air, seen by several aircraft).
+3. **Render** each as a slim wind-leaned **plume** capped by a **cumulus** at a common
+   **cloudbase**, fading in/out as the day is scrubbed. Dry thermals (top well below
+   cloudbase) stay cloudless. Up to `MAX_THERMALS = 60`, strongest first.
+
+**Cloudbase** is the LCL from surface T and RH (`weather.ts`, `lclBase`): about
+`125 m` per °C of temperature/dew-point spread above the field, else a high percentile
+of the observed climb tops. **Wind** for the lean comes from the Open-Meteo profile at
+mid-plume height, else the circle drift.
+
+> The plume *position and strength are the glider's climb*, not the true air motion
+> (no netto). Weak or brief lift is missed; no traffic → nothing shown.
+
+## Lift potential — a physics estimate
+
+`render.ts` draws, under one toggle, up to three independent components, each with its
+own renderer, blended by [the mixer](#the-mixer-liftts--liftmixerts). All share one
+[colour ramp](#colour-language-liftvizts): **warm = rising, blue = sinking.**
+
+### Thermal (`thermal.ts`)
+
+The convective updraught over sun-heated ground, on an 80×80 grid draped on the terrain.
+
+**1. Absorbed sensible heat flux** at each cell:
+
+```
+H = (DNI · cos(inc) · shade + diffuse) · (1 − albedo) · β
+```
+
+- `DNI` (direct normal irradiance) is derived from Open-Meteo shortwave/diffuse
+  radiation — so it already accounts for **cloud attenuation**.
+- `cos(inc)` is the sun's incidence on the local slope (DEM aspect × sun geometry).
+- `albedo` and `β` (sensible-heat / Bowen fraction) come from OSM land-cover per cell,
+  else uniform defaults `ALBEDO = 0.2`, `β = BETA = 0.35`.
+- `shade` ∈ [0,1] is the **cast shadow**: a grid-space horizon march toward the sun —
+  if upwind terrain rises above the sun line, the direct beam is blocked (diffuse only).
+  Soft edge over ~3.5°. Skipped when the sun is near the zenith.
+
+**2. Convective velocity scale** (Vz ≈ 0.6·w\*):
+
+```
+Vz = 0.6 · [ (g/θ) · (H / ρcp) · z_i ]^(1/3)
+```
+
+with `g = 9.81`, `θ = THETA = 290 K`, `ρcp = RHOCP = 1200 J/m³K`.
+
+**3. Convective depth `z_i`** is the **thermal ceiling minus the cell's ground height**
+(clamped to `[0, 3500] m`; cells within 100 m of the ceiling are dropped). The ceiling
+(`weather.ts`, `weatherConvTop`) is where a surface parcel — ambient + a small excess
+`TRIGGER_EXCESS = 1.5 K` — rising at the dry-adiabatic lapse rate `DRY = 0.0098 K/m`
+meets the Open-Meteo **temperature sounding** (925/850/700 hPa + surface). It falls back
+to the boundary-layer top, then a constant offline. Consequences: thermals are **deeper
+over low ground**, **fade on a stable day**, **stop above the boundary layer**, and
+**strengthen through the afternoon** as the ceiling lifts.
+
+**4. Colouring** (view-independent, fixed thresholds):
+
+- A **flat reference** `wRef` = Vz of flat reference ground under the same sun/weather.
+- **Warm** where `Vz ≥ wRef`, by absolute strength `f = Vz / W_FULL` (`W_FULL = 1.5 m/s`
+  → full red), entry at `WARM_MIN = 0.30`. So a strong midday thermal reads red *where
+  it is strong*, not only where aspect beats the average.
+- **Blue** where `Vz < wRef`, by the deficit `(wRef − Vz) / scaleRef` — shaded / poorly
+  exposed faces: the **compensating subsidence** required by mass continuity (not a
+  measured downdraught). Entry at `SINK_MIN = 0.12`.
+
+### Slope lift (`ridge.ts`)
+
+Slope lift is wind deflected by the ground, so it is **predicted** from the DEM and the
+wind — everywhere, with or without traffic:
+
+```
+w = (wind · ∇terrain) · shelter
+```
+
+`shelter` ∈ [0.2, 1.4] refines the wind with the terrain: higher ground the upwind
+distance `LU = 900 m` away shelters a cell (`H_SHELTER = 320 m` → ~fully sheltered),
+an exposed windward crest keeps or boosts it. Windward (`w > 0`) is warm, leeward
+(`w < 0`) blue; drawn above `W_MIN = 0.4 m/s`; calm wind (< 1.5 m/s) → nothing. Patches
+are tilted to the slope so the bands lie on the ground.
+
+### Convergence (`converg.ts`)
+
+Where the wind, deflected by terrain, **piles up** it must rise — at valley heads,
+bowls and confluences facing the flow; in the lee it spreads (sink). Distinct from slope
+lift because it responds to terrain **curvature**, not gradient:
+
+1. Deflect a uniform background wind around the DEM by removing its into-slope
+   component: `V = V₀ − α · max(0, V₀·ĝ) · ĝ` with `ALPHA = 0.85`. A planar slope only
+   turns the flow; where slopes converge the flow decelerates.
+2. Drape the horizontal **divergence** `∂u/∂x + ∂v/∂y`, normalised by `step / |wind|`
+   (dimensionless, view-independent). Convergence = −divergence: warm where it piles up
+   (entry `CONV_MIN = 0.05`), blue in the lee. Light 3×3 blur (curvature is noisy).
+
+## The mixer (`lift.ts` / `liftmixer.ts`)
+
+Components live in one registry `LIFT_COMPS` (`lift.ts`): `thermal`, `slope`,
+`converg` — each with an i18n label and a swatch colour. Two pieces of state
+(`state.ts`): `liftOn[]` (a checkbox per component — whether it is a vertex of the
+mixer) and `liftMix[]` (the blend weight per component, Σ = 1 over the enabled ones,
+scaling that component's opacity).
+
+The enabled components form a **simplex**, and the draggable point's
+**generalized-barycentric coordinates** are the weights:
+
+- 2 enabled → a point on an **axis**;
+- 3 enabled → a point in a **triangle**;
+- N enabled → a regular **N-gon** (mean-value coordinates, Floater).
+
+Dragging outside the simplex clamps to the nearest edge (so the handle stays on the
+side dragged toward). A ↺ button resets to an equal split. Adding a new component
+(e.g. **wave**) is one entry in `LIFT_COMPS` + a renderer in `render.ts`: the mixer
+grows a vertex on its own.
+
+## Wind field (`ridge.ts`)
+
+`windAtAlt(lat, lon, alt)` returns the wind [east, north] at an AMSL altitude: the
+Open-Meteo profile at the view centre (bucketed ~10 km), else at the airfield, else the
+mean thermal drift. `windBg` samples it ~400 m above the local surface; `shelterScale`
+exposes the terrain-sheltering factor. This one field feeds slope lift, convergence and
+the wind visualisation.
+
+## Colour language (`liftviz.ts`)
+
+A single ramp shared by every component so lift reads the same everywhere:
+`LIFT_COLORS` (5 warm steps, green → red = stronger lift) and `SINK_COLORS` (3 cool
+steps, light → deep blue = stronger sink). Thermal uses all 5 warm + 3 cool; slope and
+convergence use a 3-warm / 3-cool subset.
+
+## Design principle: view independence
+
+Colours must depend only on **the physics at a location**, never on what is currently on
+screen. An earlier version normalised the thermal field against the cells in view (median
+split, per-view percentile) — panning then flipped a slope's colour. The current model
+uses a **global reference** (`wRef`) and **fixed physical thresholds**, so a given slope
+keeps its colour as the camera moves. Convergence is likewise normalised by a global
+scalar. Grids are cached per view (centre, radius, ~15-min time bucket) and rebuilt as
+fresh deck layer instances each frame.
+
+## Limitations
+
+- **Not measured, not predictive.** First-order diagnostics with strong assumptions;
+  do not use for flight planning.
+- **Thermal**: approximate albedo/Bowen (uniform if Overpass is down); no cumulus
+  shading of the ground, no advection, no history/accumulation (instantaneous flux); an
+  ensemble mean. The blue sink is *relative* (its absolute strength is not calibrated).
+- **Slope lift**: a kinematic `w = wind·∇terrain` — ignores flow separation, rotor, lee
+  waves and stability; one wind for the whole scene; detail limited by the DEM.
+- **Convergence**: kinematic terrain-deflection cue only — no thermal/breeze/synoptic
+  convergence, no mass consistency, one wind for the scene.
+- **Air mass**: shows only where a glider circled; strength is the glider's climb, not
+  netto; cloudbase is estimated (LCL), off by hundreds of metres possible.
+- **Weather**: a coarse model at the view centre; the sounding/BL height can be
+  unreliable over complex terrain.
+
+## Roadmap
+
+- **cu vs blue** — cumulus vs dry thermals from LCL vs the thermal ceiling (data already
+  fetched).
+- **Calibration on the tracks** — rescale the predicted Vz to match the day's observed
+  climb rates (the standout: grounding prediction in measurement).
+- **Netto** — subtract the glider's polar sink from the observed climb for a truer air Vz.
+- **Wave (onde)** — the reserved 4th mixer component: wind ⟂ ridge + static stability
+  (from the sounding) → wavelength and downwind lift bands.
+- **Day-structure panel + colour legend** — a mini temperature profile (T/Td, LCL,
+  ceiling) and a Vz→colour legend for comprehension.
+
+---
+
+Source and issues on [GitHub](https://github.com/s-celles/ogn-3d-viewer). See also the
+user guide: [English](features.en.md) · [Français](features.fr.md) ·
+[Deutsch](features.de.md).
