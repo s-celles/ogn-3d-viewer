@@ -198,7 +198,9 @@ the wind visualisation.
 A single ramp shared by every component so lift reads the same everywhere:
 `LIFT_COLORS` (5 warm steps, green → red = stronger lift) and `SINK_COLORS` (3 cool
 steps, light → deep blue = stronger sink). Thermal uses all 5 warm + 3 cool; slope and
-convergence use a 3-warm / 3-cool subset.
+convergence use a 3-warm / 3-cool subset. A **legend** of this ramp is shown in the lift
+panel (below the mixer), with an approximate Vz anchor for the thermal component
+(green ≈ 0.5, yellow ≈ 0.9, red ≥ 1.4 m/s at the nominal scale).
 
 ## Design principle: view independence
 
@@ -234,8 +236,8 @@ fresh deck layer instances each frame.
   just a global scale.
 - **Wave (onde)** — the reserved 4th mixer component: wind ⟂ ridge + static stability
   (from the sounding) → wavelength and downwind lift bands.
-- **Day-structure panel + colour legend** — a mini temperature profile (T/Td, LCL,
-  ceiling) and a Vz→colour legend for comprehension.
+- **Day-structure panel** — a mini temperature profile (T/Td, LCL, ceiling) and w\* vs
+  time, for comprehension.
 
 ---
 

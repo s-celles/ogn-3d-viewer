@@ -7,6 +7,7 @@
 import { S } from './state';
 import { t } from './i18n';
 import { LIFT_COMPS } from './lift';
+import { LIFT_COLORS, SINK_COLORS } from './liftviz';
 
 const NS = 'http://www.w3.org/2000/svg';
 const rgb = (c: [number, number, number]): string => `rgb(${c[0]},${c[1]},${c[2]})`;
@@ -111,6 +112,7 @@ let handle: SVGCircleElement | null = null;
 let labelEls: SVGTextElement[] = [], pctEls: SVGTextElement[] = [];
 let cbInputs: HTMLInputElement[] = [], cbSpans: HTMLElement[] = [];
 let calibCb: HTMLInputElement | null = null, calibSpan: HTMLElement | null = null;
+let legSink: HTMLElement | null = null, legLift: HTMLElement | null = null, legVz: HTMLElement | null = null;
 
 // Enable/disable a component, preserving the others' relative blend: a re-enabled one
 // enters as a peer (the mean weight), a disabled one drops to 0. Never all-off.
@@ -152,6 +154,9 @@ function updateDynamic(): void {
   cbSpans.forEach((sp, i) => { sp.textContent = t(LIFT_COMPS[i].ik); });
   if (calibCb) calibCb.checked = !!S.liftCalibrate;
   if (calibSpan) calibSpan.textContent = t('liftCalibrate');
+  if (legSink) legSink.textContent = t('legendSink');
+  if (legLift) legLift.textContent = t('legendLift');
+  if (legVz) legVz.textContent = t('legendVz');
 }
 
 // Build the SVG simplex (outline, vertex dots + labels + percentages, drag handle).
@@ -264,6 +269,20 @@ function rebuild(): void {
   calibSpan = document.createElement('span'); calibSpan.textContent = t('liftCalibrate');
   calibLab.append(calibCb, calibSpan);
   cont.appendChild(calibLab);
+
+  // Colour legend: the shared ramp (deep sink → weak → strong lift) + a Vz anchor.
+  const leg = document.createElement('div'); leg.style.cssText = 'margin-top:10px;font-size:11px;opacity:0.9';
+  const bar = document.createElement('div'); bar.style.cssText = 'display:flex;height:12px;border-radius:3px;overflow:hidden';
+  for (const c of [...SINK_COLORS].reverse().concat(LIFT_COLORS)) {
+    const s = document.createElement('div'); s.style.cssText = `flex:1;background:rgb(${c[0]},${c[1]},${c[2]})`; bar.appendChild(s);
+  }
+  const ends = document.createElement('div'); ends.style.cssText = 'display:flex;justify-content:space-between;margin-top:2px';
+  legSink = document.createElement('span'); legSink.textContent = t('legendSink');
+  legLift = document.createElement('span'); legLift.textContent = t('legendLift');
+  ends.append(legSink, legLift);
+  legVz = document.createElement('div'); legVz.style.cssText = 'margin-top:2px;opacity:0.7'; legVz.textContent = t('legendVz');
+  leg.append(bar, ends, legVz);
+  cont.appendChild(leg);
 
   updateDynamic();
 }
