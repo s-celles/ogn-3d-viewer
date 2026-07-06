@@ -102,9 +102,9 @@ const HOT_FILTER_KEY = 'ogn.hotFilter';
 const hotFilterDefault: HotFilter = { country: '', sort: 'count', q: '' };
 let hotFilter: HotFilter = readHotFilter();     // persisted country / sort / search, reset on demand
 
-interface SpotFilter { country: string; q: string; }   // spots list: persisted country + text filter
+interface SpotFilter { country: string; q: string; terrain: string; }   // spots list: persisted country + text + terrain filter
 const SPOT_FILTER_KEY = 'ogn.spotFilter';
-const spotFilterDefault: SpotFilter = { country: '', q: '' };
+const spotFilterDefault: SpotFilter = { country: '', q: '', terrain: '' };
 let spotFilter: SpotFilter = readSpotFilter();
 const spotHidden = new Set<string>();           // spot codes filtered out of the current view
 let spotRowsEl: HTMLElement | null = null;      // container holding just the spot rows
@@ -114,6 +114,7 @@ function readSpotFilter(): SpotFilter {
 function writeSpotFilter(): void { try { localStorage.setItem(SPOT_FILTER_KEY, JSON.stringify(spotFilter)); } catch { /* ignore */ } }
 function spotMatch(s: Spot): boolean {
   if (spotFilter.country && s.country !== spotFilter.country) return false;
+  if (spotFilter.terrain && siteTerrain(s.code) !== spotFilter.terrain) return false;
   const q = spotFilter.q.trim().toLowerCase();
   return !q || `${s.name} ${s.code} ${s.country} ${s.blurb}`.toLowerCase().includes(q);
 }
@@ -653,14 +654,19 @@ function buildSpotControls(): HTMLElement {   // country filter + text search + 
   country.innerHTML = `<option value="">${t('discoverAllCountries')}</option>`
     + [...counts.keys()].sort().map(c => `<option value="${c}"${c === spotFilter.country ? ' selected' : ''}>${c} (${counts.get(c)})</option>`).join('');
   country.onchange = () => { spotFilter.country = country.value; writeSpotFilter(); renderSpotRows(); };
+  // terrain filter (plain / hills / mountain / high mountain), from the relief tags
+  const terrain = document.createElement('select'); terrain.style.cssText = css;
+  terrain.innerHTML = `<option value="">${t('discoverAllTerrain')}</option>`
+    + (['plain', 'hills', 'mid', 'high'] as const).map(k => `<option value="${k}"${k === spotFilter.terrain ? ' selected' : ''}>${t('terrain' + k[0].toUpperCase() + k.slice(1))}</option>`).join('');
+  terrain.onchange = () => { spotFilter.terrain = terrain.value; writeSpotFilter(); renderSpotRows(); };
   const search = document.createElement('input');
   search.type = 'search'; search.placeholder = t('discoverSearch'); search.value = spotFilter.q;
   search.style.cssText = css + ';flex:1;min-width:90px';
   search.oninput = () => { spotFilter.q = search.value; writeSpotFilter(); renderSpotRows(); };
   const reset = document.createElement('button');
   reset.textContent = '↺'; reset.title = t('discoverReset'); reset.style.cssText = css + ';cursor:pointer';
-  reset.onclick = () => { spotFilter = { ...spotFilterDefault }; writeSpotFilter(); country.value = ''; search.value = ''; renderSpotRows(); };
-  wrap.append(country, search, reset);
+  reset.onclick = () => { spotFilter = { ...spotFilterDefault }; writeSpotFilter(); country.value = ''; terrain.value = ''; search.value = ''; renderSpotRows(); };
+  wrap.append(country, terrain, search, reset);
   return wrap;
 }
 // A small terrain badge (plain / hills / mountain / high mountain) from the site's
