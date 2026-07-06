@@ -7,10 +7,11 @@
 // Each cell is shown as its fractional anomaly vs a flat reference patch (view-
 // independent). A coarse, illustrative diagnostic (no advection/cloud shading) — docs.
 import { S } from './state';
-import { SimpleMeshLayer, COORDINATE_SYSTEM } from './deck';
+import { SimpleMeshLayer, IconLayer, COORDINATE_SYSTEM } from './deck';
 import { terrainElevAt } from './terrain';
 import { sunLightDir } from './sky';
-import { getWeather, weatherRad, weatherConvTop } from './weather';
+import { getWeather, weatherRad, weatherConvTop, weatherCloudbase } from './weather';
+import { cloudSprite } from './airmass';
 import { getLC, sampleGrid, lcVersion } from './landcover';
 import { LIFT_COLORS as VZ_COLORS, SINK_COLORS } from './liftviz';
 
@@ -80,7 +81,8 @@ function lcParams(g: TGrid, cLat: number, cLon: number, R: number): { alb: Float
 // Replay instant (ms UTC) for the sun position.
 const nowMs = (): number => Date.parse(S.date + 'T00:00:00Z') + (S.G0 + S.cur) * 1000;
 
-let cache: { terr: TGrid; k: number; bucket: number; wxr: boolean; lcv: number; meshes: { color: number[]; mesh: any }[] } | null = null;
+interface Puff { pos: [number, number, number]; size: number }
+let cache: { terr: TGrid; k: number; bucket: number; wxr: boolean; lcv: number; meshes: { color: number[]; mesh: any }[]; cu: Puff[] } | null = null;
 
 /** Draped patches coloured by the estimated thermal updraft (Vz), from sun × slope
  *  × heat flux × w*. Empty at night or when the terrain/date is unavailable. */
@@ -102,6 +104,10 @@ export function thermalLayers(k: number, alpha = 1): any[] {
   // top) minus the ground height — so thermals are deeper over low ground, fade on a
   // stable day, and stop where a peak pokes above the boundary layer.
   const topA = wx ? weatherConvTop(wx, hour) : NaN;
+  // Cumulus vs blue: cloud forms if dry convection (the ceiling) reaches the LCL
+  // (cloudbase). On a cu day we mark the strong thermal cores with cumulus at the base.
+  const cloudbase = wx ? weatherCloudbase(wx, hour) : null;
+  const isCu = cloudbase != null && Number.isFinite(topA) && topA >= cloudbase + 80;
   const ziFallback = Number.isFinite(rad.blh) && rad.blh > 200 ? rad.blh : 1500;
   const ziAt = (h: number): number => Math.max(0, Math.min(3500, Number.isFinite(topA) ? topA - h : ziFallback));
   // View-independent reference: the updraught a FLAT patch of reference ground gets
@@ -189,11 +195,33 @@ export function thermalLayers(k: number, alpha = 1): any[] {
         indices: { value: new Uint32Array(B.idx), size: 1 }, mode: 4,
       },
     } : null).filter(Boolean) as { color: number[]; mesh: any }[];
-    cache = { terr: g, k, bucket, wxr: !!wx, lcv: lcp.lcv, meshes };
+    // Predicted cumulus on a cu day: mark the strongest thermal cores with a cloud at
+    // the cloudbase, thinned so they don't clutter (skip cells where terrain pokes
+    // through the base). A blue day (ceiling < cloudbase) gets none.
+    const cu: Puff[] = [];
+    if (isCu) {
+      const cb = cloudbase as number, THIN = 6, MAX_CU = 60, occ = new Set<string>();
+      for (let j = 0; j < NW && cu.length < MAX_CU; j++) for (let i = 0; i < NW; i++) {
+        const w = Ws[j * NW + i]; if (Number.isNaN(w) || w < 0.72 * W_FULL) continue;
+        const bk = `${(i / THIN) | 0},${(j / THIN) | 0}`; if (occ.has(bk)) continue;
+        const gh = g.nodes[j * GN + i].h; if (Number.isNaN(gh) || cb < gh + 60) continue;   // base below the ground here
+        occ.add(bk);
+        cu.push({ pos: [nlon(i), nlat(j), cb * k], size: 260 + Math.min(1, w / W_FULL) * 420 });
+      }
+    }
+    cache = { terr: g, k, bucket, wxr: !!wx, lcv: lcp.lcv, meshes, cu };
   }
-  return cache.meshes.map((m, i) => new SimpleMeshLayer({
+  const layers: any[] = cache.meshes.map((m, i) => new SimpleMeshLayer({
     id: 'thermal-' + i, data: [{}], getPosition: () => [0, 0, 0], _instanced: false,
     coordinateSystem: COORDINATE_SYSTEM.LNGLAT, getColor: [m.color[0], m.color[1], m.color[2], Math.round(m.color[3] * alpha)],
     material: false, parameters: meshParams, mesh: m.mesh,
   } as any));
+  if (cache.cu.length) layers.push(new IconLayer({
+    id: 'thermal-cu', data: cache.cu,
+    iconAtlas: cloudSprite(), iconMapping: { p: { x: 0, y: 0, width: 128, height: 128, mask: true } } as any,
+    getIcon: () => 'p', getPosition: (d: any) => d.pos, getSize: (d: any) => d.size,
+    getColor: [255, 255, 255, Math.round(215 * alpha)], sizeUnits: 'meters', billboard: true,
+    parameters: { depthCompare: 'less-equal', depthWriteEnabled: false } as any,
+  } as any));
+  return layers;
 }

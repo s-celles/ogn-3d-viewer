@@ -112,6 +112,12 @@ over low ground**, **fade on a stable day**, **stop above the boundary layer**, 
   exposed faces: the **compensating subsidence** required by mass continuity (not a
   measured downdraught). Entry at `SINK_MIN = 0.12`.
 
+**5. Cumulus vs blue.** Cloud forms when dry convection (the ceiling) reaches the
+**LCL** (cloudbase, `weatherCloudbase`). On a **cu day** (`ceiling ≥ cloudbase`) the
+strongest thermal cores are marked with a **cumulus** at the cloudbase (thinned, capped
+at 60, skipped where terrain pokes through the base); a **blue day**
+(`ceiling < cloudbase`) gets none.
+
 ### Slope lift (`ridge.ts`)
 
 Slope lift is wind deflected by the ground, so it is **predicted** from the DEM and the
@@ -203,8 +209,6 @@ fresh deck layer instances each frame.
 
 ## Roadmap
 
-- **cu vs blue** — cumulus vs dry thermals from LCL vs the thermal ceiling (data already
-  fetched).
 - **Calibration on the tracks** — rescale the predicted Vz to match the day's observed
   climb rates (the standout: grounding prediction in measurement).
 - **Netto** — subtract the glider's polar sink from the observed climb for a truer air Vz.

@@ -176,9 +176,10 @@ function leanBy(lonB: number, latB: number, base: number, topAlt: number, streng
 const hash = (n: number): number => { const x = Math.sin(n * 12.9898) * 43758.5453; return x - Math.floor(x); };
 
 // A lobed cumulus silhouette (cauliflower top, flatter base) as an alpha mask,
-// built once. Tinted white with per-cloud opacity at draw time.
+// built once. Tinted white with per-cloud opacity at draw time. Shared with the
+// lift-potential layer (predicted cumulus on a cu day).
 let cloud: string | null = null;
-function cloudSprite(): string {
+export function cloudSprite(): string {
   if (cloud) return cloud;
   const c = document.createElement('canvas'); c.width = c.height = 128;
   const x = c.getContext('2d')!;
