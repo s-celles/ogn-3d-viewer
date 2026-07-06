@@ -452,15 +452,28 @@ const WX_SLIDERS: { k: WxK; min: number; max: number; step: number; ik: string; 
 ];
 const wxInputs: Record<string, HTMLInputElement> = {}, wxVals: Record<string, HTMLElement> = {};
 let wxDateEl: HTMLInputElement;
+// Presets: a stable, windy wave day vs an unstable, warm thermal day — the atmosphere
+// that makes each phenomenon appear (kept because the two need opposite conditions).
+const WX_PRESETS: { ik: string; p: Partial<typeof S.wxSim> }[] = [
+  { ik: 'wxPresetThermal', p: { wind: 6, dir: 270, shear: 1, nStab: 0.005, tsurf: 28 } },
+  { ik: 'wxPresetWave', p: { wind: 26, dir: 270, shear: 4, nStab: 0.013, tsurf: 8 } },
+];
 function buildWxSim(): void {
   wxSimPanel.textContent = '';
-  const head = document.createElement('div'); head.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:8px;margin:2px 0 6px';
   const note = document.createElement('div'); note.dataset.k = 'wxSimNote';
-  note.style.cssText = 'font-size:11px;color:#e0b34a'; note.textContent = t('wxSimNote');
+  note.style.cssText = 'font-size:11px;color:#e0b34a;margin:2px 0 4px'; note.textContent = t('wxSimNote');
+  wxSimPanel.appendChild(note);
+  const bar = document.createElement('div'); bar.style.cssText = 'display:flex;gap:6px;flex-wrap:wrap;margin:0 0 6px';
+  const btnCss = 'background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.2);border-radius:6px;color:inherit;cursor:pointer;font-size:12px;padding:2px 8px';
+  for (const pr of WX_PRESETS) {
+    const b = document.createElement('button'); b.dataset.k = pr.ik; b.textContent = t(pr.ik); b.style.cssText = btnCss;
+    b.onclick = () => { S.wxSim = { ...S.wxSim, ...pr.p }; syncWxSim(); render(); };
+    bar.appendChild(b);
+  }
   const reset = document.createElement('button'); reset.textContent = '↺'; reset.title = t('wxReset');
-  reset.style.cssText = 'background:none;border:1px solid rgba(255,255,255,.2);border-radius:6px;color:inherit;cursor:pointer;font-size:13px;padding:1px 8px;flex:0 0 auto';
+  reset.style.cssText = btnCss + ';margin-left:auto';
   reset.onclick = () => { S.wxSim = { ...(DEFAULT_SETTINGS.wxSim as typeof S.wxSim), on: S.wxSim.on }; syncWxSim(); render(); };
-  head.append(note, reset); wxSimPanel.appendChild(head);
+  bar.appendChild(reset); wxSimPanel.appendChild(bar);
   const drow = document.createElement('label'); drow.style.cssText = 'display:flex;align-items:center;gap:8px;margin:4px 0;font-size:12px';
   const dsp = document.createElement('span'); dsp.dataset.k = 'wxDate'; dsp.textContent = t('wxDate'); dsp.style.minWidth = '96px';
   wxDateEl = document.createElement('input'); wxDateEl.type = 'date'; wxDateEl.value = S.wxSim.date; wxDateEl.style.flex = '1';
