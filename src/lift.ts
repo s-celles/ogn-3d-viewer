@@ -15,6 +15,7 @@ export const LIFT_COMPS: LiftComp[] = [
   { key: 'thermal', ik: 'liftThermal', color: [235, 140, 60] },
   { key: 'slope', ik: 'liftSlope', color: [150, 200, 90] },
   { key: 'converg', ik: 'liftConverg', color: [110, 190, 165] },
+  { key: 'wave', ik: 'liftWave', color: [175, 140, 225] },
 ];
 
 /** Normalised blend weight (0..1, Σ=1 across the *enabled* components) of one

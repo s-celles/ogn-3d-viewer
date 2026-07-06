@@ -137,6 +137,19 @@ export function weatherSounding(wx: Wx, hour: number): Sounding | null {
   return { ref: wx.ref, t2m: h.t2m, tprof: h.tprof, cloudbase: h.cloudbase, ceiling: weatherConvTop(wx, hour) };
 }
 
+/** Static stability as the Brunt–Väisälä frequency N (1/s) in the layer above the
+ *  ridges (the upper sounding levels), for the lee-wave model. NaN when the layer is
+ *  neutral/unstable (no wave) or the sounding is unavailable. */
+export function weatherStability(wx: Wx, hour: number): number {
+  const tp = wx.hours[clampHour(wx, hour)]?.tprof;
+  if (!tp || tp.length < 2) return NaN;
+  const a = tp[tp.length - 2], b = tp[tp.length - 1], dz = b.alt - a.alt;   // top layer (above the ridges)
+  if (dz < 100) return NaN;
+  const dThetaDz = (b.T - a.T) / dz + DRY;         // potential-temp gradient (K/m)
+  if (dThetaDz <= 0) return NaN;                    // neutral / unstable → no wave
+  return Math.sqrt(9.81 / ((a.T + b.T) / 2 + 273.15) * dThetaDz);
+}
+
 /** Wind vector [east, north] (m/s) at an AMSL altitude and UTC hour, or null. */
 export function weatherWind(wx: Wx, hour: number, alt: number): [number, number] | null {
   const p = wx.hours[clampHour(wx, hour)]?.prof;

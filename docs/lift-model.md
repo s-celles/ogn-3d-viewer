@@ -20,6 +20,7 @@ All of it runs 100 % client-side in the browser.
   - [Thermal](#thermal-thermalts)
   - [Slope lift](#slope-lift-ridgets)
   - [Convergence](#convergence-convergts)
+  - [Wave](#wave-wavets)
   - [Calibration against the tracks](#calibration-against-the-tracks-calibts)
 - [The mixer](#the-mixer-liftts--liftmixerts)
 - [Wind field](#wind-field-ridgets)
@@ -148,6 +149,23 @@ lift because it responds to terrain **curvature**, not gradient:
    (dimensionless, view-independent). Convergence = −divergence: warm where it piles up
    (entry `CONV_MIN = 0.05`), blue in the lee. Light 3×3 blur (curvature is noisy).
 
+### Wave (`wave.ts`)
+
+Lee (mountain) waves: a stable airstream crossing a ridge with enough wind oscillates
+downwind as a standing wave — smooth lift in the crests, sink in the troughs — at
+
+```
+λ = 2π·U / N        (U = cross-ridge wind, N = Brunt–Väisälä frequency)
+```
+
+`N` comes from the upper sounding layer (`weatherStability`; NaN if neutral/unstable);
+`U` from the wind profile. We take the terrain forcing along the wind
+(`w₀ = wind·∇terrain`) and **convolve the upwind profile with a decaying resonant
+sinusoid** at the Scorer wavenumber `l = N/U` — a linear lee-wave response draped on the
+terrain (warm crests, blue troughs). Gated: wind ≥ `WIND_MIN = 7 m/s`, `N > N_MIN`, and
+`λ ∈ [2.5, 22] km`; otherwise nothing. **Off by default** (the mixer's 4th vertex,
+enabled by its checkbox) since it only applies on windy, stable days.
+
 ### Calibration against the tracks (`calib.ts`)
 
 The thermal field's absolute scale (`W_FULL`) is only a guess — but the day's tracks
@@ -246,6 +264,9 @@ fresh deck layer instances each frame.
   waves and stability; one wind for the whole scene; detail limited by the DEM.
 - **Convergence**: kinematic terrain-deflection cue only — no thermal/breeze/synoptic
   convergence, no mass consistency, one wind for the scene.
+- **Wave**: a linear 2D lee-wave response — one wind/stability for the scene, no
+  trapping/resonance modes, no rotor, phase and amplitude only indicative; draped in the
+  horizontal (not the true elevated wave bars).
 - **Air mass**: shows only where a glider circled; strength is the glider's climb, not
   netto; cloudbase is estimated (LCL), off by hundreds of metres possible.
 - **Weather**: a coarse model at the view centre; the sounding/BL height can be
@@ -260,8 +281,6 @@ fresh deck layer instances each frame.
   Vz (would also sharpen the [calibration](#calibration-against-the-tracks-calibts)).
 - **Local assimilation** — nudge the field toward the observed climbs *spatially*, not
   just a global scale.
-- **Wave (onde)** — the reserved 4th mixer component: wind ⟂ ridge + static stability
-  (from the sounding) → wavelength and downwind lift bands.
 - **Dewpoint profile** — fetch humidity aloft to draw Td on the day-structure emagram
   (currently only the surface dewpoint / LCL is known).
 

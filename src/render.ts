@@ -18,6 +18,7 @@ import { updateMinimap } from './minimap';
 import { airMassLayers } from './airmass';
 import { ridgeLayers } from './ridge';
 import { convergLayers } from './converg';
+import { waveLayers } from './wave';
 import { liftWeight } from './lift';
 import { windLayers } from './wind';
 import { thermalLayers } from './thermal';
@@ -515,10 +516,10 @@ function dynamicLayers() {
     ...(S.thermalPot ? (() => {
       // Blend from the mixer: each component's opacity scales with its weight (gamma
       // lifts the mid-blend so a 50/50 is still legible). Skip a near-zero component.
-      const wt = liftWeight('thermal'), ws = liftWeight('slope'), wc = liftWeight('converg');
-      const g = (w: number): number => w > 0.02 ? Math.pow(w, 0.55) : 0;
-      const at = g(wt), as = g(ws), ac = g(wc);
-      return [...(at ? thermalLayers(k, at) : []), ...(as ? ridgeLayers(k, as) : []), ...(ac ? convergLayers(k, ac) : [])];
+      const g = (key: string): number => { const w = liftWeight(key); return w > 0.02 ? Math.pow(w, 0.55) : 0; };
+      const at = g('thermal'), as = g('slope'), ac = g('converg'), aw = g('wave');
+      return [...(at ? thermalLayers(k, at) : []), ...(as ? ridgeLayers(k, as) : []),
+        ...(ac ? convergLayers(k, ac) : []), ...(aw ? waveLayers(k, aw) : [])];
     })() : []),
     ...(S.airMass ? airMassLayers(k) : []),
     ...(S.windMode !== 'off' ? windLayers(k) : []),
