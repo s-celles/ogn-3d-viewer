@@ -441,13 +441,14 @@ thermalBtn.onclick = () => {
 // it grows a vertex here.
 buildLiftMixer(liftComps, render);
 // ---- weather sandbox: a synthetic atmosphere driving every physics model ----
-type WxK = 'wind' | 'dir' | 'shear' | 'nStab' | 'tsurf' | 'hour';
+type WxK = 'wind' | 'dir' | 'shear' | 'nStab' | 'tsurf' | 'rh' | 'hour';
 const WX_SLIDERS: { k: WxK; min: number; max: number; step: number; ik: string; unit: string; fmt?: (v: number) => string }[] = [
   { k: 'wind', min: 0, max: 50, step: 1, ik: 'wxWind', unit: ' m/s' },
   { k: 'dir', min: 0, max: 350, step: 10, ik: 'wxDir', unit: '°' },
   { k: 'shear', min: 0, max: 8, step: 0.5, ik: 'wxShear', unit: ' m/s/km', fmt: v => v.toFixed(1) },
   { k: 'nStab', min: 0.004, max: 0.02, step: 0.001, ik: 'wxStab', unit: ' /s', fmt: v => v.toFixed(3) },
   { k: 'tsurf', min: -10, max: 40, step: 1, ik: 'wxTsurf', unit: ' °C' },
+  { k: 'rh', min: 20, max: 95, step: 5, ik: 'wxRh', unit: ' %' },
   { k: 'hour', min: 0, max: 23.5, step: 0.5, ik: 'wxHour', unit: ' h', fmt: v => v.toFixed(1) },
 ];
 const wxInputs: Record<string, HTMLInputElement> = {}, wxVals: Record<string, HTMLElement> = {};
@@ -455,8 +456,11 @@ let wxDateEl: HTMLInputElement;
 // Presets: a stable, windy wave day vs an unstable, warm thermal day — the atmosphere
 // that makes each phenomenon appear (kept because the two need opposite conditions).
 const WX_PRESETS: { ik: string; p: Partial<typeof S.wxSim> }[] = [
-  { ik: 'wxPresetThermal', p: { wind: 6, dir: 270, shear: 1, nStab: 0.005, tsurf: 28 } },
-  { ik: 'wxPresetWave', p: { wind: 26, dir: 270, shear: 4, nStab: 0.013, tsurf: 8 } },
+  { ik: 'wxPresetThermal', p: { wind: 6, dir: 270, shear: 1, nStab: 0.005, tsurf: 28, rh: 45, hour: 13 } },
+  { ik: 'wxPresetCumulus', p: { wind: 5, dir: 270, shear: 1, nStab: 0.005, tsurf: 22, rh: 70, hour: 13 } },
+  { ik: 'wxPresetRidge', p: { wind: 14, dir: 270, shear: 2, nStab: 0.004, tsurf: 10, rh: 65, hour: 13 } },
+  { ik: 'wxPresetWave', p: { wind: 26, dir: 270, shear: 4, nStab: 0.013, tsurf: 8, rh: 60, hour: 13 } },
+  { ik: 'wxPresetLowSun', p: { wind: 4, dir: 270, shear: 1, nStab: 0.006, tsurf: 20, rh: 55, hour: 18 } },
 ];
 function buildWxSim(): void {
   wxSimPanel.textContent = '';

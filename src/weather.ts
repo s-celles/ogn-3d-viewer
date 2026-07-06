@@ -113,7 +113,7 @@ function simWx(): Wx {
     const p = toUV(Math.max(0, s.wind + s.shear * (alt - ref) / 1000), s.dir); return { ...p, alt };
   });
   const tprof: TPt[] = [ref, ref + 1500, ref + 3000].map(alt => ({ alt, T: s.tsurf - lapse * (alt - ref) }));
-  const hour: WxHour = { cloudbase: lclBase(s.tsurf, 55, ref), prof, sw: NaN, diff: NaN, blh: 1200, t2m: s.tsurf, tprof };
+  const hour: WxHour = { cloudbase: lclBase(s.tsurf, s.rh, ref), prof, sw: NaN, diff: NaN, blh: 1200, t2m: s.tsurf, tprof };
   return (simCache = { hours: Array.from({ length: 24 }, () => hour), ref });
 }
 
