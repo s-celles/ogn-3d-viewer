@@ -176,8 +176,10 @@ enabled by its checkbox) since it only applies on windy, stable days.
 
 A companion **worldwide wave scan** (`wavescan.ts`, the Discover **🌊** tab) ranks every
 spot for a date on four ingredients: the same **U / N / λ** test, plus the site's actual
-**relief** (batched Open-Meteo *concentric elevation rings*, out to ~28 km, to catch a
-triggering ridge at any distance — flat sites are dropped) and whether
+**relief** (sampled from the *Terrarium DEM tiles* — the same tiles as the terrain, no
+API limit, cached + persisted — over concentric rings to ~28 km, to catch a triggering
+ridge at any distance; a **local** ring also sets the terrain tag plain/ridge/wave, and
+flat sites are dropped) and whether
 the **wind crosses a ridge** (the relief seen *along the wind* — this handles a site with
 several ridges in different orientations, since it only asks that the wind meet some of
 them). *Weather first, then pick the field.* And **observed wave** climbs are

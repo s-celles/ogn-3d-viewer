@@ -316,6 +316,8 @@ function renderHot(): void {   // build the markers + the static shell (header, 
   tickHot();                                   // wire the refresh button now
   if (!hotTimer) hotTimer = setInterval(tickHot, 5000) as unknown as number;   // keep the age label live
   void enrichHotNames();                        // resolve airfield names in the background
+  // Characterise the hot zones too (terrain tag), from the DEM (persisted, deduped).
+  void ensureRelief(hotZones.map(z => ({ code: hotKey(z), lat: z.lat, lon: z.lon })), refreshTags).catch(() => { /* offline */ });
 }
 function hotView(infos: ZoneInfo[]): number[] {   // indices after country/search filter + sort
   const q = hotFilter.q.trim().toLowerCase();
@@ -348,7 +350,7 @@ function renderHotRows(): void {   // rebuild just the ranked rows (leaves the c
     d.onclick = () => void pickZone(z);
     d.innerHTML = `<b style="color:#ff5a3c;min-width:28px;text-align:right" title="${z.count} ${t('discoverGliders')}">${z.count}</b>`
       + `<span style="font-size:16px">${info.flag || '📍'}</span>`
-      + `<div data-nm style="flex:1;min-width:0">${hotRowText(info)}</div>`;
+      + `<div style="flex:1;min-width:0"><span data-nm>${hotRowText(info)}</span>${terrainTag(hotKey(z))}</div>`;
     hotItems.set(i, d); hotRowsEl.appendChild(d);
   }
 }
@@ -541,15 +543,22 @@ async function pickZone(z: HotZone): Promise<void> {
   setPlace(info.name || z.label || t('discoverHot'), info.flag); setStatus(`${z.count} ${t('discoverGliders')}`);   // stay on the terrain we already flew to
 }
 
+// Re-render the current tab's rows so freshly-computed terrain tags appear.
+function refreshTags(): void {
+  if (!overlay || overlay.style.display === 'none') return;
+  if (active === 'hot') renderHotRows(); else if (active !== 'wave') renderSpotRows();
+}
+// A stable relief-cache key for a hot zone (its known spot / airfield code, else a geo key).
+function hotKey(z: HotZone): string {
+  return zoneInfo(z).code || `@${z.lat.toFixed(2)},${z.lon.toFixed(2)}`;
+}
 function open(): void {
   if (!overlay) build();
   overlay!.style.display = 'flex'; discoverBtn.classList.add('on');
   select(active);                               // reopen on the last-used tab (world '', a continent, or 'hot')
-  // Characterise every spot (plain / ridge / wave) in the background; refresh the tags
-  // once the one-time elevation scan resolves. Cached, so later opens are instant.
-  void ensureRelief(allSpots().map(s => ({ code: s.code, lat: s.lat, lon: s.lon }))).then(() => {
-    if (overlay && overlay.style.display !== 'none' && active !== 'hot' && active !== 'wave') renderSpotRows();
-  }).catch(() => { /* offline → no tags */ });
+  // Characterise every spot (plain / ridge / wave) from the DEM in the background; tags
+  // fill in as it resolves (persisted, so later visits are instant).
+  void ensureRelief(allSpots().map(s => ({ code: s.code, lat: s.lat, lon: s.lon })), refreshTags).catch(() => { /* offline → no tags */ });
 }
 function close(): void {
   if (overlay) overlay.style.display = 'none'; discoverBtn.classList.remove('on');

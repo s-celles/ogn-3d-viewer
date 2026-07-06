@@ -5,9 +5,10 @@
 //   2. static stability (Brunt–Väisälä N),
 //   3. a plausible wavelength λ = 2π·U/N,
 //   4. actual RELIEF around the site + the wind crossing the ridge (not blowing along it).
-// Wind/stability come from a batched Open-Meteo forecast; relief from a batched Open-Meteo
-// elevation ring (cached — the terrain doesn't change). A rough forecast filter, not a
-// guarantee — see the lift-model docs.
+// Wind/stability come from a batched Open-Meteo forecast; relief is sampled from the
+// Terrarium DEM tiles (dem.ts — same tiles as the terrain, no API limit) and persisted
+// (the DEM is static). A rough forecast filter, not a guarantee — see the docs.
+import { demElev } from './dem';
 
 export interface WaveScore { code: string; score: number; wind: number; lambda: number; relief: number }
 
@@ -16,10 +17,11 @@ const U_MIN = 8, U_FULL = 20;       // m/s: cross-ridge wind for a start / a ful
 const N_MIN = 0.006, N_FULL = 0.014;// 1/s: stability for a start / a full score
 const LAMBDA_MIN = 2500, LAMBDA_MAX = 22000;   // m: plausible lee-wave wavelengths
 const RELIEF_MIN = 250, RELIEF_FULL = 1100;    // m: relief for a start / a full score
-export const WAVE_SITE_RELIEF = 500;           // m: wide relief (≤28 km) → "wave terrain"
+export const WAVE_SITE_RELIEF = 500;           // m: wide relief (≤24 km) → "wave terrain"
 const HILL_MIN = 130;                          // m: local relief (≤9 km) → "ridge", else "plain"
-const RING = 8, RINGS_KM = [9, 18, 28];        // elevation: several rings (km) to catch ridges at any distance
+const RING = 8, RINGS_KM = [9, 18, 28];        // elevation rings (km): inner = local, outer = far ridges
 const CHUNK = 50;                   // spots per weather request
+const RELIEF_KEY = 'ogn.relief.v1'; // persisted relief cache (DEM is static)
 
 const num = (x: unknown): number => (typeof x === 'number' && Number.isFinite(x) ? x : NaN);
 const clamp01 = (x: number): number => Math.max(0, Math.min(1, x));
@@ -32,6 +34,16 @@ const clamp01 = (x: number): number => Math.max(0, Math.min(1, x));
 type Ring = { ang: number; e: number }[];
 interface Relief { relief: number; local: number; c: number; rings: Ring[] }   // relief = wide (≤28 km), local = ≤9 km
 const reliefCache = new Map<string, Relief>();
+
+// The relief is static → persist it (localStorage), so tags appear instantly after the
+// first-ever computation and no DEM tiles are re-sampled on later visits.
+try {
+  const raw = localStorage.getItem(RELIEF_KEY);
+  if (raw) for (const [k, v] of Object.entries(JSON.parse(raw) as Record<string, Relief>)) reliefCache.set(k, v);
+} catch { /* ignore */ }
+function saveRelief(): void {
+  try { localStorage.setItem(RELIEF_KEY, JSON.stringify(Object.fromEntries(reliefCache))); } catch { /* quota / private */ }
+}
 
 // Ring elevation interpolated at an azimuth (ring is evenly spaced, sorted by angle).
 function ringElevAt(ring: Ring, az: number): number {
@@ -66,46 +78,35 @@ export function siteTerrain(code: string): '' | 'flat' | 'hill' | 'wave' {
   return r.relief >= WAVE_SITE_RELIEF ? 'wave' : r.local >= HILL_MIN ? 'hill' : 'flat';
 }
 
-export async function ensureRelief(spots: { code: string; lat: number; lon: number }[]): Promise<void> {
+/** Compute + cache the relief of any spots not yet known, sampling the DEM tiles.
+ *  Persists as it goes; `onProgress` fires after each batch so tags fill in live. */
+export async function ensureRelief(spots: { code: string; lat: number; lon: number }[], onProgress?: () => void): Promise<void> {
   const need = spots.filter(s => !reliefCache.has(s.code) && Number.isFinite(s.lat) && Number.isFinite(s.lon));
   if (!need.length) return;
-  interface P { code: string; lat: number; lon: number; ri: number; ang: number }   // ri < 0 → the centre
-  const pts: P[] = [];
+  let done = 0, changed = false;
   for (const s of need) {
-    pts.push({ code: s.code, lat: s.lat, lon: s.lon, ri: -1, ang: 0 });
     const mLon = 111.32 * Math.cos(s.lat * Math.PI / 180);
-    RINGS_KM.forEach((R, ri) => {
-      for (let a = 0; a < RING; a++) {
-        const th = a / RING * 2 * Math.PI;
-        pts.push({ code: s.code, lat: s.lat + R / 111.32 * Math.cos(th), lon: s.lon + R / mLon * Math.sin(th), ri, ang: th });
+    // sample the centre + every ring point (nearby points share cached DEM tiles)
+    const jobs: Promise<number | null>[] = [demElev(s.lon, s.lat)];
+    for (const R of RINGS_KM) for (let a = 0; a < RING; a++) {
+      const th = a / RING * 2 * Math.PI;
+      jobs.push(demElev(s.lon + R / mLon * Math.sin(th), s.lat + R / 111.32 * Math.cos(th)));
+    }
+    const es = await Promise.all(jobs);
+    const c = es[0];
+    if (c != null) {
+      const rings: Ring[] = RINGS_KM.map((_, ri) => Array.from({ length: RING }, (_, a) => ({ ang: a / RING * 2 * Math.PI, e: es[1 + ri * RING + a] })).filter(p => p.e != null) as Ring);
+      if (!rings.some(r => r.length < RING)) {
+        let mn = c, mx = c, lmn = c, lmx = c;                    // wide (all rings) + local (inner ring only)
+        rings.forEach((ring, ri) => { for (const { e } of ring) { mn = Math.min(mn, e); mx = Math.max(mx, e); if (ri === 0) { lmn = Math.min(lmn, e); lmx = Math.max(lmx, e); } } });
+        reliefCache.set(s.code, { relief: mx - mn, local: lmx - lmn, c, rings });
+        changed = true;
       }
-    });
+    }
+    if (++done % 8 === 0 && changed) { saveRelief(); onProgress?.(); changed = false; }
   }
-  const acc = new Map<string, { c: number; rings: Ring[] }>();
-  // fetch all elevation chunks in parallel (one-time; then cached)
-  const chunks: P[][] = [];
-  for (let i = 0; i < pts.length; i += 100) chunks.push(pts.slice(i, i + 100));
-  const results = await Promise.all(chunks.map(ch => {
-    const url = `https://api.open-meteo.com/v1/elevation?latitude=${ch.map(p => p.lat.toFixed(4)).join(',')}&longitude=${ch.map(p => p.lon.toFixed(4)).join(',')}`;
-    return fetch(url).then(r => (r.ok ? r.json() : null)).catch(() => null) as Promise<any>;
-  }));
-  chunks.forEach((ch, ci) => {
-    const el = results[ci] && Array.isArray(results[ci].elevation) ? results[ci].elevation : null; if (!el) return;
-    ch.forEach((p, idx) => {
-      const e = num(el[idx]); if (Number.isNaN(e)) return;
-      let rec = acc.get(p.code); if (!rec) { rec = { c: NaN, rings: RINGS_KM.map(() => []) }; acc.set(p.code, rec); }
-      if (p.ri < 0) rec.c = e; else rec.rings[p.ri].push({ ang: p.ang, e });
-    });
-  });
-  for (const [code, rec] of acc) {
-    if (Number.isNaN(rec.c) || rec.rings.some(r => r.length < RING)) continue;
-    rec.rings.forEach(r => r.sort((a, b) => a.ang - b.ang));
-    let mn = rec.c, mx = rec.c, lmn = rec.c, lmx = rec.c;       // wide (all rings) + local (inner ring only)
-    rec.rings.forEach((ring, ri) => {
-      for (const { e } of ring) { mn = Math.min(mn, e); mx = Math.max(mx, e); if (ri === 0) { lmn = Math.min(lmn, e); lmx = Math.max(lmx, e); } }
-    });
-    reliefCache.set(code, { relief: mx - mn, local: lmx - lmn, c: rec.c, rings: rec.rings });
-  }
+  if (changed) saveRelief();
+  onProgress?.();
 }
 
 /** Score each spot (by code) for wave potential on `date`. Best hour of the day wins.
