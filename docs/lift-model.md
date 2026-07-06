@@ -146,6 +146,20 @@ lift because it responds to terrain **curvature**, not gradient:
    (dimensionless, view-independent). Convergence = −divergence: warm where it piles up
    (entry `CONV_MIN = 0.05`), blue in the lee. Light 3×3 blur (curvature is noisy).
 
+### Calibration against the tracks (`calib.ts`)
+
+The thermal field's absolute scale (`W_FULL`) is only a guess — but the day's tracks
+give **real climb rates** (`airmass.ts`). So we predict Vz at each detected thermal's
+place and time with the same physics (uniform land-cover, no shadow — a point estimate),
+take the **robust median of `observed climb / predicted Vz`** (needs ≥ 4 thermals,
+clamped to `[0.4, 3.5]`), and multiply the whole thermal field by it. Red then means
+*"as strong as the day's best real climbs"*. It is a single **global factor** — it
+changes how strong the day reads, not the spatial pattern — memoised on the track set,
+date and weather-readiness; `1` (no change) for imported files or too few thermals.
+
+> The target is the glider's **climb**, not netto (no polar-sink correction yet), so the
+> scale is in achievable-climb terms.
+
 ## The mixer (`lift.ts` / `liftmixer.ts`)
 
 Components live in one registry `LIFT_COMPS` (`lift.ts`): `thermal`, `slope`,
@@ -209,9 +223,10 @@ fresh deck layer instances each frame.
 
 ## Roadmap
 
-- **Calibration on the tracks** — rescale the predicted Vz to match the day's observed
-  climb rates (the standout: grounding prediction in measurement).
-- **Netto** — subtract the glider's polar sink from the observed climb for a truer air Vz.
+- **Netto** — subtract the glider's polar sink from the observed climb for a truer air
+  Vz (would also sharpen the [calibration](#calibration-against-the-tracks-calibts)).
+- **Local assimilation** — nudge the field toward the observed climbs *spatially*, not
+  just a global scale.
 - **Wave (onde)** — the reserved 4th mixer component: wind ⟂ ridge + static stability
   (from the sounding) → wavelength and downwind lift bands.
 - **Day-structure panel + colour legend** — a mini temperature profile (T/Td, LCL,

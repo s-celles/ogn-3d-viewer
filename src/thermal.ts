@@ -13,6 +13,7 @@ import { sunLightDir } from './sky';
 import { getWeather, weatherRad, weatherConvTop, weatherCloudbase } from './weather';
 import { cloudSprite } from './airmass';
 import { getLC, sampleGrid, lcVersion } from './landcover';
+import { liftCalibration } from './calib';
 import { LIFT_COLORS as VZ_COLORS, SINK_COLORS } from './liftviz';
 
 const GN = 80;           // grid nodes per side (map resolution)
@@ -82,7 +83,7 @@ function lcParams(g: TGrid, cLat: number, cLon: number, R: number): { alb: Float
 const nowMs = (): number => Date.parse(S.date + 'T00:00:00Z') + (S.G0 + S.cur) * 1000;
 
 interface Puff { pos: [number, number, number]; size: number }
-let cache: { terr: TGrid; k: number; bucket: number; wxr: boolean; lcv: number; meshes: { color: number[]; mesh: any }[]; cu: Puff[] } | null = null;
+let cache: { terr: TGrid; k: number; bucket: number; wxr: boolean; lcv: number; cal: number; meshes: { color: number[]; mesh: any }[]; cu: Puff[] } | null = null;
 
 /** Draped patches coloured by the estimated thermal updraft (Vz), from sun × slope
  *  × heat flux × w*. Empty at night or when the terrain/date is unavailable. */
@@ -113,14 +114,18 @@ export function thermalLayers(k: number, alpha = 1): any[] {
   // View-independent reference: the updraught a FLAT patch of reference ground gets
   // under this sun/weather. Each cell is coloured by how strong it is / how far below
   // this it falls — so a given slope keeps its colour no matter where the camera looks.
-  const wStar = (H: number, zi: number): number => 0.6 * Math.cbrt((G / THETA) * (H / RHOCP) * zi);
+  // Day-scale calibration from the observed climbs (1 without enough tracks): grounds
+  // the absolute magnitude in the day's real thermals — red then means "as strong as
+  // the day's best climbs". A uniform factor, so it changes intensity, not the pattern.
+  const cal = liftCalibration();
+  const wStar = (H: number, zi: number): number => cal * 0.6 * Math.cbrt((G / THETA) * (H / RHOCP) * zi);
   const gRef = terrainElevAt(cLon, cLat);
   const wRef = wStar((dni * su[2] + diff) * (1 - ALBEDO) * BETA, ziAt(gRef != null ? gRef : (S.AF ? S.AF.elev : 0)));   // flat reference ground
   const scaleRef = Math.max(0.15, wRef);
 
   const lcp = lcParams(g, cLat, cLon, R);
   const bucket = Math.floor((S.G0 + S.cur) / 900);   // recompute every ~15 min of sim time
-  if (!cache || cache.terr !== g || cache.k !== k || cache.bucket !== bucket || cache.wxr !== !!wx || cache.lcv !== lcp.lcv) {
+  if (!cache || cache.terr !== g || cache.k !== k || cache.bucket !== bucket || cache.wxr !== !!wx || cache.lcv !== lcp.lcv || cache.cal !== cal) {
     const bins = COLORS.map(() => ({ pos: [] as number[], nrm: [] as number[], idx: [] as number[] }));
     const nlon = (i: number) => g.cLon + (-g.R + i * g.sp) / g.mLng, nlat = (j: number) => g.cLat + (-g.R + j * g.sp) / g.mLat;
     // Per node: sun incidence on the slope × heat flux (albedo + sensible fraction
@@ -209,7 +214,7 @@ export function thermalLayers(k: number, alpha = 1): any[] {
         cu.push({ pos: [nlon(i), nlat(j), cb * k], size: 260 + Math.min(1, w / W_FULL) * 420 });
       }
     }
-    cache = { terr: g, k, bucket, wxr: !!wx, lcv: lcp.lcv, meshes, cu };
+    cache = { terr: g, k, bucket, wxr: !!wx, lcv: lcp.lcv, cal, meshes, cu };
   }
   const layers: any[] = cache.meshes.map((m, i) => new SimpleMeshLayer({
     id: 'thermal-' + i, data: [{}], getPosition: () => [0, 0, 0], _instanced: false,
