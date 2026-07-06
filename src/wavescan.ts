@@ -15,8 +15,9 @@ const DRY = 0.0098;                 // dry-adiabatic lapse rate (K/m)
 const U_MIN = 8, U_FULL = 20;       // m/s: cross-ridge wind for a start / a full score
 const N_MIN = 0.006, N_FULL = 0.014;// 1/s: stability for a start / a full score
 const LAMBDA_MIN = 2500, LAMBDA_MAX = 22000;   // m: plausible lee-wave wavelengths
-const RELIEF_MIN = 250, RELIEF_FULL = 1100;    // m: local relief for a start / a full score
-export const WAVE_SITE_RELIEF = 500;           // m: relief above which a site counts as "wave terrain"
+const RELIEF_MIN = 250, RELIEF_FULL = 1100;    // m: relief for a start / a full score
+export const WAVE_SITE_RELIEF = 500;           // m: wide relief (≤28 km) → "wave terrain"
+const HILL_MIN = 130;                          // m: local relief (≤9 km) → "ridge", else "plain"
 const RING = 8, RINGS_KM = [9, 18, 28];        // elevation: several rings (km) to catch ridges at any distance
 const CHUNK = 50;                   // spots per weather request
 
@@ -29,7 +30,7 @@ const clamp01 = (x: number): number => Math.max(0, Math.min(1, x));
 // triggering ridge may be tens of km upwind). Alignment is judged per wind direction from
 // the relief seen ALONG the wind across all rings (a ridge to cross, at any distance).
 type Ring = { ang: number; e: number }[];
-interface Relief { relief: number; c: number; rings: Ring[] }
+interface Relief { relief: number; local: number; c: number; rings: Ring[] }   // relief = wide (≤28 km), local = ≤9 km
 const reliefCache = new Map<string, Relief>();
 
 // Ring elevation interpolated at an azimuth (ring is evenly spaced, sorted by angle).
@@ -57,12 +58,12 @@ export function siteRelief(code: string): number {
 export function isWaveSite(code: string): boolean {
   const r = reliefCache.get(code); return !!r && r.relief >= WAVE_SITE_RELIEF;
 }
-/** Terrain class from the local relief: flat plain / hill (ridge soaring) / mountain
- *  (wave). '' until {@link ensureRelief} has run for the spot. */
+/** Terrain class: mountain/wave if big relief is within reach (≤28 km), else ridge if
+ *  there is local relief (≤9 km), else plain. '' until {@link ensureRelief} has run. */
 export function siteTerrain(code: string): '' | 'flat' | 'hill' | 'wave' {
-  const r = reliefCache.get(code)?.relief;
-  if (r == null || Number.isNaN(r)) return '';
-  return r < 130 ? 'flat' : r < WAVE_SITE_RELIEF ? 'hill' : 'wave';
+  const r = reliefCache.get(code);
+  if (!r) return '';
+  return r.relief >= WAVE_SITE_RELIEF ? 'wave' : r.local >= HILL_MIN ? 'hill' : 'flat';
 }
 
 export async function ensureRelief(spots: { code: string; lat: number; lon: number }[]): Promise<void> {
@@ -99,9 +100,11 @@ export async function ensureRelief(spots: { code: string; lat: number; lon: numb
   for (const [code, rec] of acc) {
     if (Number.isNaN(rec.c) || rec.rings.some(r => r.length < RING)) continue;
     rec.rings.forEach(r => r.sort((a, b) => a.ang - b.ang));
-    let mn = rec.c, mx = rec.c;
-    for (const ring of rec.rings) for (const { e } of ring) { mn = Math.min(mn, e); mx = Math.max(mx, e); }
-    reliefCache.set(code, { relief: mx - mn, c: rec.c, rings: rec.rings });
+    let mn = rec.c, mx = rec.c, lmn = rec.c, lmx = rec.c;       // wide (all rings) + local (inner ring only)
+    rec.rings.forEach((ring, ri) => {
+      for (const { e } of ring) { mn = Math.min(mn, e); mx = Math.max(mx, e); if (ri === 0) { lmn = Math.min(lmn, e); lmx = Math.max(lmx, e); } }
+    });
+    reliefCache.set(code, { relief: mx - mn, local: lmx - lmn, c: rec.c, rings: rec.rings });
   }
 }
 
