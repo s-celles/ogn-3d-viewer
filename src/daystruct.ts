@@ -67,22 +67,30 @@ export function updateDayStruct(host: HTMLElement): void {
   for (let a = ground; a <= topClamped + 1; a += (topClamped - ground) / 24) envPts.push([x(envT(s, a)), y(a)]);
   poly(envPts, 'rgba(235,150,70,0.95)', 1.6);
   poly([[x(parcelT(ground)), y(ground)], [x(parcelT(Math.min(ceil, topClamped))), y(Math.min(ceil, topClamped))]], 'rgba(240,220,120,0.95)', 1.6, '3 2');
-  // markers: cloudbase (blue) and ceiling (grey), dashed horizontals + labels
-  const hline = (alt: number, stroke: string, label: string): void => {
-    if (alt <= ground || alt >= topClamped) return;
-    svg.appendChild(el('line', { x1: PL, y1: y(alt), x2: W - PR, y2: y(alt), stroke, 'stroke-width': 1, 'stroke-dasharray': '2 2' }));
-    const tx = el('text', { x: W - PR, y: y(alt) - 2, 'text-anchor': 'end', fill: stroke, 'font-size': 9 });
-    tx.textContent = `${label} ${Math.round(alt)} m`; svg.appendChild(tx);
+  // altitude scale: ground and top ticks (left)
+  const alt = (a: number, yy: number, anchor: string): void => {
+    const tx = el('text', { x: PL, y: yy, 'text-anchor': anchor, fill: 'rgba(255,255,255,0.45)', 'font-size': 9 });
+    tx.textContent = `${Math.round(a)} m`; svg.appendChild(tx);
   };
-  if (base != null) hline(base, 'rgba(120,170,235,0.95)', t('dayBase'));
+  alt(ground, H - PB - 2, 'start'); alt(topClamped, PT + 8, 'start');
+  // markers: cloudbase (blue) and ceiling (grey), dashed horizontals + labels — the
+  // altitude is clamped into the plot (a ceiling above the sounding data sits at the top).
+  const hline = (a: number, stroke: string, label: string): void => {
+    const ay = y(Math.max(ground, Math.min(topClamped, a)));
+    svg.appendChild(el('line', { x1: PL, y1: ay, x2: W - PR, y2: ay, stroke, 'stroke-width': 1, 'stroke-dasharray': '2 2' }));
+    const tx = el('text', { x: W - PR, y: ay - 2, 'text-anchor': 'end', fill: stroke, 'font-size': 9 });
+    tx.textContent = `${label} ${a >= topClamped ? '≥' : ''}${Math.round(Math.min(a, topClamped))} m`; svg.appendChild(tx);
+  };
+  if (base != null && base > ground) hline(base, 'rgba(120,170,235,0.95)', t('dayBase'));
   hline(ceil, 'rgba(220,220,220,0.85)', t('dayCeiling'));
 
-  // one-line summary
+  // one-line summary (≥ when the parcel is still buoyant at the top of the sounding)
+  const openTop = ceil >= s.tprof[s.tprof.length - 1].alt - 1;
   const depth = Math.max(0, Math.round(ceil - ground));
   const isCu = base != null && ceil >= base + 80;
   const sum = document.createElement('div');
   sum.style.cssText = 'font-size:11px;opacity:0.85;margin-top:2px';
-  sum.textContent = `${t('dayDepth')} ${depth} m · ${isCu ? t('dayCu') : t('dayBlue')}`;
+  sum.textContent = `${t('dayDepth')} ${openTop ? '≥' : ''}${depth} m · ${isCu ? t('dayCu') : t('dayBlue')}`;
 
   host.appendChild(svg);
   host.appendChild(sum);
