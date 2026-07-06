@@ -212,10 +212,12 @@ export interface AppState {
   airMass: boolean;
   // Show the estimated lift-potential field (thermal + slope lift, physics).
   thermalPot: boolean;
-  // Lift-potential component blend: one weight per component (same order as
-  // LIFT_COMPS in lift.ts), set by the simplex "mixer" and normalised to Σ=1.
-  // Each weight scales that component's opacity. Extensible: a wave term adds a
-  // weight here and a vertex to the mixer.
+  // Lift-potential components (same order as LIFT_COMPS in lift.ts). liftOn enables
+  // each one (a checkbox → whether it is a vertex of the mixer); liftMix is the blend
+  // weight per component, set by the simplex "mixer" and normalised to Σ=1 over the
+  // enabled ones, scaling that component's opacity. Extensible: a wave term adds an
+  // entry to both and a vertex to the mixer.
+  liftOn: boolean[];
   liftMix: number[];
   // Wind-flow representation: 'off'; 2D draped variants — 'drapeVec' (arrows),
   // 'drapeCol' (speed colours), 'drapeBoth', 'barbs' (station wind barbs); or 3D

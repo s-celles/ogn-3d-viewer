@@ -17,14 +17,16 @@ export const LIFT_COMPS: LiftComp[] = [
   { key: 'converg', ik: 'liftConverg', color: [110, 190, 165] },
 ];
 
-/** Normalised blend weight (0..1, Σ=1 across components) of one component, from the
- *  mixer vector S.liftMix (same order as LIFT_COMPS). 0 for an unknown key or an
- *  empty mix. Robust to a stored mix of a different length (missing → 0). */
+/** Normalised blend weight (0..1, Σ=1 across the *enabled* components) of one
+ *  component, from the mixer vector S.liftMix (same order as LIFT_COMPS). 0 for an
+ *  unknown key, a disabled component, or an empty mix. Robust to stored arrays of a
+ *  different length (missing → 0 / enabled). */
 export function liftWeight(key: string): number {
   const i = LIFT_COMPS.findIndex(c => c.key === key);
   if (i < 0) return 0;
-  const m = S.liftMix || [];
+  const on = S.liftOn || [], m = S.liftMix || [];
+  if (on[i] === false) return 0;
   let sum = 0;
-  for (let j = 0; j < LIFT_COMPS.length; j++) sum += Math.max(0, m[j] || 0);
+  for (let j = 0; j < LIFT_COMPS.length; j++) if (on[j] !== false) sum += Math.max(0, m[j] || 0);
   return sum > 0 ? Math.max(0, m[i] || 0) / sum : 0;
 }

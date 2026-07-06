@@ -23,13 +23,15 @@ const G = 9.81, THETA = 290, RHOCP = 1200;   // gravity, ref pot. temp (K), ρ·
 // Vz bins (m/s) → one mesh each: blue (weak) → red (strong).
 // Highlight only the better-exposed cells (relative to the view), on the shared warm
 // lift ramp; transparent below VZ_MIN so weak areas show clean terrain.
-// The field is a per-cell heating anomaly vs a flat reference patch, expressed as a
-// FRACTION of that reference (view-independent — same colour whatever the camera does).
-// A slope heated more than flat ground rises (warm); a shaded/bright one sinks (cool).
-const WARM_MIN = 0.05;   // draw lift cells above this fractional anomaly
-const WARM_FRAC = [0.11, 0.18, 0.27, 0.38]; // sub-levels within the 5 warm colours (red ≥ last)
-const SINK_MIN = 0.045;  // draw sink cells below −this fractional anomaly
-const SINK_FRAC = [0.1, 0.17];               // sub-levels for sink (3 SINK_COLORS)
+// Colour is view-independent: WARM tracks the *absolute* updraught strength Vz (so a
+// strong midday thermal is red everywhere it's strong, not just where aspect beats the
+// average), BLUE tracks how far a cell falls *below* the flat-ground reference (shaded
+// / poorly-exposed faces — the compensating subsidence, by mass continuity).
+const W_FULL = 1.5;      // Vz (m/s) that maps to full red
+const WARM_MIN = 0.30;   // draw warm above this fraction of W_FULL (≈ Vz 0.45 m/s)
+const WARM_FRAC = [0.45, 0.6, 0.75, 0.9];    // f = Vz/W_FULL sub-levels (5 warm colours, red ≥ last)
+const SINK_MIN = 0.12;   // draw blue below −this fraction of the reference (deficit)
+const SINK_FRAC = [0.24, 0.42];              // deficit sub-levels (3 SINK_COLORS)
 const COLORS = [...VZ_COLORS, ...SINK_COLORS];   // 5 warm (lift) + 3 cool (sink)
 const meshParams = {
   depthCompare: 'less-equal', depthWriteEnabled: false, blend: true, cullMode: 'none',
@@ -141,7 +143,7 @@ export function thermalLayers(k: number, alpha = 1): any[] {
         shade = Math.max(0, Math.min(1, (tanSun - horizon) / 0.06));   // soft edge over ~3.5°
       }
       const H = (dni * cosInc * shade + diff) * (1 - (alb ? alb[idx] : ALBEDO)) * (sens ? sens[idx] : BETA);
-      vzN[idx] = (wStar(H) - wRef) / scaleRef;                          // fractional heating anomaly
+      vzN[idx] = wStar(H);                                              // absolute updraught Vz (m/s)
     }
     // Per-cell Vz into a 2D grid, then a light 3×3 blur — kills the bin checkerboard.
     const NW = GN - 1, W = new Float32Array(NW * NW).fill(NaN);
@@ -158,15 +160,13 @@ export function thermalLayers(k: number, alpha = 1): any[] {
       }
       if (n) Ws[j * NW + i] = s / n;
     }
-    // Fixed thresholds on the fractional anomaly (mass continuity: better-heated-than-
-    // flat rises, worse sinks). Absolute, not view-relative — so colours are stable as
-    // the camera moves. Near-flat / average terrain stays below the entry and is clean.
+    // Warm from absolute Vz, blue from the deficit below the flat reference — both
+    // view-independent (fixed thresholds), so colours are stable as the camera moves.
     for (let j = 0; j < NW; j++) for (let i = 0; i < NW; i++) {
       const w = Ws[j * NW + i]; if (Number.isNaN(w)) continue;
       let bin: number;
-      if (w >= WARM_MIN) { bin = 0; while (bin < WARM_FRAC.length && w >= WARM_FRAC[bin]) bin++; }   // lift → warm (0-4)
-      else if (w <= -SINK_MIN) { const s = -w; bin = VZ_COLORS.length; while (bin - VZ_COLORS.length < SINK_FRAC.length && s >= SINK_FRAC[bin - VZ_COLORS.length]) bin++; }   // sink → cool (5-7)
-      else continue;
+      if (w >= wRef) { const f = w / W_FULL; if (f < WARM_MIN) continue; bin = 0; while (bin < WARM_FRAC.length && f >= WARM_FRAC[bin]) bin++; }   // strength → warm (0-4)
+      else { const s = (wRef - w) / scaleRef; if (s < SINK_MIN) continue; bin = VZ_COLORS.length; while (bin - VZ_COLORS.length < SINK_FRAC.length && s >= SINK_FRAC[bin - VZ_COLORS.length]) bin++; }   // below flat → sink (5-7)
       const a = g.nodes[j * GN + i], b = g.nodes[j * GN + i + 1], cc = g.nodes[(j + 1) * GN + i], d = g.nodes[(j + 1) * GN + i + 1];
       const B = bins[bin], st = B.pos.length / 3;
       const P = (ii: number, jj: number, h: number) => { B.pos.push(nlon(ii), nlat(jj), h * k + OFF); B.nrm.push(0, 0, 1); };
