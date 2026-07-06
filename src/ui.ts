@@ -454,9 +454,13 @@ const wxInputs: Record<string, HTMLInputElement> = {}, wxVals: Record<string, HT
 let wxDateEl: HTMLInputElement;
 function buildWxSim(): void {
   wxSimPanel.textContent = '';
+  const head = document.createElement('div'); head.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:8px;margin:2px 0 6px';
   const note = document.createElement('div'); note.dataset.k = 'wxSimNote';
-  note.style.cssText = 'font-size:11px;color:#e0b34a;margin:2px 0 6px'; note.textContent = t('wxSimNote');
-  wxSimPanel.appendChild(note);
+  note.style.cssText = 'font-size:11px;color:#e0b34a'; note.textContent = t('wxSimNote');
+  const reset = document.createElement('button'); reset.textContent = '↺'; reset.title = t('wxReset');
+  reset.style.cssText = 'background:none;border:1px solid rgba(255,255,255,.2);border-radius:6px;color:inherit;cursor:pointer;font-size:13px;padding:1px 8px;flex:0 0 auto';
+  reset.onclick = () => { S.wxSim = { ...(DEFAULT_SETTINGS.wxSim as typeof S.wxSim), on: S.wxSim.on }; syncWxSim(); render(); };
+  head.append(note, reset); wxSimPanel.appendChild(head);
   const drow = document.createElement('label'); drow.style.cssText = 'display:flex;align-items:center;gap:8px;margin:4px 0;font-size:12px';
   const dsp = document.createElement('span'); dsp.dataset.k = 'wxDate'; dsp.textContent = t('wxDate'); dsp.style.minWidth = '96px';
   wxDateEl = document.createElement('input'); wxDateEl.type = 'date'; wxDateEl.value = S.wxSim.date; wxDateEl.style.flex = '1';
