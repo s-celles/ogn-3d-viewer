@@ -176,7 +176,8 @@ enabled by its checkbox) since it only applies on windy, stable days.
 
 A companion **worldwide wave scan** (`wavescan.ts`, the Discover **🌊** tab) ranks every
 spot for a date on four ingredients: the same **U / N / λ** test, plus the site's actual
-**relief** (a batched Open-Meteo *elevation ring* — flat sites are dropped) and whether
+**relief** (batched Open-Meteo *concentric elevation rings*, out to ~28 km, to catch a
+triggering ridge at any distance — flat sites are dropped) and whether
 the **wind crosses a ridge** (the relief seen *along the wind* — this handles a site with
 several ridges in different orientations, since it only asks that the wind meet some of
 them). *Weather first, then pick the field.* And **observed wave** climbs are
