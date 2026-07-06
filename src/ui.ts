@@ -5,7 +5,7 @@ import { API_BASE, REPO_URL, MINZ, MAXZ, PMIN, PMAX, CHASE, clampv, BASEMAPS, IG
 import { APP_VERSION, GIT_HASH } from './version';
 import {
   subjEl, viewsEl, cammodeEl, traceEl, trailFxEl, smoothBtn, compBtn, bankBtn, soundBtn, trafficModeEl, graphModeEl, graphClose, winEl, winval, playBtn, revBtn, segEl,
-  exoEl, exval, groundEl, groundval, cacheEl, cacheval, acscaleEl, acscaleval, coneBtn, finesseEl, finval, safetyEl, safeval, coneRadEl, coneradval, labelsBtn, labelFieldsEl, shadowsEl, basemapEl, ignDemBtn, peaksBtn, peakDensityEl, minimapBtn, overviewHudBtn, activeOnlyBtn, airMassBtn, thermalBtn, liftComps, windModeEl, heightRefEl, clock12Btn, clearWpBtn, attribEl, curtainBtn, attrBtn, pitchEl, pitchval, scrub, scrubMin, scrubMax, clkEl, tzEl, lglist, rose, altsl, icaoEl, fblink, acEl,
+  exoEl, exval, groundEl, groundval, cacheEl, cacheval, acscaleEl, acscaleval, coneBtn, finesseEl, finval, safetyEl, safeval, coneRadEl, coneradval, labelsBtn, labelFieldsEl, shadowsEl, basemapEl, ignDemBtn, peaksBtn, peakDensityEl, minimapBtn, overviewHudBtn, activeOnlyBtn, airMassBtn, thermalBtn, liftComps, wxSimBtn, wxSimPanel, windModeEl, heightRefEl, clock12Btn, clearWpBtn, attribEl, curtainBtn, attrBtn, pitchEl, pitchval, scrub, scrubMin, scrubMax, clkEl, tzEl, lglist, rose, altsl, icaoEl, fblink, acEl,
   dateEl, loadBtn, langEl, discEl, infoBtn, copyBtn, shareBtn, collapseBtn, liveBtn, igcBtn, igcInput, mapDiv, prevAc, nextAc, resetSettingsBtn, afInfo,
 } from './dom';
 import { codeFlag, flag } from './flags';
@@ -284,6 +284,7 @@ export function syncControls(): void {
   airMassBtn.textContent = S.airMass ? t('on') : t('off'); airMassBtn.classList.toggle('on', S.airMass);
   thermalBtn.textContent = S.thermalPot ? t('on') : t('off'); thermalBtn.classList.toggle('on', S.thermalPot);
   syncLiftMixer();
+  syncWxSim();
   windModeEl.value = S.windMode;
   document.body.classList.toggle('windon', S.windMode !== 'off');
   clock12Btn.textContent = S.clock12 ? '12 h' : '24 h';
@@ -439,6 +440,59 @@ thermalBtn.onclick = () => {
 // for 3, N-gon beyond — see liftmixer.ts). Extensible: add a component in lift.ts and
 // it grows a vertex here.
 buildLiftMixer(liftComps, render);
+// ---- weather sandbox: a synthetic atmosphere driving every physics model ----
+type WxK = 'wind' | 'dir' | 'shear' | 'nStab' | 'tsurf' | 'hour';
+const WX_SLIDERS: { k: WxK; min: number; max: number; step: number; ik: string; unit: string; fmt?: (v: number) => string }[] = [
+  { k: 'wind', min: 0, max: 50, step: 1, ik: 'wxWind', unit: ' m/s' },
+  { k: 'dir', min: 0, max: 350, step: 10, ik: 'wxDir', unit: '°' },
+  { k: 'shear', min: 0, max: 8, step: 0.5, ik: 'wxShear', unit: ' m/s/km', fmt: v => v.toFixed(1) },
+  { k: 'nStab', min: 0.004, max: 0.02, step: 0.001, ik: 'wxStab', unit: ' /s', fmt: v => v.toFixed(3) },
+  { k: 'tsurf', min: -10, max: 40, step: 1, ik: 'wxTsurf', unit: ' °C' },
+  { k: 'hour', min: 0, max: 23.5, step: 0.5, ik: 'wxHour', unit: ' h', fmt: v => v.toFixed(1) },
+];
+const wxInputs: Record<string, HTMLInputElement> = {}, wxVals: Record<string, HTMLElement> = {};
+let wxDateEl: HTMLInputElement;
+function buildWxSim(): void {
+  wxSimPanel.textContent = '';
+  const note = document.createElement('div'); note.dataset.k = 'wxSimNote';
+  note.style.cssText = 'font-size:11px;color:#e0b34a;margin:2px 0 6px'; note.textContent = t('wxSimNote');
+  wxSimPanel.appendChild(note);
+  const drow = document.createElement('label'); drow.style.cssText = 'display:flex;align-items:center;gap:8px;margin:4px 0;font-size:12px';
+  const dsp = document.createElement('span'); dsp.dataset.k = 'wxDate'; dsp.textContent = t('wxDate'); dsp.style.minWidth = '96px';
+  wxDateEl = document.createElement('input'); wxDateEl.type = 'date'; wxDateEl.value = S.wxSim.date; wxDateEl.style.flex = '1';
+  wxDateEl.onchange = () => { S.wxSim.date = wxDateEl.value; render(); };
+  drow.append(dsp, wxDateEl); wxSimPanel.appendChild(drow);
+  for (const d of WX_SLIDERS) {
+    const row = document.createElement('label'); row.style.cssText = 'display:flex;align-items:center;gap:8px;margin:4px 0;font-size:12px';
+    const nm = document.createElement('span'); nm.dataset.k = d.ik; nm.textContent = t(d.ik); nm.style.minWidth = '96px';
+    const inp = document.createElement('input'); inp.type = 'range'; inp.min = String(d.min); inp.max = String(d.max); inp.step = String(d.step);
+    inp.value = String(S.wxSim[d.k]); inp.style.flex = '1';
+    const val = document.createElement('span'); val.style.cssText = 'min-width:58px;text-align:right;color:var(--mut)';
+    const show = (): void => { const v = +inp.value; val.textContent = (d.fmt ? d.fmt(v) : String(v)) + d.unit; };
+    show();
+    inp.oninput = () => { (S.wxSim as any)[d.k] = +inp.value; show(); render(); };
+    row.append(nm, inp, val); wxSimPanel.appendChild(row);
+    wxInputs[d.k] = inp; wxVals[d.k] = val;
+  }
+}
+let wxBadge: HTMLElement | null = null;
+function syncWxSim(): void {
+  wxSimBtn.textContent = S.wxSim.on ? t('on') : t('off'); wxSimBtn.classList.toggle('on', S.wxSim.on);
+  wxSimPanel.style.display = S.wxSim.on ? 'block' : 'none';
+  document.body.classList.toggle('wxsim', S.wxSim.on);
+  if (!wxBadge) {
+    wxBadge = document.createElement('div');
+    wxBadge.style.cssText = 'position:fixed;top:8px;left:50%;transform:translateX(-50%);z-index:50;background:rgba(224,179,74,.92);color:#111;font-size:12px;font-weight:600;padding:3px 11px;border-radius:6px;pointer-events:none';
+    document.body.appendChild(wxBadge);
+  }
+  wxBadge.textContent = '⚠ ' + t('wxSim');
+  wxBadge.style.display = S.wxSim.on ? 'block' : 'none';
+  if (wxDateEl) wxDateEl.value = S.wxSim.date;
+  for (const d of WX_SLIDERS) { const inp = wxInputs[d.k]; if (inp) { inp.value = String(S.wxSim[d.k]); const v = +inp.value; wxVals[d.k].textContent = (d.fmt ? d.fmt(v) : String(v)) + d.unit; } }
+}
+buildWxSim();
+wxSimBtn.onclick = () => { S.wxSim.on = !S.wxSim.on; syncWxSim(); render(); };
+syncWxSim();
 // ---- wind-flow representation: off / 2D drape / 3D altitude layers ----
 ([['off', 'off'], ['drapeVec', 'windDrapeVec'], ['drapeCol', 'windDrapeCol'], ['drapeBoth', 'windDrapeBoth'], ['barbs', 'windBarbs'], ['isotachs', 'windIsotachs'], ['layers', 'windLayers'], ['rings', 'windRings'], ['hodograph', 'windHodograph']] as const)
   .forEach(([v, k]) => { const o = document.createElement('option'); o.value = v; o.dataset.k = k; windModeEl.appendChild(o); });
@@ -665,6 +719,7 @@ export function applyI18n(): void {
   [...heightRefEl.options].forEach(o => { o.textContent = t(o.dataset.k!); });
   [...windModeEl.options].forEach(o => { o.textContent = t(o.dataset.k!); });
   syncLiftMixer();   // re-label the mixer vertices in the new language
+  buildWxSim(); syncWxSim();   // re-label the sandbox sliders
   curtainBtn.textContent = S.altCurtain ? t('on') : t('off'); curtainBtn.classList.toggle('on', S.altCurtain);
   ignDemBtn.textContent = S.ignDem ? t('on') : t('off'); ignDemBtn.classList.toggle('on', S.ignDem);
   peaksBtn.textContent = S.showPeaks ? t('on') : t('off'); peaksBtn.classList.toggle('on', S.showPeaks);

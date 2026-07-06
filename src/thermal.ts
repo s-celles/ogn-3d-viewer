@@ -10,7 +10,7 @@ import { S } from './state';
 import { SimpleMeshLayer, IconLayer, COORDINATE_SYSTEM } from './deck';
 import { terrainElevAt } from './terrain';
 import { sunLightDir } from './sky';
-import { getWeather, weatherRad, weatherConvTop, weatherCloudbase } from './weather';
+import { getWeather, weatherRad, weatherConvTop, weatherCloudbase, wxEpoch } from './weather';
 import { cloudSprite } from './airmass';
 import { getLC, sampleGrid, lcVersion } from './landcover';
 import { liftCalibration } from './calib';
@@ -79,16 +79,19 @@ function lcParams(g: TGrid, cLat: number, cLon: number, R: number): { alb: Float
   return { alb: lcCache.alb, sens: lcCache.sens, lcv };
 }
 
-// Replay instant (ms UTC) for the sun position.
-const nowMs = (): number => Date.parse(S.date + 'T00:00:00Z') + (S.G0 + S.cur) * 1000;
+// Instant (ms UTC) for the sun: the sandbox date/hour when it's on, else the replay clock.
+const nowMs = (): number => S.wxSim.on
+  ? Date.parse((S.wxSim.date || S.date || '2024-06-21') + 'T00:00:00Z') + S.wxSim.hour * 3600 * 1000
+  : Date.parse(S.date + 'T00:00:00Z') + (S.G0 + S.cur) * 1000;
 
 interface Puff { pos: [number, number, number]; size: number }
-let cache: { terr: TGrid; k: number; bucket: number; wxr: boolean; lcv: number; cal: number; meshes: { color: number[]; mesh: any }[]; cu: Puff[] } | null = null;
+let cache: { terr: TGrid; k: number; bucket: number; wxr: boolean; lcv: number; cal: number; wxe: number; meshes: { color: number[]; mesh: any }[]; cu: Puff[] } | null = null;
 
 /** Draped patches coloured by the estimated thermal updraft (Vz), from sun × slope
  *  × heat flux × w*. Empty at night or when the terrain/date is unavailable. */
 export function thermalLayers(k: number, alpha = 1): any[] {
-  if (alpha <= 0 || !S.date || !Number.isFinite(nowMs())) return [];
+  if (alpha <= 0 || !Number.isFinite(nowMs())) return [];
+  if (!S.wxSim.on && !S.date) return [];
   const cLat = S.mapVS.latitude, cLon = S.mapVS.longitude, zoom = S.mapVS.zoom || 11;
   const R = Math.max(4000, Math.min(20000, 156543.03392 * Math.cos(cLat * Math.PI / 180) / 2 ** zoom * 700));
   const g = ensureTerr(cLat, cLon, R); if (!g) return [];
@@ -96,8 +99,8 @@ export function thermalLayers(k: number, alpha = 1): any[] {
   const ld = sunLightDir(nowMs(), cLat, cLon), su: [number, number, number] = [-ld[0], -ld[1], -ld[2]];
   if (su[2] <= 0.02) return [];   // sun at/below the horizon → no thermals
   // Radiation + boundary-layer depth from the weather (else nominal clear-sky values).
-  const hour = Math.floor((S.G0 + S.cur) / 3600);
-  const wx = S.source !== 'file' ? getWeather(Math.round(cLat / 0.1) * 0.1, Math.round(cLon / 0.1) * 0.1, S.date) : null;
+  const hour = S.wxSim.on ? Math.floor(S.wxSim.hour) : Math.floor((S.G0 + S.cur) / 3600);
+  const wx = (S.wxSim.on || S.source !== 'file') ? getWeather(Math.round(cLat / 0.1) * 0.1, Math.round(cLon / 0.1) * 0.1, S.date) : null;
   const rad = wx ? weatherRad(wx, hour) : { sw: NaN, diff: NaN, blh: NaN };
   const diff = Number.isFinite(rad.diff) ? rad.diff : 90;
   const dni = Math.min(1050, Math.max(0, ((Number.isFinite(rad.sw) ? rad.sw : 1000 * su[2]) - diff)) / su[2]);   // direct normal irradiance
@@ -125,7 +128,8 @@ export function thermalLayers(k: number, alpha = 1): any[] {
 
   const lcp = lcParams(g, cLat, cLon, R);
   const bucket = Math.floor((S.G0 + S.cur) / 900);   // recompute every ~15 min of sim time
-  if (!cache || cache.terr !== g || cache.k !== k || cache.bucket !== bucket || cache.wxr !== !!wx || cache.lcv !== lcp.lcv || cache.cal !== cal) {
+  const wxe = wxEpoch();                              // sandbox atmosphere version (incl. its date/hour)
+  if (!cache || cache.terr !== g || cache.k !== k || cache.bucket !== bucket || cache.wxr !== !!wx || cache.lcv !== lcp.lcv || cache.cal !== cal || cache.wxe !== wxe) {
     const bins = COLORS.map(() => ({ pos: [] as number[], nrm: [] as number[], idx: [] as number[] }));
     const nlon = (i: number) => g.cLon + (-g.R + i * g.sp) / g.mLng, nlat = (j: number) => g.cLat + (-g.R + j * g.sp) / g.mLat;
     // Per node: sun incidence on the slope × heat flux (albedo + sensible fraction
@@ -214,7 +218,7 @@ export function thermalLayers(k: number, alpha = 1): any[] {
         cu.push({ pos: [nlon(i), nlat(j), cb * k], size: 260 + Math.min(1, w / W_FULL) * 420 });
       }
     }
-    cache = { terr: g, k, bucket, wxr: !!wx, lcv: lcp.lcv, cal, meshes, cu };
+    cache = { terr: g, k, bucket, wxr: !!wx, lcv: lcp.lcv, cal, wxe, meshes, cu };
   }
   const layers: any[] = cache.meshes.map((m, i) => new SimpleMeshLayer({
     id: 'thermal-' + i, data: [{}], getPosition: () => [0, 0, 0], _instanced: false,

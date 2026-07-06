@@ -81,6 +81,7 @@ const MAX = 8;                                 // a handful of locations (airfie
  *  background fetch per (location, date); later frames pick up the result. Several
  *  locations coexist (e.g. the airfield and the current view centre). */
 export function getWeather(lat: number, lon: number, date: string): Wx | null {
+  if (S.wxSim?.on) return simWx();   // sandbox: a synthetic atmosphere, ignoring location/date
   const k = `${lat.toFixed(2)}|${lon.toFixed(2)}|${date}`;
   if (cache.has(k)) return cache.get(k) ?? null;
   if (!inflight.has(k)) {
@@ -91,6 +92,29 @@ export function getWeather(lat: number, lon: number, date: string): Wx | null {
       .finally(() => inflight.delete(k));
   }
   return null;
+}
+
+// ---- weather sandbox: a synthetic atmosphere from a few knobs ----
+// Uniform wind (a direction + speed that grows with height by the shear) and a stable
+// layer (an environmental lapse chosen to give the target Brunt–Väisälä N). Feeds every
+// model through the same accessors, so wave/thermal/slope/day-structure all react. The
+// sun still follows the real date, so thermals keep their diurnal geometry.
+let simKey = '', simCache: Wx | null = null, epoch = 0;
+/** Bumps whenever the sandbox atmosphere changes — folded into the model caches so they
+ *  refresh even when only the stability changes (the wind cache key wouldn't catch it). */
+export function wxEpoch(): number { return epoch; }
+function simWx(): Wx {
+  const s = S.wxSim, k = JSON.stringify(s);
+  if (k === simKey && simCache) return simCache;
+  simKey = k; epoch++;
+  const ref = S.AF ? S.AF.elev : 0, Tk = s.tsurf + 273.15;
+  const lapse = Math.max(0.0005, DRY - s.nStab * s.nStab * Tk / 9.81);   // env lapse (K/m); < DRY ⇒ stable
+  const prof: Prof[] = [ref + 10, ref + 800, ref + 1500, ref + 3000].map(alt => {
+    const p = toUV(Math.max(0, s.wind + s.shear * (alt - ref) / 1000), s.dir); return { ...p, alt };
+  });
+  const tprof: TPt[] = [ref, ref + 1500, ref + 3000].map(alt => ({ alt, T: s.tsurf - lapse * (alt - ref) }));
+  const hour: WxHour = { cloudbase: lclBase(s.tsurf, 55, ref), prof, sw: NaN, diff: NaN, blh: 1200, t2m: s.tsurf, tprof };
+  return (simCache = { hours: Array.from({ length: 24 }, () => hour), ref });
 }
 
 const clampHour = (wx: Wx, hour: number): number => Math.max(0, Math.min(wx.hours.length - 1, hour | 0));

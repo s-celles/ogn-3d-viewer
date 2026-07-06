@@ -9,7 +9,7 @@
 import { S } from './state';
 import { SimpleMeshLayer, COORDINATE_SYSTEM } from './deck';
 import { terrainElevAt } from './terrain';
-import { getWeather, weatherWind } from './weather';
+import { getWeather, weatherWind, wxEpoch } from './weather';
 import { getThermals } from './airmass';
 import { LIFT_COLORS, SINK_COLORS } from './liftviz';
 
@@ -42,8 +42,8 @@ function driftWind(): [number, number] | null {
 /** Wind [east, north] (m/s) at an AMSL altitude: the weather profile at the view
  *  centre (bucketed ~10 km), else at the airfield, else the mean thermal drift. */
 export function windAtAlt(cLat: number, cLon: number, alt: number): [number, number] | null {
-  if (S.source !== 'file' && S.date) {
-    const hour = Math.floor((S.G0 + S.cur) / 3600);
+  if (S.wxSim.on || (S.source !== 'file' && S.date)) {
+    const hour = S.wxSim.on ? Math.floor(S.wxSim.hour) : Math.floor((S.G0 + S.cur) / 3600);
     const pick = (la: number, lo: number): [number, number] | null => {
       const wx = getWeather(la, lo, S.date); return wx ? weatherWind(wx, hour, alt) : null;
     };
@@ -96,7 +96,7 @@ export function ridgeLayers(k: number, alpha = 1): any[] {
   const R = Math.max(4000, Math.min(20000, mppx * 700));
   const STEP = Math.max(150, Math.min(500, R / 55));
   const hour = Math.floor((S.G0 + S.cur) / 3600);
-  const wk = `${Math.round(wind[0])}|${Math.round(wind[1])}`;
+  const wk = `${Math.round(wind[0])}|${Math.round(wind[1])}|${wxEpoch()}`;
   if (cache && cache.hour === hour && cache.wk === wk && Math.abs(Math.log(cache.R / R)) < 0.25) {
     const cosLat = Math.cos(cLat * Math.PI / 180);
     const moved = Math.hypot((cache.cLon - cLon) * 111320 * cosLat, (cache.cLat - cLat) * 111320);

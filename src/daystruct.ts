@@ -33,11 +33,11 @@ let sig = '';
  *  when the hour, weather-readiness or day type actually change. */
 export function updateDayStruct(host: HTMLElement): void {
   const cLat = S.mapVS.latitude, cLon = S.mapVS.longitude;
-  const wx = S.thermalPot && S.source !== 'file' && S.date
+  const wx = S.thermalPot && (S.wxSim.on || (S.source !== 'file' && S.date))
     ? getWeather(Math.round(cLat / 0.1) * 0.1, Math.round(cLon / 0.1) * 0.1, S.date) : null;
-  const hour = Math.floor((S.G0 + S.cur) / 3600);
+  const hour = S.wxSim.on ? Math.floor(S.wxSim.hour) : Math.floor((S.G0 + S.cur) / 3600);
   const s = wx ? weatherSounding(wx, hour) : null;
-  const key = !S.thermalPot ? 'off' : s ? `${hour}|${Math.round(s.ceiling)}|${Math.round(s.cloudbase ?? -1)}|${Math.round(s.t2m)}` : 'nowx';
+  const key = !S.thermalPot ? 'off' : s ? `${S.wxSim.on ? 'sim' : ''}${hour}|${Math.round(s.ceiling)}|${Math.round(s.cloudbase ?? -1)}|${Math.round(s.t2m)}` : 'nowx';
   if (key === sig) return;
   sig = key;
   host.textContent = '';

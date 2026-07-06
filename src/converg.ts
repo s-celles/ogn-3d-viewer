@@ -10,6 +10,7 @@ import { S } from './state';
 import { SimpleMeshLayer, COORDINATE_SYSTEM } from './deck';
 import { terrainElevAt } from './terrain';
 import { windBg } from './ridge';
+import { wxEpoch } from './weather';
 import { LIFT_COLORS, SINK_COLORS } from './liftviz';
 
 const NG = 64;           // grid nodes per side
@@ -54,8 +55,8 @@ export function convergLayers(k: number, alpha = 1): any[] {
   const spd = Math.hypot(wind[0], wind[1]); if (spd < 1.5) return [];   // calm → no convergence
   const mppx = 156543.03392 * Math.cos(cLat * Math.PI / 180) / 2 ** zoom;
   const R = Math.max(4000, Math.min(20000, mppx * 700));
-  const hour = Math.floor((S.G0 + S.cur) / 3600);
-  const wk = `${Math.round(wind[0])}|${Math.round(wind[1])}`;
+  const hour = S.wxSim.on ? Math.floor(S.wxSim.hour) : Math.floor((S.G0 + S.cur) / 3600);
+  const wk = `${Math.round(wind[0])}|${Math.round(wind[1])}|${wxEpoch()}`;
   if (cache && cache.hour === hour && cache.wk === wk && Math.abs(Math.log(cache.R / R)) < 0.25) {
     const cosLat = Math.cos(cLat * Math.PI / 180);
     const moved = Math.hypot((cache.cLon - cLon) * 111320 * cosLat, (cache.cLat - cLat) * 111320);

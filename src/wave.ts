@@ -10,7 +10,7 @@ import { S } from './state';
 import { SimpleMeshLayer, COORDINATE_SYSTEM } from './deck';
 import { terrainElevAt } from './terrain';
 import { windBg } from './ridge';
-import { getWeather, weatherStability } from './weather';
+import { getWeather, weatherStability, wxEpoch } from './weather';
 import { LIFT_COLORS, SINK_COLORS } from './liftviz';
 
 const NG = 60;           // grid nodes per side
@@ -18,7 +18,7 @@ const GB = 140;          // terrain-gradient baseline (m)
 const OFF = 14;          // patch lift off the surface (m)
 const WIND_MIN = 7;      // m/s: weakest cross-ridge wind that makes wave (~25 km/h)
 const N_MIN = 0.006;     // 1/s: weakest stability that makes wave
-const LAMBDA_MIN = 2500, LAMBDA_MAX = 22000;   // m: plausible lee-wave wavelengths
+const LAMBDA_MIN = 2000, LAMBDA_MAX = 35000;   // m: plausible lee-wave wavelengths (wide, so strong wind keeps a wave)
 const W_MIN = 0.4;       // m/s: weakest wave lift / sink drawn
 const AMP = 1.6;         // display gain on the linear response
 const COLORS = [LIFT_COLORS[0], LIFT_COLORS[2], LIFT_COLORS[4], ...SINK_COLORS];   // 3 lift + 3 sink
@@ -50,10 +50,10 @@ let cache: { cLon: number; cLat: number; R: number; hour: number; wk: string; me
 export function waveLayers(k: number, alpha = 1): any[] {
   if (alpha <= 0) return [];
   const cLat = S.mapVS.latitude, cLon = S.mapVS.longitude, zoom = S.mapVS.zoom || 11;
-  if (S.source === 'file' || !S.date) return [];
+  if (!S.wxSim.on && (S.source === 'file' || !S.date)) return [];
   const wind = windBg(cLat, cLon); if (!wind) return [];
   const spd = Math.hypot(wind[0], wind[1]); if (spd < WIND_MIN) return [];   // too little wind → no wave
-  const hour = Math.floor((S.G0 + S.cur) / 3600);
+  const hour = S.wxSim.on ? Math.floor(S.wxSim.hour) : Math.floor((S.G0 + S.cur) / 3600);
   const wx = getWeather(Math.round(cLat / 0.1) * 0.1, Math.round(cLon / 0.1) * 0.1, S.date);
   const N = wx ? weatherStability(wx, hour) : NaN;
   if (!(N > N_MIN)) return [];                                              // neutral / unstable → no wave
@@ -61,7 +61,7 @@ export function waveLayers(k: number, alpha = 1): any[] {
   if (lambda < LAMBDA_MIN || lambda > LAMBDA_MAX) return [];
   const mppx = 156543.03392 * Math.cos(cLat * Math.PI / 180) / 2 ** zoom;
   const R = Math.max(4000, Math.min(20000, mppx * 700));
-  const wk = `${Math.round(wind[0])}|${Math.round(wind[1])}`;
+  const wk = `${Math.round(wind[0])}|${Math.round(wind[1])}|${wxEpoch()}`;
   if (cache && cache.hour === hour && cache.wk === wk && Math.abs(Math.log(cache.R / R)) < 0.25) {
     const cosLat = Math.cos(cLat * Math.PI / 180);
     const moved = Math.hypot((cache.cLon - cLon) * 111320 * cosLat, (cache.cLat - cLat) * 111320);

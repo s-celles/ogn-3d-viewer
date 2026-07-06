@@ -223,6 +223,11 @@ export interface AppState {
   // global day-scale factor. Off by default — a global factor can dim favourable
   // slopes that simply had no traffic.
   liftCalibrate: boolean;
+  // Weather sandbox: when `on`, a synthetic atmosphere replaces the fetched weather
+  // (uniform wind + a chosen stability), so wave/thermal/etc. can be explored "what-if".
+  // `date`/`hour` drive the sun (season + time of day) in sandbox mode, independent of
+  // any loaded flights.
+  wxSim: { on: boolean; wind: number; dir: number; shear: number; nStab: number; tsurf: number; date: string; hour: number };
   // Wind-flow representation: 'off'; 2D draped variants — 'drapeVec' (arrows),
   // 'drapeCol' (speed colours), 'drapeBoth', 'barbs' (station wind barbs); or 3D
   // profile views — 'layers' (arrows at altitude bands), 'rings', 'hodograph'.
