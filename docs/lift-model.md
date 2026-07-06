@@ -178,7 +178,7 @@ A companion **worldwide wave scan** (`wavescan.ts`, the Discover **🌊** tab) r
 spot for a date on four ingredients: the same **U / N / λ** test, plus the site's actual
 **relief** (sampled from the *Terrarium DEM tiles* — the same tiles as the terrain, no
 API limit, cached + persisted — over concentric rings to ~28 km, to catch a triggering
-ridge at any distance; a **local** ring also sets the terrain tag plain/ridge/wave, and
+ridge at any distance; a **local** ring also sets the terrain tag (plain / hills / mountain / high mountain), and
 flat sites are dropped) and whether
 the **wind crosses a ridge** (the relief seen *along the wind* — this handles a site with
 several ridges in different orientations, since it only asks that the wind meet some of

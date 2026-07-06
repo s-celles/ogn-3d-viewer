@@ -663,14 +663,17 @@ function buildSpotControls(): HTMLElement {   // country filter + text search + 
   wrap.append(country, search, reset);
   return wrap;
 }
-// A small terrain badge (plain / ridge / wave) from the site's relief — '' until the
-// elevation scan (ensureRelief) has run for it.
+// A small terrain badge (plain / hills / mountain / high mountain) from the site's
+// relief — '' until the DEM scan (ensureRelief) has run for it.
+const TERRAIN_TAG: Record<string, [string, string, string]> = {   // emoji, i18n key, colour
+  plain: ['🌾', 'terrainPlain', 'var(--mut)'],
+  hills: ['🏞', 'terrainHills', '#8fc98a'],
+  mid: ['⛰', 'terrainMid', '#c8a05a'],
+  high: ['🏔', 'terrainHigh', '#b48ce6'],
+};
 function terrainTag(code: string): string {
-  const kind = siteTerrain(code);
-  if (kind === 'wave') return ` <span title="${t('terrainWaveHint')}" style="color:#b48ce6">· 🏔 ${t('terrainWave')}</span>`;
-  if (kind === 'hill') return ` <span title="${t('terrainHillHint')}" style="color:#8fc98a">· ⛰ ${t('terrainHill')}</span>`;
-  if (kind === 'flat') return ` <span title="${t('terrainFlatHint')}" style="color:var(--mut)">· 🌾 ${t('terrainFlat')}</span>`;
-  return '';
+  const m = TERRAIN_TAG[siteTerrain(code)];
+  return m ? ` <span title="${t(m[1] + 'Hint')}" style="color:${m[2]}">· ${m[0]} ${t(m[1])}</span>` : '';
 }
 function renderSpotRows(): void {
   if (!spotRowsEl) return;

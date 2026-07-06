@@ -17,8 +17,9 @@ const U_MIN = 8, U_FULL = 20;       // m/s: cross-ridge wind for a start / a ful
 const N_MIN = 0.006, N_FULL = 0.014;// 1/s: stability for a start / a full score
 const LAMBDA_MIN = 2500, LAMBDA_MAX = 22000;   // m: plausible lee-wave wavelengths
 const RELIEF_MIN = 250, RELIEF_FULL = 1100;    // m: relief for a start / a full score
-export const WAVE_SITE_RELIEF = 500;           // m: wide relief (≤24 km) → "wave terrain"
-const HILL_MIN = 130;                          // m: local relief (≤9 km) → "ridge", else "plain"
+// Terrain class boundaries (m) on the "characteristic relief" = max(local, ½·wide):
+// plain < hills < mid mountains < high mountains.
+const REL_HILLS = 150, REL_MID = 450, REL_HIGH = 1100;
 const RING = 8, RINGS_KM = [9, 18, 28];        // elevation rings (km): inner = local, outer = far ridges
 const CHUNK = 50;                   // spots per weather request
 const RELIEF_KEY = 'ogn.relief.v1'; // persisted relief cache (DEM is static)
@@ -66,16 +67,23 @@ function alongWindRelief(rel: Relief, wdRad: number): number {
 export function siteRelief(code: string): number {
   return reliefCache.get(code)?.relief ?? NaN;
 }
-/** True once the site's relief is known and high enough to make it "wave terrain". */
-export function isWaveSite(code: string): boolean {
-  const r = reliefCache.get(code); return !!r && r.relief >= WAVE_SITE_RELIEF;
-}
-/** Terrain class: mountain/wave if big relief is within reach (≤28 km), else ridge if
- *  there is local relief (≤9 km), else plain. '' until {@link ensureRelief} has run. */
-export function siteTerrain(code: string): '' | 'flat' | 'hill' | 'wave' {
+// "Characteristic relief": the local terrain (≤9 km), lifted by the broader context
+// (≤28 km) so a valley ringed by mountains still reads as mountain, without a plain 25 km
+// from a range being over-classified.
+function charRelief(r: Relief): number { return Math.max(r.local, 0.5 * r.relief); }
+
+/** Terrain class from the relief: plain / hills / mountain / high mountain. '' until
+ *  {@link ensureRelief} has run for the spot. */
+export function siteTerrain(code: string): '' | 'plain' | 'hills' | 'mid' | 'high' {
   const r = reliefCache.get(code);
   if (!r) return '';
-  return r.relief >= WAVE_SITE_RELIEF ? 'wave' : r.local >= HILL_MIN ? 'hill' : 'flat';
+  const c = charRelief(r);
+  return c < REL_HILLS ? 'plain' : c < REL_MID ? 'hills' : c < REL_HIGH ? 'mid' : 'high';
+}
+/** A mountain site (mid/high) — terrain where wave is physically possible (the day's
+ *  chance is separate; see the wave scan). */
+export function isWaveSite(code: string): boolean {
+  const k = siteTerrain(code); return k === 'mid' || k === 'high';
 }
 
 /** Compute + cache the relief of any spots not yet known, sampling the DEM tiles.
