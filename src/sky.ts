@@ -184,12 +184,18 @@ let lastKey = '';
 // Recompute the sky colours AND the sun light from the current position / date /
 // time, so the terrain shading matches the time of day. Throttled to once per
 // simulated minute; called each render.
+/** The instant (ms UTC) driving the sun/moon/sky and terrain lighting: the sandbox
+ *  date/hour when the weather sandbox is on, else the replay clock. */
+export function sceneMs(): number {
+  return S.wxSim.on
+    ? Date.parse((S.wxSim.date || S.date || '2024-06-21') + 'T00:00:00Z') + S.wxSim.hour * 3600 * 1000
+    : Date.parse(S.date + 'T00:00:00Z') + (S.G0 + S.cur) * 1000;
+}
 export function updateSky(): void {
-  if (!S.ready || !S.AF || !S.date) return;
-  const utcSod = S.G0 + S.cur;                              // UTC seconds-of-day
-  const key = S.date + '|' + Math.round(utcSod / 60);
+  if (!S.AF || (!S.wxSim.on && (!S.ready || !S.date))) return;
+  const ms = sceneMs();
+  const key = S.wxSim.on ? `sim|${S.wxSim.date}|${S.wxSim.hour}` : S.date + '|' + Math.round((S.G0 + S.cur) / 60);
   if (key === lastKey) return; lastKey = key;
-  const ms = Date.parse(S.date + 'T00:00:00Z') + utcSod * 1000;
   if (!Number.isFinite(ms)) return;
 
   const { alt, az } = solar(ms, S.AF.lat, S.AF.lon);

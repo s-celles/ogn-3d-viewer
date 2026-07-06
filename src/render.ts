@@ -10,7 +10,7 @@ import { makeTerrain, terrainElevAt } from './terrain';
 import { drawGraphs } from './graphs';
 import { drawTraffic } from './traffic';
 import { varioAudio } from './vario-audio';
-import { updateSky, getSun, getMoon, nightPolygon } from './sky';
+import { updateSky, getSun, getMoon, nightPolygon, sceneMs } from './sky';
 import { subjectTrack, shown, scaled, posAt, presence, airborne, isActive, headingAt, varioAt, compVarioAt, groundSpeedAt, clampCur, attitudeAt, nearestToCenter } from './flight-math';
 import { GLIDER_MESH, PLANE_MESH, PROP_MESH, GLIDER_FLAT, PLANE_FLAT, isPowered } from './aircraft-mesh';
 import { getPeaks, getWaypoints, loadPeaks, type Poi } from './poi';
@@ -337,7 +337,7 @@ function dynamicLayers() {
   // zoomed-out view isn't uniformly "night everywhere" (the scene's single sun
   // light can't show this on the flat map). Drawn over the terrain, under the
   // trails/aircraft.
-  const ms = S.date ? Date.parse(S.date + 'T00:00:00Z') + (S.G0 + S.cur) * 1000 : NaN;
+  const ms = (S.date || S.wxSim.on) ? sceneMs() : NaN;
   // Stacked twilight bands (terminator, civil −6°, nautical −12°, astronomical
   // −18°) so the night edge reads as a soft dusk gradient rather than a hard line.
   const nightBands = (Number.isFinite(ms)

@@ -9,7 +9,7 @@
 import { S } from './state';
 import { SimpleMeshLayer, IconLayer, COORDINATE_SYSTEM } from './deck';
 import { terrainElevAt } from './terrain';
-import { sunLightDir } from './sky';
+import { sunLightDir, sceneMs } from './sky';
 import { getWeather, weatherRad, weatherConvTop, weatherCloudbase, wxEpoch } from './weather';
 import { cloudSprite } from './airmass';
 import { getLC, sampleGrid, lcVersion } from './landcover';
@@ -79,10 +79,8 @@ function lcParams(g: TGrid, cLat: number, cLon: number, R: number): { alb: Float
   return { alb: lcCache.alb, sens: lcCache.sens, lcv };
 }
 
-// Instant (ms UTC) for the sun: the sandbox date/hour when it's on, else the replay clock.
-const nowMs = (): number => S.wxSim.on
-  ? Date.parse((S.wxSim.date || S.date || '2024-06-21') + 'T00:00:00Z') + S.wxSim.hour * 3600 * 1000
-  : Date.parse(S.date + 'T00:00:00Z') + (S.G0 + S.cur) * 1000;
+// Instant (ms UTC) for the sun — shared with the scene lighting (sandbox-aware).
+const nowMs = sceneMs;
 
 interface Puff { pos: [number, number, number]; size: number }
 let cache: { terr: TGrid; k: number; bucket: number; wxr: boolean; lcv: number; cal: number; wxe: number; meshes: { color: number[]; mesh: any }[]; cu: Puff[] } | null = null;
