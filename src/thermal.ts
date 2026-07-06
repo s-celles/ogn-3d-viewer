@@ -10,7 +10,7 @@ import { S } from './state';
 import { SimpleMeshLayer, COORDINATE_SYSTEM } from './deck';
 import { terrainElevAt } from './terrain';
 import { sunLightDir } from './sky';
-import { getWeather, weatherRad } from './weather';
+import { getWeather, weatherRad, weatherConvTop } from './weather';
 import { getLC, sampleGrid, lcVersion } from './landcover';
 import { LIFT_COLORS as VZ_COLORS, SINK_COLORS } from './liftviz';
 
@@ -93,16 +93,23 @@ export function thermalLayers(k: number, alpha = 1): any[] {
   const ld = sunLightDir(nowMs(), cLat, cLon), su: [number, number, number] = [-ld[0], -ld[1], -ld[2]];
   if (su[2] <= 0.02) return [];   // sun at/below the horizon → no thermals
   // Radiation + boundary-layer depth from the weather (else nominal clear-sky values).
+  const hour = Math.floor((S.G0 + S.cur) / 3600);
   const wx = S.source !== 'file' ? getWeather(Math.round(cLat / 0.1) * 0.1, Math.round(cLon / 0.1) * 0.1, S.date) : null;
-  const rad = wx ? weatherRad(wx, Math.floor((S.G0 + S.cur) / 3600)) : { sw: NaN, diff: NaN, blh: NaN };
+  const rad = wx ? weatherRad(wx, hour) : { sw: NaN, diff: NaN, blh: NaN };
   const diff = Number.isFinite(rad.diff) ? rad.diff : 90;
   const dni = Math.min(1050, Math.max(0, ((Number.isFinite(rad.sw) ? rad.sw : 1000 * su[2]) - diff)) / su[2]);   // direct normal irradiance
-  const zi = Number.isFinite(rad.blh) && rad.blh > 200 ? rad.blh : 1500;
+  // Convective depth z_i per cell: the thermal ceiling (parcel vs sounding, else the BL
+  // top) minus the ground height — so thermals are deeper over low ground, fade on a
+  // stable day, and stop where a peak pokes above the boundary layer.
+  const topA = wx ? weatherConvTop(wx, hour) : NaN;
+  const ziFallback = Number.isFinite(rad.blh) && rad.blh > 200 ? rad.blh : 1500;
+  const ziAt = (h: number): number => Math.max(0, Math.min(3500, Number.isFinite(topA) ? topA - h : ziFallback));
   // View-independent reference: the updraught a FLAT patch of reference ground gets
-  // under this sun/weather. Each cell is then coloured by how far above/below this it
-  // is — so a given slope keeps its colour no matter where the camera looks.
-  const wStar = (H: number): number => 0.6 * Math.cbrt((G / THETA) * (H / RHOCP) * zi);
-  const wRef = wStar((dni * su[2] + diff) * (1 - ALBEDO) * BETA);   // flat ground, reference albedo/Bowen
+  // under this sun/weather. Each cell is coloured by how strong it is / how far below
+  // this it falls — so a given slope keeps its colour no matter where the camera looks.
+  const wStar = (H: number, zi: number): number => 0.6 * Math.cbrt((G / THETA) * (H / RHOCP) * zi);
+  const gRef = terrainElevAt(cLon, cLat);
+  const wRef = wStar((dni * su[2] + diff) * (1 - ALBEDO) * BETA, ziAt(gRef != null ? gRef : (S.AF ? S.AF.elev : 0)));   // flat reference ground
   const scaleRef = Math.max(0.15, wRef);
 
   const lcp = lcParams(g, cLat, cLon, R);
@@ -127,6 +134,8 @@ export function thermalLayers(k: number, alpha = 1): any[] {
     for (let idx = 0; idx < GN * GN; idx++) {
       const n = g.nodes[idx];
       if (Number.isNaN(n.h)) { vzN[idx] = NaN; continue; }
+      const zi = ziAt(n.h);
+      if (zi < 100) { vzN[idx] = NaN; continue; }   // above the boundary layer → no thermal here
       const nl = Math.hypot(n.gx, n.gy, 1);
       const cosInc = Math.max(0, (su[0] * -n.gx + su[1] * -n.gy + su[2]) / nl);
       let shade = 1;                               // 1 = full sun, 0 = shadowed by upwind relief
@@ -143,7 +152,7 @@ export function thermalLayers(k: number, alpha = 1): any[] {
         shade = Math.max(0, Math.min(1, (tanSun - horizon) / 0.06));   // soft edge over ~3.5°
       }
       const H = (dni * cosInc * shade + diff) * (1 - (alb ? alb[idx] : ALBEDO)) * (sens ? sens[idx] : BETA);
-      vzN[idx] = wStar(H);                                              // absolute updraught Vz (m/s)
+      vzN[idx] = wStar(H, zi);                                          // absolute updraught Vz (m/s)
     }
     // Per-cell Vz into a 2D grid, then a light 3×3 blur — kills the bin checkerboard.
     const NW = GN - 1, W = new Float32Array(NW * NW).fill(NaN);

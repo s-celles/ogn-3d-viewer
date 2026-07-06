@@ -7,10 +7,13 @@
 import { S } from './state';
 
 interface Prof { alt: number; u: number; v: number }   // AMSL height + wind vector (m/s, east/north)
-interface WxHour { cloudbase: number | null; prof: Prof[]; sw: number; diff: number; blh: number }   // + shortwave/diffuse radiation (W/m²), boundary-layer height (m)
-export interface Wx { hours: WxHour[] }
+interface TPt { alt: number; T: number }               // AMSL height + air temperature (°C) — the sounding
+interface WxHour { cloudbase: number | null; prof: Prof[]; sw: number; diff: number; blh: number; t2m: number; tprof: TPt[] }   // + shortwave/diffuse radiation (W/m²), boundary-layer height (m), surface temp, temperature profile
+export interface Wx { hours: WxHour[]; ref: number }   // ref = model surface elevation (m)
 
 const LEVELS = [925, 850, 700];   // hPa: through the convective layer
+const DRY = 0.0098;               // dry-adiabatic lapse rate (K/m)
+const TRIGGER_EXCESS = 1.5;       // K: thermal parcel excess over ambient (superadiabatic surface layer)
 
 // Met wind (direction it blows FROM, °) → velocity vector it blows TO (east, north).
 const toUV = (sp: number, dir: number): Prof => {
@@ -35,7 +38,7 @@ async function fetchWx(lat: number, lon: number, date: string): Promise<Wx | nul
   const recent = daysAgo(date) <= 5;   // ERA5 archive lags; use the forecast API for recent days
   const host = recent ? 'https://api.open-meteo.com/v1/forecast' : 'https://archive-api.open-meteo.com/v1/archive';
   const surf = 'temperature_2m,relative_humidity_2m,wind_speed_10m,wind_direction_10m,shortwave_radiation,diffuse_radiation,boundary_layer_height';
-  const lvl = LEVELS.flatMap(p => [`wind_speed_${p}hPa`, `wind_direction_${p}hPa`, `geopotential_height_${p}hPa`]).join(',');
+  const lvl = LEVELS.flatMap(p => [`wind_speed_${p}hPa`, `wind_direction_${p}hPa`, `geopotential_height_${p}hPa`, `temperature_${p}hPa`]).join(',');
   const url = `${host}?latitude=${lat.toFixed(3)}&longitude=${lon.toFixed(3)}&start_date=${date}&end_date=${date}`
     + `&hourly=${surf},${lvl}&wind_speed_unit=ms&timezone=UTC`;
   const j = await fetch(url).then(r => (r.ok ? r.json() : null)).catch(() => null) as any;
@@ -54,12 +57,20 @@ async function fetchWx(lat: number, lon: number, date: string): Promise<Wx | nul
       if (Number.isFinite(hh) && Number.isFinite(sp) && Number.isFinite(dr)) prof.push({ ...toUV(sp, dr), alt: hh });
     }
     prof.sort((a, b) => a.alt - b.alt);
+    // Temperature sounding: surface + pressure levels, for the thermal ceiling.
+    const t2m = num(h.temperature_2m?.[i]);
+    const tprof: TPt[] = Number.isFinite(t2m) ? [{ alt: ref, T: t2m }] : [];
+    for (const p of LEVELS) {
+      const hh = num(h[`geopotential_height_${p}hPa`]?.[i]), tp = num(h[`temperature_${p}hPa`]?.[i]);
+      if (Number.isFinite(hh) && Number.isFinite(tp) && hh > ref) tprof.push({ alt: hh, T: tp });
+    }
+    tprof.sort((a, b) => a.alt - b.alt);
     hours.push({
-      cloudbase: lclBase(num(h.temperature_2m?.[i]), num(h.relative_humidity_2m?.[i]), ref), prof,
+      cloudbase: lclBase(t2m, num(h.relative_humidity_2m?.[i]), ref), prof, t2m, tprof,
       sw: num(h.shortwave_radiation?.[i]), diff: num(h.diffuse_radiation?.[i]), blh: num(h.boundary_layer_height?.[i]),
     });
   }
-  return { hours };
+  return { hours, ref: Number.isFinite(ref) ? ref : 0 };
 }
 
 // ---- lazy, multi-location cache (LRU-capped) ----
@@ -93,6 +104,29 @@ export function weatherRad(wx: Wx, hour: number): { sw: number; diff: number; bl
   const h = wx.hours[clampHour(wx, hour)];
   return { sw: h?.sw ?? NaN, diff: h?.diff ?? NaN, blh: h?.blh ?? NaN };
 }
+/** Thermal ceiling AMSL (m) at a UTC hour: the altitude where a surface parcel
+ *  (ambient + a small excess, rising dry-adiabatically) meets the environmental
+ *  sounding — i.e. the top of dry convection. Falls back to the boundary-layer height
+ *  above the model surface when the sounding is unavailable; NaN if neither is. */
+export function weatherConvTop(wx: Wx, hour: number): number {
+  const h = wx.hours[clampHour(wx, hour)]; if (!h) return NaN;
+  const tp = h.tprof;
+  if (tp && tp.length >= 2 && Number.isFinite(h.t2m)) {
+    const ref = tp[0].alt, T0 = tp[0].T + TRIGGER_EXCESS;
+    let top = ref;
+    for (let i = 1; i < tp.length; i++) {
+      const a = tp[i - 1], b = tp[i];
+      const pb = T0 - DRY * (b.alt - ref);                 // parcel temp at b
+      if (pb >= b.T) { top = b.alt; continue; }            // still buoyant → ceiling at least b
+      const fa = (T0 - DRY * (a.alt - ref)) - a.T, fb = pb - b.T;   // parcel − env at a, b
+      top = fa > 0 ? a.alt + (fa / (fa - fb)) * (b.alt - a.alt) : a.alt;
+      break;
+    }
+    if (top > ref + 50) return top;   // a real convective depth from the sounding
+  }
+  return Number.isFinite(h.blh) && h.blh > 0 ? wx.ref + h.blh : NaN;   // fallback: BL top above model surface
+}
+
 /** Wind vector [east, north] (m/s) at an AMSL altitude and UTC hour, or null. */
 export function weatherWind(wx: Wx, hour: number, alt: number): [number, number] | null {
   const p = wx.hours[clampHour(wx, hour)]?.prof;
