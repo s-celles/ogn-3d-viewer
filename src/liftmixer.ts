@@ -126,6 +126,16 @@ function toggle(i: number, on: boolean): void {
   onChange();
 }
 
+// Reset the blend to an equal split across the enabled components (centroid).
+function recenter(): void {
+  const en = enabled(); if (en.length < 2) return;
+  const full = new Array(LIFT_COMPS.length).fill(0);
+  en.forEach(ci => { full[ci] = 1 / en.length; });
+  S.liftMix = full;
+  updateDynamic();
+  onChange();
+}
+
 // Update the parts that change without a structural rebuild: handle position, live
 // percentages, labels (language) and checkbox states.
 function updateDynamic(): void {
@@ -204,6 +214,21 @@ function buildSvg(): SVGSVGElement {
   svg.addEventListener('pointerdown', e => { dragging = true; svg.setPointerCapture(e.pointerId); set(e); e.preventDefault(); });
   svg.addEventListener('pointermove', e => { if (dragging) set(e); });
   svg.addEventListener('pointerup', e => { dragging = false; try { svg.releasePointerCapture(e.pointerId); } catch { /* ignore */ } });
+
+  // small ↺ reset button (top-right) — recenter to an equal split
+  if (n >= 2) {
+    const rg = document.createElementNS(NS, 'g'); rg.style.cursor = 'pointer';
+    const title = document.createElementNS(NS, 'title'); title.textContent = t('liftReset'); rg.appendChild(title);
+    const rc = document.createElementNS(NS, 'circle');
+    rc.setAttribute('cx', String(G.W - 15)); rc.setAttribute('cy', '15'); rc.setAttribute('r', '11');
+    rc.setAttribute('fill', 'rgba(255,255,255,0.08)'); rc.setAttribute('stroke', 'rgba(255,255,255,0.3)');
+    const rt = document.createElementNS(NS, 'text');
+    rt.setAttribute('x', String(G.W - 15)); rt.setAttribute('y', '20'); rt.setAttribute('text-anchor', 'middle');
+    rt.setAttribute('fill', 'rgba(255,255,255,0.8)'); rt.setAttribute('font-size', '15'); rt.textContent = '↺';
+    rg.append(rc, rt);
+    rg.addEventListener('pointerdown', e => { e.stopPropagation(); e.preventDefault(); recenter(); });
+    svg.appendChild(rg);
+  }
   return svg;
 }
 
