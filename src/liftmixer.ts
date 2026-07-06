@@ -72,6 +72,35 @@ function pointFromWeights(w: number[], V: [number, number][]): [number, number] 
   for (let i = 0; i < V.length; i++) { const wi = Math.max(0, w[i] || 0); x += wi * V[i][0]; y += wi * V[i][1]; s += wi; }
   return s > 0 ? [x / s, y / s] : [V[0] ? V[0][0] : 0, V[0] ? V[0][1] : 0];
 }
+// Clamp a drag point into the simplex: inside → unchanged; outside → the nearest point
+// on the boundary (so the handle stays on the edge you drag toward, instead of the
+// mean-value weights going negative and snapping it to the opposite vertex). Nudged a
+// hair toward the centroid to keep the barycentric coordinates non-degenerate on edges.
+function clampToSimplex(px: number, py: number, V: [number, number][]): [number, number] {
+  const n = V.length;
+  if (n <= 1) return [V[0][0], V[0][1]];
+  const seg = (ax: number, ay: number, bx: number, by: number): [number, number] => {
+    const dx = bx - ax, dy = by - ay, L2 = dx * dx + dy * dy || 1;
+    const t = clamp(((px - ax) * dx + (py - ay) * dy) / L2, 0, 1);
+    return [ax + t * dx, ay + t * dy];
+  };
+  if (n === 2) return seg(V[0][0], V[0][1], V[1][0], V[1][1]);
+  let pos = false, neg = false;
+  for (let i = 0; i < n; i++) {
+    const j = (i + 1) % n;
+    const cr = (V[j][0] - V[i][0]) * (py - V[i][1]) - (V[j][1] - V[i][1]) * (px - V[i][0]);
+    if (cr > 1e-6) pos = true; else if (cr < -1e-6) neg = true;
+  }
+  if (!(pos && neg)) return [px, py];   // inside (all cross-products same sign)
+  let best: [number, number] = [px, py], bd = Infinity;
+  for (let i = 0; i < n; i++) {
+    const q = seg(V[i][0], V[i][1], V[(i + 1) % n][0], V[(i + 1) % n][1]);
+    const d = (q[0] - px) ** 2 + (q[1] - py) ** 2;
+    if (d < bd) { bd = d; best = q; }
+  }
+  let cx = 0, cy = 0; for (const [vx, vy] of V) { cx += vx; cy += vy; } cx /= n; cy /= n;
+  return [best[0] + 0.02 * (cx - best[0]), best[1] + 0.02 * (cy - best[1])];
+}
 
 // ---- live widget state ----
 let cont: HTMLElement | null = null;
@@ -163,7 +192,8 @@ function buildSvg(): SVGSVGElement {
     if (n < 2) return;
     const rect = svg.getBoundingClientRect();
     const px = (ev.clientX - rect.left) / rect.width * G.W, py = (ev.clientY - rect.top) / rect.height * G.H;
-    const w = weightsFromPoint(px, py, VV);
+    const [cx, cy] = clampToSimplex(px, py, VV);   // keep the handle on the edge dragged toward
+    const w = weightsFromPoint(cx, cy, VV);
     const full = new Array(LIFT_COMPS.length).fill(0);
     EN.forEach((ci, k) => { full[ci] = w[k]; });
     S.liftMix = full;
