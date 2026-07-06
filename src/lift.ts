@@ -14,6 +14,7 @@ export interface LiftComp { key: string; ik: string; color: [number, number, num
 export const LIFT_COMPS: LiftComp[] = [
   { key: 'thermal', ik: 'liftThermal', color: [235, 140, 60] },
   { key: 'slope', ik: 'liftSlope', color: [150, 200, 90] },
+  { key: 'converg', ik: 'liftConverg', color: [110, 190, 165] },
 ];
 
 /** Normalised blend weight (0..1, Σ=1 across components) of one component, from the

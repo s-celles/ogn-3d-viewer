@@ -1,10 +1,11 @@
 // ============ thermal potential: an estimated updraft (Vz) field from physics ====
 // Where does the ground heat the air enough to make thermals? We take the incoming
-// sun on each terrain facet (sun geometry × slope aspect from the DEM), turn it into
-// a sensible heat flux (absorbed = flux·(1−albedo), a sensible fraction of that),
-// then the convective velocity scale w* = [ (g/θ)·(H/ρcp)·z_i ]^(1/3) with the
-// boundary-layer depth z_i from the weather. Vz ≈ 0.6·w*. A coarse, illustrative
-// diagnostic (uniform albedo/Bowen for now, no advection/cloud shading) — see docs.
+// sun on each terrain facet (sun geometry × slope aspect from the DEM, minus any
+// cast shadow from upwind relief), turn it into a sensible heat flux (absorbed =
+// flux·(1−albedo), a sensible fraction of that), then the convective velocity scale
+// w* = [ (g/θ)·(H/ρcp)·z_i ]^(1/3) with the boundary-layer depth z_i from the weather.
+// Each cell is shown as its fractional anomaly vs a flat reference patch (view-
+// independent). A coarse, illustrative diagnostic (no advection/cloud shading) — docs.
 import { S } from './state';
 import { SimpleMeshLayer, COORDINATE_SYSTEM } from './deck';
 import { terrainElevAt } from './terrain';
@@ -111,12 +112,35 @@ export function thermalLayers(k: number, alpha = 1): any[] {
     // from land-cover, else uniform) → w*, then the fractional anomaly vs the flat
     // reference. Positive = better-heated than flat (rises), negative = worse (sinks).
     const alb = lcp.alb, sens = lcp.sens, vzN = new Float32Array(GN * GN);
+    // Topographic cast shadows: scan the DEM toward the sun; if upwind terrain rises
+    // above the sun line, the direct beam is blocked and only diffuse light remains.
+    // Grid-space horizon march (nearest-node, geometric steps) — cheap, and it fixes
+    // low-sun scenes where a sun-facing valley is actually shaded by a peak upwind.
+    const sH = Math.hypot(su[0], su[1]);
+    const shadows = sH > 0.05;                     // sun low enough for shadows to matter
+    const tanSun = su[2] / (sH || 1);              // sun elevation as a slope (rise / run)
+    const dIx = shadows ? su[0] / (sH * g.sp) : 0, dJy = shadows ? su[1] / (sH * g.sp) : 0;   // cells per metre toward the sun
+    const sDists: number[] = [];
+    if (shadows) for (let d = g.sp * 0.7; d < g.R * 0.7; d *= 1.45) sDists.push(d);
     for (let idx = 0; idx < GN * GN; idx++) {
       const n = g.nodes[idx];
       if (Number.isNaN(n.h)) { vzN[idx] = NaN; continue; }
       const nl = Math.hypot(n.gx, n.gy, 1);
       const cosInc = Math.max(0, (su[0] * -n.gx + su[1] * -n.gy + su[2]) / nl);
-      const H = (dni * cosInc + diff) * (1 - (alb ? alb[idx] : ALBEDO)) * (sens ? sens[idx] : BETA);
+      let shade = 1;                               // 1 = full sun, 0 = shadowed by upwind relief
+      if (shadows && cosInc > 0) {
+        const i0 = idx % GN, j0 = (idx / GN) | 0;
+        let horizon = 0;                           // steepest terrain angle toward the sun so far
+        for (const d of sDists) {
+          const si = Math.round(i0 + dIx * d), sj = Math.round(j0 + dJy * d);
+          if (si < 0 || si >= GN || sj < 0 || sj >= GN) break;
+          const z = g.nodes[sj * GN + si].h;
+          if (Number.isNaN(z)) continue;
+          const ang = (z - n.h) / d; if (ang > horizon) horizon = ang;
+        }
+        shade = Math.max(0, Math.min(1, (tanSun - horizon) / 0.06));   // soft edge over ~3.5°
+      }
+      const H = (dni * cosInc * shade + diff) * (1 - (alb ? alb[idx] : ALBEDO)) * (sens ? sens[idx] : BETA);
       vzN[idx] = (wStar(H) - wRef) / scaleRef;                          // fractional heating anomaly
     }
     // Per-cell Vz into a 2D grid, then a light 3×3 blur — kills the bin checkerboard.
