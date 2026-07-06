@@ -20,9 +20,11 @@ All of it runs 100 % client-side in the browser.
   - [Thermal](#thermal-thermalts)
   - [Slope lift](#slope-lift-ridgets)
   - [Convergence](#convergence-convergts)
+  - [Calibration against the tracks](#calibration-against-the-tracks-calibts)
 - [The mixer](#the-mixer-liftts--liftmixerts)
 - [Wind field](#wind-field-ridgets)
 - [Colour language](#colour-language-liftvizts)
+- [Day-structure panel](#day-structure-panel-daystructts)
 - [Design principle: view independence](#design-principle-view-independence)
 - [Limitations](#limitations)
 - [Roadmap](#roadmap)
@@ -205,11 +207,17 @@ panel (below the mixer), with an approximate Vz anchor for the thermal component
 ## Day-structure panel (`daystruct.ts`)
 
 Below the mixer (when the lift potential is on and a sounding is available), a compact
-**emagram** at the current hour: the environmental temperature sounding (orange), the
-surface parcel's dry adiabat (yellow — its crossing sets the ceiling), the **cloudbase**
-(LCL, blue dashed) and the **thermal ceiling** (dashed), plus a one-line summary
-(convective depth, **cumulus vs blue**). It redraws only when the hour, weather or day
-type changes.
+**emagram** at the current hour with a ground/top altitude scale: the environmental
+temperature sounding (orange), the surface parcel's dry adiabat (yellow — its crossing
+sets the ceiling), the **cloudbase** (LCL, blue dashed) and the **thermal ceiling**
+(dashed), plus a one-line summary (convective depth, **cumulus vs blue**). It redraws
+only when the hour, weather or day type changes.
+
+The sounding is shallow (925/850/700 hPa), so when the parcel is still buoyant at the
+top of the data the ceiling is reported as `≥` that altitude (the fair-weather inversion
+is often above 700 hPa). And because the parcel starts from the **instantaneous** surface
+temperature (no diurnal decay), a late-afternoon residual mixed layer — near
+dry-adiabatic — reads as a deep ceiling even as real thermals are dying. See *Limitations*.
 
 ## Design principle: view independence
 
@@ -226,8 +234,14 @@ fresh deck layer instances each frame.
 - **Not measured, not predictive.** First-order diagnostics with strong assumptions;
   do not use for flight planning.
 - **Thermal**: approximate albedo/Bowen (uniform if Overpass is down); no cumulus
-  shading of the ground, no advection, no history/accumulation (instantaneous flux); an
-  ensemble mean. The blue sink is *relative* (its absolute strength is not calibrated).
+  shading of the ground, no advection; an ensemble mean. The blue sink is *relative*
+  (its absolute strength is not calibrated). **No diurnal history**: the flux and the
+  ceiling use the *instantaneous* surface temperature, so morning warm-up and evening
+  collapse are not modelled — a late-afternoon residual layer can read as a deep,
+  still-working day.
+- **Thermal ceiling**: from a shallow sounding (925/850/700 hPa), so a cap above 700 hPa
+  is missed and the ceiling is reported `≥` the data top; the parcel excess is a fixed
+  `1.5 K`.
 - **Slope lift**: a kinematic `w = wind·∇terrain` — ignores flow separation, rotor, lee
   waves and stability; one wind for the whole scene; detail limited by the DEM.
 - **Convergence**: kinematic terrain-deflection cue only — no thermal/breeze/synoptic
@@ -239,6 +253,9 @@ fresh deck layer instances each frame.
 
 ## Roadmap
 
+- **Diurnal accumulation / decay** — integrate the day's heating instead of the
+  instantaneous flux, so mornings ramp up and evenings collapse (fixes the deep
+  late-afternoon ceiling).
 - **Netto** — subtract the glider's polar sink from the observed climb for a truer air
   Vz (would also sharpen the [calibration](#calibration-against-the-tracks-calibts)).
 - **Local assimilation** — nudge the field toward the observed climbs *spatially*, not
