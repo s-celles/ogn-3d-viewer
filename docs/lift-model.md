@@ -169,10 +169,13 @@ downwind as a standing wave — smooth lift in the crests, sink in the troughs �
 `N` comes from the upper sounding layer (`weatherStability`; NaN if neutral/unstable);
 `U` from the wind profile. We take the terrain forcing along the wind
 (`w₀ = wind·∇terrain`) and **convolve the upwind profile with a decaying resonant
-sinusoid** at the Scorer wavenumber `l = N/U` — a linear lee-wave response draped on the
-terrain (warm crests, blue troughs). Gated: wind ≥ `WIND_MIN = 7 m/s`, `N > N_MIN`, and
-`λ ∈ [2.5, 22] km`; otherwise nothing. **Off by default** (the mixer's 4th vertex,
-enabled by its checkbox) since it only applies on windy, stable days.
+sinusoid** at the Scorer wavenumber `l = N/U` — a linear lee-wave response. Because the
+wave is an **elevated** phenomenon, the bands are drawn as **vertical curtains at
+altitude** (perpendicular to the wind, from just above the highest ridge up ~2.6 km),
+warm crests / blue troughs — not draped on the ground like the surface-driven components.
+Gated: wind ≥ `WIND_MIN = 7 m/s`, `N > N_MIN`, and `λ ∈ [2, 35] km`; otherwise nothing.
+**Off by default** (the mixer's 4th vertex, enabled by its checkbox) since it only applies
+on windy, stable days.
 
 A companion **worldwide wave scan** (`wavescan.ts`, the Discover **🌊** tab) ranks every
 spot for a date on four ingredients: the same **U / N / λ** test, plus the site's actual
@@ -285,8 +288,8 @@ fresh deck layer instances each frame.
 - **Convergence**: kinematic terrain-deflection cue only — no thermal/breeze/synoptic
   convergence, no mass consistency, one wind for the scene.
 - **Wave**: a linear 2D lee-wave response — one wind/stability for the scene, no
-  trapping/resonance modes, no rotor, phase and amplitude only indicative; draped in the
-  horizontal (not the true elevated wave bars).
+  trapping/resonance modes, no rotor, phase and amplitude only indicative; the elevated
+  curtains use a single common base/height (not the true tilted-with-height wave sheets).
 - **Air mass**: shows only where a glider circled; strength is the glider's climb, not
   netto; cloudbase is estimated (LCL), off by hundreds of metres possible.
 - **Weather**: a coarse model at the view centre; the sounding/BL height can be
