@@ -174,10 +174,13 @@ terrain (warm crests, blue troughs). Gated: wind ≥ `WIND_MIN = 7 m/s`, `N > N_
 `λ ∈ [2.5, 22] km`; otherwise nothing. **Off by default** (the mixer's 4th vertex,
 enabled by its checkbox) since it only applies on windy, stable days.
 
-A companion **worldwide wave scan** (`wavescan.ts`, the Discover **🌊** tab) applies the
-same U/N/λ test to every spot for a date via a batched Open-Meteo request, and ranks the
-sites by wave potential — *weather first, then pick the field*. And **observed wave**
-climbs are reconstructed from the tracks (see [Air mass](#air-mass--reconstruction-from-tracks)).
+A companion **worldwide wave scan** (`wavescan.ts`, the Discover **🌊** tab) ranks every
+spot for a date on four ingredients: the same **U / N / λ** test, plus the site's actual
+**relief** (a batched Open-Meteo *elevation ring* — flat sites are dropped) and whether
+the **wind crosses a ridge** (the relief seen *along the wind* — this handles a site with
+several ridges in different orientations, since it only asks that the wind meet some of
+them). *Weather first, then pick the field.* And **observed wave** climbs are
+reconstructed from the tracks (see [Air mass](#air-mass--reconstruction-from-tracks)).
 
 ### Calibration against the tracks (`calib.ts`)
 

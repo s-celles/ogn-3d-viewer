@@ -594,7 +594,7 @@ function renderWaveRows(date: string): void {
     d.innerHTML = `<b style="color:#b48ce6;min-width:26px;text-align:right" title="${t('discoverWaveScore')}">${Math.round(w.score * 100)}</b>`
       + `<span style="font-size:16px">${flag(s.country)}</span>`
       + `<div style="flex:1;min-width:0"><div><b>${s.name}</b> <span style="color:var(--mut)">· ${s.code} · ${s.country}</span></div>`
-      + `<div style="color:var(--mut);font-size:12px">🌊 ${t('windFrom')} ~${kmh} km/h · λ≈${(w.lambda / 1000).toFixed(1)} km</div></div>`;
+      + `<div style="color:var(--mut);font-size:12px">🌊 ${t('windFrom')} ~${kmh} km/h · λ≈${(w.lambda / 1000).toFixed(1)} km · ⛰${Math.round(w.relief)} m</div></div>`;
     rows.appendChild(d);
   }
 }
