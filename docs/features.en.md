@@ -82,6 +82,6 @@ Add `?dev=1` to the URL for a technical panel: terrain **wireframe**, **bare rel
 - OGN keeps IGC tracks for only **~24 hours**, so older dates are often empty.
 - Please respect the [OGN data usage policy](https://www.glidernet.org/ogn-data-usage/).
 
-For the physics behind the air mass and lift potential (formulas, data, assumptions), see the [model reference](lift-model.md).
+For the physics behind the air mass and lift potential (formulas, data, assumptions), see the [model reference](lift-model.md); the terrain classification and wave scan are in the [site-classification reference](site-classification.md).
 
 The app is a client-side single-page app; source and issues on [GitHub](https://github.com/s-celles/ogn-3d-viewer).

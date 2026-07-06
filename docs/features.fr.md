@@ -82,6 +82,6 @@ Ajoutez `?dev=1` à l'URL pour un panneau technique : **fil de fer** du relief, 
 - L'OGN ne conserve les traces IGC qu'environ **24 h**, les dates anciennes sont donc souvent vides.
 - Merci de respecter la [politique d'usage des données OGN](https://www.glidernet.org/ogn-data-usage/).
 
-Pour la physique derrière la masse d'air et le potentiel de portance (formules, données, hypothèses), voir la [référence du modèle](lift-model.md) (en anglais).
+Pour la physique derrière la masse d'air et le potentiel de portance (formules, données, hypothèses), voir la [référence du modèle](lift-model.md) (en anglais) ; la classification du terrain et le scan d'onde sont dans la [référence de classification des sites](site-classification.md).
 
 L'application est une SPA côté client ; code source et signalements sur [GitHub](https://github.com/s-celles/ogn-3d-viewer).

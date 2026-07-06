@@ -181,7 +181,9 @@ API limit, cached + persisted — over concentric rings to ~28 km, to catch a tr
 ridge at any distance; flat sites are dropped) and whether
 the **wind crosses a ridge** (the relief seen *along the wind* — this handles a site with
 several ridges in different orientations, since it only asks that the wind meet some of
-them). *Weather first, then pick the field.* And **observed wave** climbs are
+them). *Weather first, then pick the field.* The scan, and the terrain classification
+(plain / hills / mountain / high mountain, à la Kapos/Meybeck), are documented in the
+[site-classification reference](site-classification.md). And **observed wave** climbs are
 reconstructed from the tracks (see [Air mass](#air-mass--reconstruction-from-tracks)).
 
 ### Calibration against the tracks (`calib.ts`)

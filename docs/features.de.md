@@ -82,6 +82,6 @@ Fügen Sie `?dev=1` zur URL hinzu für ein technisches Panel: Gelände-**Drahtgi
 - OGN speichert IGC-Spuren nur **~24 Stunden**, ältere Daten sind daher oft leer.
 - Bitte beachten Sie die [OGN-Datennutzungsrichtlinie](https://www.glidernet.org/ogn-data-usage/).
 
-Zur Physik hinter der Luftmasse und dem Aufwindpotenzial (Formeln, Daten, Annahmen) siehe die [Modellreferenz](lift-model.md) (auf Englisch).
+Zur Physik hinter der Luftmasse und dem Aufwindpotenzial (Formeln, Daten, Annahmen) siehe die [Modellreferenz](lift-model.md) (auf Englisch); die Geländeklassifikation und der Wellen-Scan stehen in der [Standort-Klassifikationsreferenz](site-classification.md).
 
 Die App ist eine clientseitige Single-Page-App; Quellcode und Fehlermeldungen auf [GitHub](https://github.com/s-celles/ogn-3d-viewer).
