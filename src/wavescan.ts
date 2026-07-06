@@ -16,6 +16,7 @@ const U_MIN = 8, U_FULL = 20;       // m/s: cross-ridge wind for a start / a ful
 const N_MIN = 0.006, N_FULL = 0.014;// 1/s: stability for a start / a full score
 const LAMBDA_MIN = 2500, LAMBDA_MAX = 22000;   // m: plausible lee-wave wavelengths
 const RELIEF_MIN = 250, RELIEF_FULL = 1100;    // m: local relief for a start / a full score
+export const WAVE_SITE_RELIEF = 500;           // m: relief above which a site counts as "wave terrain"
 const RING = 8, RINGS_KM = [9, 18, 28];        // elevation: several rings (km) to catch ridges at any distance
 const CHUNK = 50;                   // spots per weather request
 
@@ -48,7 +49,23 @@ function alongWindRelief(rel: Relief, wdRad: number): number {
   return mx - mn;
 }
 
-async function ensureRelief(spots: { code: string; lat: number; lon: number }[]): Promise<void> {
+/** The site's local relief (m), or NaN until {@link ensureRelief} has run for it. */
+export function siteRelief(code: string): number {
+  return reliefCache.get(code)?.relief ?? NaN;
+}
+/** True once the site's relief is known and high enough to make it "wave terrain". */
+export function isWaveSite(code: string): boolean {
+  const r = reliefCache.get(code); return !!r && r.relief >= WAVE_SITE_RELIEF;
+}
+/** Terrain class from the local relief: flat plain / hill (ridge soaring) / mountain
+ *  (wave). '' until {@link ensureRelief} has run for the spot. */
+export function siteTerrain(code: string): '' | 'flat' | 'hill' | 'wave' {
+  const r = reliefCache.get(code)?.relief;
+  if (r == null || Number.isNaN(r)) return '';
+  return r < 130 ? 'flat' : r < WAVE_SITE_RELIEF ? 'hill' : 'wave';
+}
+
+export async function ensureRelief(spots: { code: string; lat: number; lon: number }[]): Promise<void> {
   const need = spots.filter(s => !reliefCache.has(s.code) && Number.isFinite(s.lat) && Number.isFinite(s.lon));
   if (!need.length) return;
   interface P { code: string; lat: number; lon: number; ri: number; ang: number }   // ri < 0 → the centre

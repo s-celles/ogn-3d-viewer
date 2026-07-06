@@ -14,7 +14,7 @@ import { openGuide } from './guide';
 import { setStatus } from './data';
 import { codeCountry, codeFlag, flag as isoFlag } from './flags';
 import { fetchHotZones, hotCache, hotFresh, type HotZone } from './hotspots';
-import { scanWaveSites, type WaveScore } from './wavescan';
+import { scanWaveSites, ensureRelief, isWaveSite, siteRelief, siteTerrain, type WaveScore } from './wavescan';
 import { nearbyAerodromes } from './poi';
 import spotsCsv from '../data/spots.csv' with { type: 'text' };
 import type { Lang } from './types';
@@ -545,6 +545,11 @@ function open(): void {
   if (!overlay) build();
   overlay!.style.display = 'flex'; discoverBtn.classList.add('on');
   select(active);                               // reopen on the last-used tab (world '', a continent, or 'hot')
+  // Characterise every spot (plain / ridge / wave) in the background; refresh the tags
+  // once the one-time elevation scan resolves. Cached, so later opens are instant.
+  void ensureRelief(allSpots().map(s => ({ code: s.code, lat: s.lat, lon: s.lon }))).then(() => {
+    if (overlay && overlay.style.display !== 'none' && active !== 'hot' && active !== 'wave') renderSpotRows();
+  }).catch(() => { /* offline → no tags */ });
 }
 function close(): void {
   if (overlay) overlay.style.display = 'none'; discoverBtn.classList.remove('on');
@@ -570,31 +575,36 @@ async function showWave(): Promise<void> {
   listEl.innerHTML = `<div style="padding:16px;color:var(--mut)">${t('discoverWaveScan')} …</div>`;
   const res = await scanWaveSites(allSpots().map(s => ({ code: s.code, lat: s.lat, lon: s.lon })), date).catch(() => null);
   if (active !== 'wave') return;                                // user switched tabs during the scan
-  if (!res) { listEl.innerHTML = `<div style="padding:16px;color:var(--mut)">${t('discoverWaveNone')}</div>`; return; }
-  waveScores = res; waveScanDate = date;
+  waveScores = res || new Map(); waveScanDate = date;
   renderWaveRows(date);
 }
+// The wave tab always lists the wave *terrains* (by relief), each annotated with the
+// day's chance — so it is never empty just because there is no wave right now.
 function renderWaveRows(date: string): void {
-  if (!listEl || !waveScores) return;
-  const scored = allSpots().map(s => ({ s, w: waveScores!.get(s.code) })).filter(x => x.w) as { s: Spot; w: WaveScore }[];
-  scored.sort((a, b) => b.w.score - a.w.score);
+  if (!listEl) return;
+  const sites = allSpots().filter(s => isWaveSite(s.code)).map(s => ({ s, w: waveScores?.get(s.code) }));
+  sites.sort((a, b) => (b.w?.score ?? 0) - (a.w?.score ?? 0) || siteRelief(b.s.code) - siteRelief(a.s.code));
   listEl.innerHTML = '';
   const head = document.createElement('div');
   head.style.cssText = 'padding:8px 12px 4px;color:var(--mut);font-size:12px';
   head.textContent = `${t('discoverWaveHead')} · ${date}`;
   listEl.appendChild(head);
   const rows = document.createElement('div'); listEl.appendChild(rows);
-  if (!scored.length) { rows.innerHTML = `<div style="padding:16px;color:var(--mut)">${t('discoverWaveNone')}</div>`; return; }
-  for (const { s, w } of scored) {
-    const on = !!s.checked || !!s.user, kmh = Math.round(w.wind * 3.6);
+  if (!sites.length) { rows.innerHTML = `<div style="padding:16px;color:var(--mut)">${t('discoverWaveNone')}</div>`; return; }
+  for (const { s, w } of sites) {
+    const on = !!s.checked || !!s.user, score = w ? w.score : 0;
+    const chance = score >= 0.45 ? `<span style="color:#5fd08a;font-weight:600">✓ ${t('waveChanceGood')}</span>`
+      : score >= 0.2 ? `<span style="color:#e0b34a">~ ${t('waveChanceMaybe')}</span>`
+        : `<span style="color:var(--mut)">${t('waveChanceLow')}</span>`;
+    const detail = w ? `${t('windFrom')} ~${Math.round(w.wind * 3.6)} km/h · λ≈${(w.lambda / 1000).toFixed(1)} km` : t('waveChanceLow');
     const d = document.createElement('div');
     d.style.cssText = 'padding:8px 10px;border-radius:8px;cursor:pointer;display:flex;gap:10px;align-items:center;' + (on ? '' : 'opacity:.55');
     d.onmouseenter = () => highlight(s.code, true); d.onmouseleave = () => highlight(s.code, false);
     d.onclick = () => pick(s);
-    d.innerHTML = `<b style="color:#b48ce6;min-width:26px;text-align:right" title="${t('discoverWaveScore')}">${Math.round(w.score * 100)}</b>`
+    d.innerHTML = `<b style="color:#b48ce6;min-width:26px;text-align:right" title="${t('discoverWaveScore')}">${Math.round(score * 100)}</b>`
       + `<span style="font-size:16px">${flag(s.country)}</span>`
-      + `<div style="flex:1;min-width:0"><div><b>${s.name}</b> <span style="color:var(--mut)">· ${s.code} · ${s.country}</span></div>`
-      + `<div style="color:var(--mut);font-size:12px">🌊 ${t('windFrom')} ~${kmh} km/h · λ≈${(w.lambda / 1000).toFixed(1)} km · ⛰${Math.round(w.relief)} m</div></div>`;
+      + `<div style="flex:1;min-width:0"><div><b>${s.name}</b> <span style="color:var(--mut)">· ${s.code} · ${s.country}</span> ${chance}</div>`
+      + `<div style="color:var(--mut);font-size:12px">🏔 ${Math.round(siteRelief(s.code))} m · ${detail}</div></div>`;
     rows.appendChild(d);
   }
 }
@@ -644,6 +654,15 @@ function buildSpotControls(): HTMLElement {   // country filter + text search + 
   wrap.append(country, search, reset);
   return wrap;
 }
+// A small terrain badge (plain / ridge / wave) from the site's relief — '' until the
+// elevation scan (ensureRelief) has run for it.
+function terrainTag(code: string): string {
+  const kind = siteTerrain(code);
+  if (kind === 'wave') return ` <span title="${t('terrainWaveHint')}" style="color:#b48ce6">· 🏔 ${t('terrainWave')}</span>`;
+  if (kind === 'hill') return ` <span title="${t('terrainHillHint')}" style="color:#8fc98a">· ⛰ ${t('terrainHill')}</span>`;
+  if (kind === 'flat') return ` <span title="${t('terrainFlatHint')}" style="color:var(--mut)">· 🌾 ${t('terrainFlat')}</span>`;
+  return '';
+}
 function renderSpotRows(): void {
   if (!spotRowsEl) return;
   spotRowsEl.innerHTML = ''; items.clear();
@@ -675,7 +694,7 @@ function renderSpotRows(): void {
       `<button data-mv="1" title="${t('discoverMoveDown')}" style="${cbtn}">▼</button>` +
       `<button data-del="1" title="${t('discoverDelete')}" style="${cbtn};font-size:14px">✕</button></span>` : '';
     d.innerHTML = `<span style="font-size:18px">${flag(s.country)}</span>` +
-      `<div style="flex:1"><div><b>${s.name}</b> <span style="color:var(--mut)">· ${s.code} · ${s.country}</span>${tag}</div>` +
+      `<div style="flex:1"><div><b>${s.name}</b> <span style="color:var(--mut)">· ${s.code} · ${s.country}</span>${terrainTag(s.code)}${tag}</div>` +
       `<div style="color:var(--mut);font-size:12px">${s.blurb}</div></div>${ctrl}`;
     if (s.user) {
       (d.querySelector('[data-edit]') as HTMLElement).onclick = e => { e.stopPropagation(); openForm(listEl!, s); };
