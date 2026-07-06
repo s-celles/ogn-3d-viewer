@@ -60,6 +60,7 @@ export const heightRefEl = $<HTMLSelectElement>('heightRef');
 export const airMassBtn = $<HTMLButtonElement>('airMassBtn');
 export const thermalBtn = $<HTMLButtonElement>('thermalBtn');
 export const liftComps  = $('liftComps');   // container for the lift-component checkboxes
+export const dayStruct  = $('dayStruct');    // day-structure panel (emagram + summary)
 export const windModeEl = $<HTMLSelectElement>('windMode');
 export const windArrow  = $<SVGGElement>('windArrow');
 export const windSpd    = $('windSpd');

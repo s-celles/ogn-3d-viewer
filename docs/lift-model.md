@@ -202,6 +202,15 @@ convergence use a 3-warm / 3-cool subset. A **legend** of this ramp is shown in 
 panel (below the mixer), with an approximate Vz anchor for the thermal component
 (green ≈ 0.5, yellow ≈ 0.9, red ≥ 1.4 m/s at the nominal scale).
 
+## Day-structure panel (`daystruct.ts`)
+
+Below the mixer (when the lift potential is on and a sounding is available), a compact
+**emagram** at the current hour: the environmental temperature sounding (orange), the
+surface parcel's dry adiabat (yellow — its crossing sets the ceiling), the **cloudbase**
+(LCL, blue dashed) and the **thermal ceiling** (dashed), plus a one-line summary
+(convective depth, **cumulus vs blue**). It redraws only when the hour, weather or day
+type changes.
+
 ## Design principle: view independence
 
 Colours must depend only on **the physics at a location**, never on what is currently on
@@ -236,8 +245,8 @@ fresh deck layer instances each frame.
   just a global scale.
 - **Wave (onde)** — the reserved 4th mixer component: wind ⟂ ridge + static stability
   (from the sounding) → wavelength and downwind lift bands.
-- **Day-structure panel** — a mini temperature profile (T/Td, LCL, ceiling) and w\* vs
-  time, for comprehension.
+- **Dewpoint profile** — fetch humidity aloft to draw Td on the day-structure emagram
+  (currently only the surface dewpoint / LCL is known).
 
 ---
 

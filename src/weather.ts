@@ -127,6 +127,16 @@ export function weatherConvTop(wx: Wx, hour: number): number {
   return Number.isFinite(h.blh) && h.blh > 0 ? wx.ref + h.blh : NaN;   // fallback: BL top above model surface
 }
 
+export interface Sounding { ref: number; t2m: number; tprof: TPt[]; cloudbase: number | null; ceiling: number }
+/** The day's structure at a UTC hour for the day-structure panel: surface elevation and
+ *  temperature, the temperature sounding, the cloudbase (LCL) and the thermal ceiling.
+ *  Null when the sounding is unavailable. */
+export function weatherSounding(wx: Wx, hour: number): Sounding | null {
+  const h = wx.hours[clampHour(wx, hour)];
+  if (!h || !h.tprof || h.tprof.length < 2 || !Number.isFinite(h.t2m)) return null;
+  return { ref: wx.ref, t2m: h.t2m, tprof: h.tprof, cloudbase: h.cloudbase, ceiling: weatherConvTop(wx, hour) };
+}
+
 /** Wind vector [east, north] (m/s) at an AMSL altitude and UTC hour, or null. */
 export function weatherWind(wx: Wx, hour: number, alt: number): [number, number] | null {
   const p = wx.hours[clampHour(wx, hour)]?.prof;
