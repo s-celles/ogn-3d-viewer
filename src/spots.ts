@@ -14,6 +14,7 @@ import { openGuide } from './guide';
 import { setStatus } from './data';
 import { codeCountry, codeFlag, flag as isoFlag } from './flags';
 import { fetchHotZones, hotCache, hotFresh, type HotZone } from './hotspots';
+import { scanWaveSites, type WaveScore } from './wavescan';
 import { nearbyAerodromes } from './poi';
 import spotsCsv from '../data/spots.csv' with { type: 'text' };
 import type { Lang } from './types';
@@ -558,15 +559,56 @@ function pick(s: Spot): void {
   else { gotoSpot(s.lat, s.lon); setPlace(s.name, isoFlag(s.country) || codeFlag(s.code)); }   // terrain-only → show the spot's name/flag
 }
 
+// ---- wave scan tab: sites ranked by lee-wave potential for the chosen date ----
+let waveScores: Map<string, WaveScore> | null = null;
+let waveScanDate = '';
+const scanDate = (): string => (/^\d{4}-\d{2}-\d{2}$/.test(dateEl.value) ? dateEl.value : new Date().toISOString().slice(0, 10));
+async function showWave(): Promise<void> {
+  if (!listEl) return;
+  const date = scanDate();
+  if (waveScores && waveScanDate === date) { renderWaveRows(date); return; }
+  listEl.innerHTML = `<div style="padding:16px;color:var(--mut)">${t('discoverWaveScan')} …</div>`;
+  const res = await scanWaveSites(allSpots().map(s => ({ code: s.code, lat: s.lat, lon: s.lon })), date).catch(() => null);
+  if (active !== 'wave') return;                                // user switched tabs during the scan
+  if (!res) { listEl.innerHTML = `<div style="padding:16px;color:var(--mut)">${t('discoverWaveNone')}</div>`; return; }
+  waveScores = res; waveScanDate = date;
+  renderWaveRows(date);
+}
+function renderWaveRows(date: string): void {
+  if (!listEl || !waveScores) return;
+  const scored = allSpots().map(s => ({ s, w: waveScores!.get(s.code) })).filter(x => x.w) as { s: Spot; w: WaveScore }[];
+  scored.sort((a, b) => b.w.score - a.w.score);
+  listEl.innerHTML = '';
+  const head = document.createElement('div');
+  head.style.cssText = 'padding:8px 12px 4px;color:var(--mut);font-size:12px';
+  head.textContent = `${t('discoverWaveHead')} · ${date}`;
+  listEl.appendChild(head);
+  const rows = document.createElement('div'); listEl.appendChild(rows);
+  if (!scored.length) { rows.innerHTML = `<div style="padding:16px;color:var(--mut)">${t('discoverWaveNone')}</div>`; return; }
+  for (const { s, w } of scored) {
+    const on = !!s.checked || !!s.user, kmh = Math.round(w.wind * 3.6);
+    const d = document.createElement('div');
+    d.style.cssText = 'padding:8px 10px;border-radius:8px;cursor:pointer;display:flex;gap:10px;align-items:center;' + (on ? '' : 'opacity:.55');
+    d.onmouseenter = () => highlight(s.code, true); d.onmouseleave = () => highlight(s.code, false);
+    d.onclick = () => pick(s);
+    d.innerHTML = `<b style="color:#b48ce6;min-width:26px;text-align:right" title="${t('discoverWaveScore')}">${Math.round(w.score * 100)}</b>`
+      + `<span style="font-size:16px">${flag(s.country)}</span>`
+      + `<div style="flex:1;min-width:0"><div><b>${s.name}</b> <span style="color:var(--mut)">· ${s.code} · ${s.country}</span></div>`
+      + `<div style="color:var(--mut);font-size:12px">🌊 ${t('windFrom')} ~${kmh} km/h · λ≈${(w.lambda / 1000).toFixed(1)} km</div></div>`;
+    rows.appendChild(d);
+  }
+}
+
 function select(val: string): void {
   if (val === 'hot') { active = 'hot'; renderTabs(); setView(null); void showHot(); return; }
+  if (val === 'wave') { clearHot(); if (dots.size === 0) rebuildDots(); active = 'wave'; renderTabs(); setView(null); void showWave(); return; }
   clearHot();
   if (dots.size === 0) rebuildDots();          // restore spot markers after leaving hot mode
   active = val; renderTabs(); renderList(); setView(val || null);
 }
 function renderTabs(): void {
   if (!tabsEl) return; tabsEl.innerHTML = '';
-  for (const [val, label] of [['', '🌍 ' + t('discoverWorldTab')] as const, ...present().map(c => [c, contLabel(c)] as const), ['hot', '🔥 ' + t('discoverHot')] as const]) {
+  for (const [val, label] of [['', '🌍 ' + t('discoverWorldTab')] as const, ...present().map(c => [c, contLabel(c)] as const), ['hot', '🔥 ' + t('discoverHot')] as const, ['wave', '🌊 ' + t('discoverWave')] as const]) {
     const b = document.createElement('button'); b.textContent = label; b.classList.toggle('on', val === active);
     b.onclick = () => select(val);
     tabsEl.appendChild(b);
