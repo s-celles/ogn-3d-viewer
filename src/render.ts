@@ -1,7 +1,7 @@
 // ============ viewer: deck.gl instance, dynamic layers, HUD ============
 import { S } from './state';
 import { t } from './i18n';
-import { mapDiv, sunEl, moonEl, labelsDiv, hudreg, hudhdg, hudspd, hudalt, hudvar, hudnetto, lglist, focusBadge } from './dom';
+import { mapDiv, sunEl, moonEl, labelsDiv, hudreg, hudhdg, hudspd, hudalt, hudvar, hudnetto, hudnettoK, hudsuper, hudsuperK, lglist, focusBadge } from './dom';
 import {
   Deck, MapView, FirstPersonView, PathLayer, PolygonLayer, TripsLayer, ScatterplotLayer, SimpleMeshLayer, IconLayer,
   LightingEffect, AmbientLight, DirectionalLight, PathStyleExtension, PostProcessEffect, COORDINATE_SYSTEM,
@@ -12,7 +12,7 @@ import { drawTraffic } from './traffic';
 import { varioAudio } from './vario-audio';
 import { updateSky, getSun, getMoon, nightPolygon, sceneMs } from './sky';
 import { subjectTrack, shown, scaled, posAt, presence, airborne, isActive, headingAt, varioAt, compVarioAt, groundSpeedAt, clampCur, attitudeAt, nearestToCenter } from './flight-math';
-import { nettoAt } from './polar';
+import { nettoAt, minSink } from './polar';
 import { GLIDER_MESH, PLANE_MESH, PROP_MESH, GLIDER_FLAT, PLANE_FLAT, isPowered } from './aircraft-mesh';
 import { getPeaks, getWaypoints, loadPeaks, type Poi } from './poi';
 import { updateMinimap } from './minimap';
@@ -931,22 +931,34 @@ function fmtAlt(p: Pos3): string {
 }
 
 // ---- HUD ----
+const varioCls = (x: number): string => 'vario ' + (x >= 0.1 ? 'pos' : (x <= -0.1 ? 'neg' : ''));
+const fmtVario = (x: number): string => (x >= 0 ? '+' : '') + x.toFixed(1) + ' m/s';
 export function updateHUD(): void {
+  // Netto / super-netto rows are opt-in (S.nettoMode) — show/hide their grid cells.
+  const nm = S.nettoMode;
+  hudnettoK.style.display = hudnetto.style.display = nm !== 'off' ? '' : 'none';
+  hudsuperK.style.display = hudsuper.style.display = nm === 'super' ? '' : 'none';
   if (!S.ready) return;
   // In the overview the HUD (opt-in) reads the focused glider; elsewhere the subject.
   const tr = (S.mode === 'over' && S.focus ? S.TRACKS.find(t2 => t2.reg === S.focus) : null) || subjectTrack();
   const pr = presence(tr);
   hudreg.textContent = tr.reg + ' · ' + tr.label + (pr && pr.offline ? ' · ' + t('offline') : '');
   if (!pr) {
-    hudhdg.textContent = '—'; hudspd.textContent = '—'; hudalt.textContent = '—'; hudnetto.textContent = '—'; hudnetto.className = 'vario';
+    hudhdg.textContent = '—'; hudspd.textContent = '—'; hudalt.textContent = '—';
+    hudnetto.textContent = '—'; hudnetto.className = 'vario'; hudsuper.textContent = '—'; hudsuper.className = 'vario';
     hudvar.textContent = S.cur < tr.rstart ? t('beforeTk') : t('landed'); hudvar.className = 'vario'; return;
   }
   const time = pr.time;
   const p = posAt(tr, time), h = headingAt(tr, time), v = S.compensated ? compVarioAt(tr, time) : varioAt(tr, time);
   hudhdg.textContent = Math.round(h).toString().padStart(3, '0') + '°'; hudalt.textContent = fmtAlt(p);
   hudspd.textContent = Math.round(groundSpeedAt(tr, time) * 3.6) + ' km/h';
-  hudvar.textContent = (v >= 0 ? '+' : '') + v.toFixed(1) + ' m/s' + (S.compensated ? ' TE' : ''); hudvar.className = 'vario ' + (v >= 0.1 ? 'pos' : (v <= -0.1 ? 'neg' : ''));
-  // Netto = total-energy vario − the glider's own sink at this (ground-)speed.
-  const nz = nettoAt(S.polar, compVarioAt(tr, time), groundSpeedAt(tr, time));
-  hudnetto.textContent = (nz >= 0 ? '+' : '') + nz.toFixed(1) + ' m/s'; hudnetto.className = 'vario ' + (nz >= 0.1 ? 'pos' : (nz <= -0.1 ? 'neg' : ''));
+  hudvar.textContent = fmtVario(v) + (S.compensated ? ' TE' : ''); hudvar.className = varioCls(v);
+  if (nm !== 'off') {
+    // Netto = total-energy vario − the glider's own sink at this (ground-)speed. Super
+    // netto also removes the circling (min-)sink: the climb achievable by thermalling here.
+    const te = compVarioAt(tr, time), spd = groundSpeedAt(tr, time);
+    const nz = nettoAt(S.polar, te, spd);
+    hudnetto.textContent = fmtVario(nz); hudnetto.className = varioCls(nz);
+    if (nm === 'super') { const sz = nz + minSink(S.polar); hudsuper.textContent = fmtVario(sz); hudsuper.className = varioCls(sz); }
+  }
 }

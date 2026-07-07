@@ -46,6 +46,23 @@ export function nettoAt(pl: Polar, teVario: number, vMs: number): number {
   return teVario - sinkAt(pl, vMs);
 }
 
+/** The glider's minimum sink (m/s, negative) — its sink at the min-sink (circling) speed,
+ *  the vertex of A·V³ + B/V at V = (B/3A)^¼. Used for the super/relative netto. */
+export function minSink(pl: Polar): number {
+  const r = pl.B / (3 * pl.A);
+  let v = Number.isFinite(r) && r > 0 ? Math.pow(r, 0.25) : NaN;
+  if (!Number.isFinite(v)) {   // degenerate fit: scan for the least-negative sink
+    let best = -Infinity;
+    for (let x = pl.vMin; x <= pl.vMax; x += 1) { const s = pl.A * x * x * x + pl.B / x; if (s > best) { best = s; v = x; } }
+  }
+  return sinkAt(pl, v);
+}
+/** Super (relative) netto (m/s): the climb the glider would get circling in this air —
+ *  the netto reduced by the glider's own minimum (circling) sink. */
+export function superNettoAt(pl: Polar, teVario: number, vMs: number): number {
+  return nettoAt(pl, teVario, vMs) + minSink(pl);   // minSink < 0 → subtracts the circling sink
+}
+
 /** Parse an XCSoar/LK8000 `.plr` polar: a line
  *  `MassDryGross, MaxWaterBallast, Speed1, Sink1, Speed2, Sink2, Speed3, Sink3, WingArea`
  *  (comment lines start with `*`). Returns null if no usable line is found. */

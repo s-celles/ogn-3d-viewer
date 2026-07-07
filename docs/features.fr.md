@@ -19,7 +19,7 @@ Rejeu 3D des vols de planeurs de l'[Open Glider Network](http://wiki.glidernet.o
 - **Résolution du sol** — niveau de détail de l'imagerie satellite réglable (z13 à z18).
 - **Trois vues** — vue d'ensemble (dessus), vue cockpit (subjective, l'horizon s'incline dans les virages) et caméra poursuite qui suit le planeur.
 - **Caméra cockpit** — suivi du cap ou regard libre.
-- **Affichage tête haute (HUD)** — cap, altitude, vario et **netto** du planeur suivi.
+- **Affichage tête haute (HUD)** — cap, altitude, vario — et, en option, **netto / super netto** — du planeur suivi.
 - **Cône de finesse** — un cône d'atteignabilité optionnel autour de l'aérodrome (finesse, hauteur de sécurité et rayon réglables).
 - **Ombres au sol** — projetées à la verticale (indicateur de position) ou selon la direction du soleil.
 - **Rideau d'altitude** — un voile translucide reliant chaque trace au sol.
@@ -46,7 +46,7 @@ Rejeu 3D des vols de planeurs de l'[Open Glider Network](http://wiki.glidernet.o
 
 - **Attitude estimée** — chaque planeur s'incline dans les virages et prend de l'assiette selon la vitesse air.
 - **Vario compensé** — vario à énergie totale par défaut (désactivable pour la vitesse verticale brute).
-- **Vario Netto** — à côté du vario, la **vitesse verticale de la masse d'air** estimée : la montée à énergie totale moins le taux de chute propre du planeur à la vitesse courante, d'après sa **polaire** (`netto = Vz,TE − chute(V)`). La polaire suit le modèle physique à deux termes `A·V³ + B/V` et vaut par défaut un **ASK 21** ; importez le **`.plr`** (XCSoar/LK8000) de votre planeur pour l'ajuster. OGN ne fournit pas la vitesse-air : la **vitesse-sol** tient lieu de `V` — un indicateur approximatif (biaisé par le vent et les virages), pas un netto calibré.
+- **Netto & super netto** *(optionnel, désactivé par défaut)* — faites défiler l'affichage du HUD avec le contrôle **Netto (masse d'air)**. Le **netto** est la **vitesse verticale de la masse d'air** estimée : la montée à énergie totale moins le taux de chute propre du planeur à la vitesse courante, d'après sa **polaire** (`netto = Vz,TE − chute(V)`). Le **super netto** (netto relatif) va plus loin en retirant la **chute mini en spirale** du planeur, estimant la **montée que tu obtiendrais en enroulant dans cet air** (`super = netto − |chute mini|` ; > 0 → ça vaut le coup de s'arrêter). La polaire suit le modèle physique à deux termes `A·V³ + B/V` et vaut par défaut un **ASK 21** ; importez le **`.plr`** (XCSoar/LK8000) de votre planeur pour l'ajuster. OGN ne fournit pas la vitesse-air : la **vitesse-sol** tient lieu de `V` — un indicateur approximatif (biaisé par le vent et les virages), pas un netto calibré.
 - **Son du vario** — une tonalité de montée/descente optionnelle pour le planeur suivi.
 - **Conscience du trafic** — un radar cap-en-haut des aéronefs proches, ou un indicateur directionnel anti-collision.
 

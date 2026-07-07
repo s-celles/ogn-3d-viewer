@@ -230,6 +230,9 @@ export interface AppState {
   wxSim: { on: boolean; wind: number; dir: number; shear: number; nStab: number; tsurf: number; rh: number; date: string; hour: number };
   // Active glider polar (for the netto vario); imported from an XCSoar/LK8000 .plr.
   polar: import('./polar').Polar;
+  // Netto vario readout in the HUD: 'off' (default), 'netto' (air-mass Vz), or 'super'
+  // (also the super/relative netto — the climb achievable by circling in this air).
+  nettoMode: 'off' | 'netto' | 'super';
   // Wind-flow representation: 'off'; 2D draped variants — 'drapeVec' (arrows),
   // 'drapeCol' (speed colours), 'drapeBoth', 'barbs' (station wind barbs); or 3D
   // profile views — 'layers' (arrows at altitude bands), 'rings', 'hodograph'.

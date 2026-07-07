@@ -19,7 +19,7 @@
 - **Bodenauflösung** — einstellbarer Detailgrad der Satellitenbilder (z13 bis z18).
 - **Drei Ansichten** — Übersicht (von oben), Cockpit (Egoperspektive, der Horizont neigt sich in Kurven) und eine Verfolgerkamera.
 - **Cockpit-Kamera** — Kurs folgen oder freie Sicht.
-- **Head-up-Display (HUD)** — Kurs, Höhe, Vario und **Netto** des verfolgten Segelflugzeugs.
+- **Head-up-Display (HUD)** — Kurs, Höhe, Vario — und optional **Netto / Super-Netto** — des verfolgten Segelflugzeugs.
 - **Gleitkegel** — ein optionaler Erreichbarkeitskegel um den Flugplatz (Gleitzahl, Sicherheitshöhe und Radius einstellbar).
 - **Bodenschatten** — senkrecht nach unten (Positionsanzeige) oder in Sonnenrichtung geworfen.
 - **Höhenvorhang** — ein durchscheinender Vorhang von jedem Track bis zum Boden.
@@ -46,7 +46,7 @@
 
 - **Geschätzte Fluglage** — jedes Segelflugzeug neigt sich in Kurven und stellt sich nach der Eigengeschwindigkeit an.
 - **Kompensiertes Vario** — Gesamtenergie-Vario als Standard (abschaltbar für die rohe Steigrate).
-- **Netto-Vario** — neben dem Vario die geschätzte **Vertikalgeschwindigkeit der Luftmasse**: das Gesamtenergie-Steigen minus das Eigensinken des Segelflugzeugs bei der aktuellen Geschwindigkeit, aus seiner **Polare** (`Netto = Vz,TE − Sinken(V)`). Die Polare nutzt das physikalische Zwei-Term-Modell `A·V³ + B/V` und ist standardmäßig eine **ASK 21**; importieren Sie die **`.plr`** (XCSoar/LK8000) Ihres Flugzeugs, um sie anzupassen. OGN liefert keine Fahrt, daher steht die **Grundgeschwindigkeit** für `V` — ein grober Anhaltspunkt (durch Wind und Kurven verfälscht), kein kalibriertes Netto.
+- **Netto & Super-Netto** *(optional, standardmäßig aus)* — die HUD-Anzeige mit dem Bedienelement **Netto (Luftmasse)** durchschalten. **Netto** ist die geschätzte **Vertikalgeschwindigkeit der Luftmasse**: das Gesamtenergie-Steigen minus das Eigensinken des Segelflugzeugs bei der aktuellen Geschwindigkeit, aus seiner **Polare** (`Netto = Vz,TE − Sinken(V)`). **Super-Netto** (relatives Netto) geht einen Schritt weiter und entfernt das **Kreisflug-(Mindest-)Sinken**, schätzt also das **im Kreisflug in dieser Luft erreichbare Steigen** (`Super = Netto − |Mindestsinken|`; > 0 → Anhalten und Kreisen lohnt sich). Die Polare nutzt das physikalische Zwei-Term-Modell `A·V³ + B/V` und ist standardmäßig eine **ASK 21**; importieren Sie die **`.plr`** (XCSoar/LK8000) Ihres Flugzeugs, um sie anzupassen. OGN liefert keine Fahrt, daher steht die **Grundgeschwindigkeit** für `V` — ein grober Anhaltspunkt (durch Wind und Kurven verfälscht), kein kalibriertes Netto.
 - **Vario-Ton** — ein optionaler Steig-/Sink-Ton für das verfolgte Segelflugzeug.
 - **Verkehrsbewusstsein** — ein kurs-oben-Radar naher Luftfahrzeuge oder eine direktionale Kollisionswarnung.
 

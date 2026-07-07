@@ -4,7 +4,7 @@ import { t, I18N } from './i18n';
 import { API_BASE, REPO_URL, MINZ, MAXZ, PMIN, PMAX, CHASE, clampv, BASEMAPS, IGN_CREDIT } from './config';
 import { APP_VERSION, GIT_HASH } from './version';
 import {
-  subjEl, viewsEl, cammodeEl, traceEl, trailFxEl, smoothBtn, compBtn, bankBtn, soundBtn, polarBtn, polarReset, polarName, plrInput, trafficModeEl, graphModeEl, graphClose, winEl, winval, playBtn, revBtn, segEl,
+  subjEl, viewsEl, cammodeEl, traceEl, trailFxEl, smoothBtn, compBtn, bankBtn, soundBtn, nettoBtn, polarBtn, polarReset, polarName, polarRow, plrInput, trafficModeEl, graphModeEl, graphClose, winEl, winval, playBtn, revBtn, segEl,
   exoEl, exval, groundEl, groundval, cacheEl, cacheval, acscaleEl, acscaleval, coneBtn, finesseEl, finval, safetyEl, safeval, coneRadEl, coneradval, labelsBtn, labelFieldsEl, shadowsEl, basemapEl, ignDemBtn, peaksBtn, peakDensityEl, minimapBtn, overviewHudBtn, activeOnlyBtn, airMassBtn, thermalBtn, liftComps, wxSimBtn, wxSimPanel, windModeEl, heightRefEl, clock12Btn, clearWpBtn, attribEl, curtainBtn, attrBtn, pitchEl, pitchval, scrub, scrubMin, scrubMax, clkEl, tzEl, lglist, rose, altsl, icaoEl, fblink, acEl,
   dateEl, loadBtn, langEl, discEl, infoBtn, copyBtn, shareBtn, collapseBtn, liveBtn, igcBtn, igcInput, mapDiv, prevAc, nextAc, resetSettingsBtn, afInfo,
 } from './dom';
@@ -181,6 +181,13 @@ compBtn.onclick = () => {
   render(); // HUD vario refreshes (cockpit / chase)
 };
 
+// ---- netto vario readout: cycle off → netto → super (default off) ----
+const NETTO_MODES = ['off', 'netto', 'super'] as const;
+nettoBtn.onclick = () => {
+  S.nettoMode = NETTO_MODES[(NETTO_MODES.indexOf(S.nettoMode) + 1) % NETTO_MODES.length];
+  syncUI(); render();
+};
+
 // ---- glider polar for the netto vario: show the active one, import a .plr, reset ----
 polarBtn.onclick = () => plrInput.click();
 plrInput.addEventListener('change', e => {
@@ -314,6 +321,9 @@ export function syncControls(): void {
   syncSpeedUI();
   smoothBtn.classList.toggle('on', S.spline); compBtn.classList.toggle('on', S.compensated);
   bankBtn.classList.toggle('on', S.bank); soundBtn.classList.toggle('on', S.sound);
+  nettoBtn.textContent = S.nettoMode === 'off' ? t('off') : S.nettoMode === 'netto' ? t('netto') : t('superNetto');
+  nettoBtn.classList.toggle('on', S.nettoMode !== 'off');
+  polarRow.style.display = S.nettoMode !== 'off' ? '' : 'none';
   polarName.textContent = S.polar.name;
   coneBtn.classList.toggle('on', S.glideCone); labelsBtn.classList.toggle('on', S.labels);
   curtainBtn.classList.toggle('on', S.altCurtain); attrBtn.classList.toggle('on', S.showAttribution);

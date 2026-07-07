@@ -19,7 +19,7 @@
 - **Ground resolution** — adjustable satellite-imagery detail level (z13 to z18).
 - **Three views** — top-down overview, cockpit (first-person, the horizon banks in turns) and a chase camera following the glider.
 - **Cockpit camera** — lock-to-heading or free look.
-- **Head-up display (HUD)** — heading, altitude, vario and **netto** for the followed glider.
+- **Head-up display (HUD)** — heading, altitude, vario — and, opt-in, **netto / super netto** — for the followed glider.
 - **Final-glide cone** — an optional reachability cone around the airfield (adjustable glide ratio, safety height and radius).
 - **Ground shadows** — cast straight down (position indicator) or along the sun direction.
 - **Altitude curtain** — a translucent drape from each track down to the ground.
@@ -46,7 +46,7 @@
 
 - **Estimated attitude** — each glider banks in turns and pitches with airspeed.
 - **Compensated vario** — total-energy vario by default (toggle off for the raw climb rate).
-- **Netto vario** — next to the vario, the estimated **air-mass vertical speed**: the total-energy climb minus the glider's own sink at the current speed, from its **polar** (`netto = Vz,TE − sink(V)`). The polar uses the physical two-term model `A·V³ + B/V` and defaults to an **ASK 21**; import your own glider's **`.plr`** (XCSoar/LK8000) to match it. OGN carries no airspeed, so **ground speed** stands in for `V` — a rough diagnostic (biased by wind and turns), not a calibrated netto.
+- **Netto & super netto** *(opt-in, off by default)* — cycle the HUD readout with the **Netto (air mass)** control. **Netto** is the estimated **air-mass vertical speed**: the total-energy climb minus the glider's own sink at the current speed, from its **polar** (`netto = Vz,TE − sink(V)`). **Super (relative) netto** goes one step further and removes the glider's **circling (min-)sink**, estimating the **climb you'd get by thermalling in this air** (`super = netto − |min-sink|`; > 0 → worth stopping to circle). The polar uses the physical two-term model `A·V³ + B/V` and defaults to an **ASK 21**; import your own glider's **`.plr`** (XCSoar/LK8000) to match it. OGN carries no airspeed, so **ground speed** stands in for `V` — a rough diagnostic (biased by wind and turns), not a calibrated netto.
 - **Vario audio** — an optional climb/sink tone for the followed glider.
 - **Traffic awareness** — a track-up radar of nearby aircraft, or a directional anti-collision indicator.
 
