@@ -1,7 +1,9 @@
 // ============ glider polar + netto vario ============
-// A glider's still-air sink rate vs airspeed is a parabola through the three (speed,
-// sink) points of its polar. From it we get the NETTO vario — the vertical velocity of
-// the air mass — by removing the glider's own sink from the (total-energy) climb:
+// A glider's still-air sink rate follows the physical two-term polar
+//     w(V) = A·V³ + B/V          (parasitic drag ∝ V³, induced drag ∝ 1/V)
+// obtained from the drag power balance W·w = D·V. We least-squares fit A and B to the
+// three (speed, sink) points of the polar. From it we get the NETTO vario — the vertical
+// velocity of the air mass — by removing the glider's own sink from the (total-energy) climb:
 //     netto = Vz,TE − sink_polar(V)      (sink_polar < 0, so netto = Vz,TE + |sink|)
 // Polars can be imported as XCSoar/LK8000 `.plr` files. A rough diagnostic: OGN gives no
 // airspeed, so we substitute GPS ground speed (biased by wind/turns) — see the docs.
@@ -9,21 +11,25 @@
 // through the very same path a user import takes.
 import ask21Plr from '../data/polars/ASK 21.plr' with { type: 'text' };
 
-export interface Polar { name: string; a: number; b: number; c: number; vMin: number; vMax: number }
+export interface Polar { name: string; A: number; B: number; vMin: number; vMax: number }
 
 const VMIN = 15, VMAX = 60;   // m/s: clamp airspeed to the polar's sensible range (~54–216 km/h)
 
-// Fit y = a·x² + b·x + c through three points.
-function fit3(p: [number, number][]): { a: number; b: number; c: number } {
-  const [[x1, y1], [x2, y2], [x3, y3]] = p;
-  const a = ((y3 - y2) / (x3 - x2) - (y2 - y1) / (x2 - x1)) / (x3 - x1);
-  const b = (y2 - y1) / (x2 - x1) - a * (x1 + x2);
-  return { a, b, c: y1 - a * x1 * x1 - b * x1 };
+// Least-squares fit of  w = A·x + B·y  with x = V³, y = 1/V, over the (V, sink) points.
+function fit(pts: [number, number][]): { A: number; B: number } {
+  let sxx = 0, sxy = 0, syy = 0, sxw = 0, syw = 0;
+  for (const [v, w] of pts) {
+    const x = v * v * v, y = 1 / v;
+    sxx += x * x; sxy += x * y; syy += y * y; sxw += x * w; syw += y * w;
+  }
+  const det = sxx * syy - sxy * sxy;
+  if (!det) return { A: 0, B: 0 };
+  return { A: (sxw * syy - syw * sxy) / det, B: (sxx * syw - sxy * sxw) / det };
 }
 // Build a polar from three (speed km/h, sink m/s ≤ 0) points.
 function make(name: string, pts: [number, number][]): Polar {
   const ms = pts.map(([v, s]) => [v / 3.6, s > 0 ? -s : s] as [number, number]);
-  return { name, ...fit3(ms), vMin: VMIN, vMax: VMAX };
+  return { name, ...fit(ms), vMin: VMIN, vMax: VMAX };
 }
 
 /** The reference glider (ASK 21), from the bundled data/polars/ASK 21.plr. */
@@ -33,7 +39,7 @@ export const DEFAULT_POLAR: Polar =
 /** Still-air sink (m/s, negative) at true airspeed V (m/s), clamped to the polar's range. */
 export function sinkAt(pl: Polar, vMs: number): number {
   const v = Math.max(pl.vMin, Math.min(pl.vMax, vMs));
-  return pl.a * v * v + pl.b * v + pl.c;
+  return pl.A * v * v * v + pl.B / v;
 }
 /** Netto (air vertical velocity, m/s): the total-energy climb minus the glider's own sink. */
 export function nettoAt(pl: Polar, teVario: number, vMs: number): number {
