@@ -178,7 +178,7 @@ const streakParams = { depthCompare: 'less-equal', depthWriteEnabled: false, ble
 export function windLayers(k: number): any[] {
   const cLat = S.mapVS.latitude, cLon = S.mapVS.longitude, zoom = S.mapVS.zoom || 11;
   const R = Math.max(4000, Math.min(20000, 156543.03392 * Math.cos(cLat * Math.PI / 180) / 2 ** zoom * 700));
-  const hour = Math.floor((S.G0 + S.cur) / 3600);
+  const hour = S.wxSim.on ? Math.floor(S.wxSim.hour) : Math.floor((S.G0 + S.cur) / 3600);
   const bg = windBg(cLat, cLon); if (!bg) return [];
   updateDial(bg);
   if (S.windMode !== mode) { mode = S.windMode; parts = []; grid = null; field = null; }

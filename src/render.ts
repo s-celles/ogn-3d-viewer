@@ -301,7 +301,11 @@ function poiPoleLayers(k: number): any[] {
 }
 
 function dynamicLayers() {
-  if (!S.ready) return [];
+  // Bail only when nothing is loaded. With an airfield but no flights (S.ready
+  // false), the track work below all iterates an empty set, while the environment
+  // overlays (weather sandbox wave/wind/thermals, glide cone, night bands…) still
+  // render around the field — so the "what-if" sandbox works even on a flightless day.
+  if (!S.ready && !S.AF) return [];
   const k = S.exo, vis = S.TRACKS.filter(shown), off = S.trace === 'off';
   const histStart = (tr: typeof vis[number]) => S.trace === 'window' ? Math.max(tr.rstart, S.cur - S.windowMin * 60) : tr.rstart;
   // Past/future trails split into solid (real data) and dashed (reception-loss
