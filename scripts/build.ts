@@ -44,7 +44,7 @@ for (const [name] of SHOTS) await cp(`${root}assets/screencaptures/pwa-${name}.p
 const manifest = {
   id: './',                 // stable app identity (avoids Chrome's "no id" warning)
   name: 'OGN 3D Viewer',
-  short_name: 'OGN 3D',
+  short_name: 'OGN 3D Viewer',
   description: pkg.description,
   lang: 'en',
   dir: 'ltr',
@@ -148,7 +148,7 @@ html = html.replace('</head>',
   `<meta name="mobile-web-app-capable" content="yes">` +
   `<meta name="apple-mobile-web-app-capable" content="yes">` +
   `<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">` +
-  `<meta name="apple-mobile-web-app-title" content="OGN 3D"></head>`);
+  `<meta name="apple-mobile-web-app-title" content="OGN 3D Viewer"></head>`);
 await writeFile(htmlPath, html);
 
 console.log(`built ogn-3d-viewer ${version} (${hash}) + PWA (manifest, icons, sw.js)`);
