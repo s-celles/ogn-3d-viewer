@@ -10,13 +10,16 @@
 // vertical velocity, like the classic mountain-wave diagram. Not draped on the ground.
 // The "Onde" component of the lift potential. Rough (see the docs).
 import { S } from './state';
-import { SimpleMeshLayer, COORDINATE_SYSTEM } from './deck';
+import { SimpleMeshLayer, COORDINATE_SYSTEM, MapView } from './deck';
+import { mapDiv } from './dom';
 import { terrainElevAt } from './terrain';
 import { windBg } from './ridge';
 import { getWeather, weatherStability, wxEpoch } from './weather';
 import { LIFT_COLORS, SINK_COLORS } from './liftviz';
 
-const NG = 60;           // grid nodes per side
+let NG = 80;             // grid nodes per side (set per call from the domain size, ~640 m spacing)
+const RMIN = 7000, RMAX = 32000;   // m: wave-domain half-width bounds
+const NODE_M = 640;      // m: target node spacing (drives NG from the domain size)
 const GB = 140;          // terrain-gradient baseline (m)
 const WIND_MIN = 7;      // m/s: weakest cross-ridge wind that makes wave (~25 km/h)
 const N_MIN = 0.006;     // 1/s: weakest stability that makes wave
@@ -55,6 +58,40 @@ const mkLayers = (meshes: { color: number[]; mesh: any }[], alpha: number): any[
 
 let cache: { cLon: number; cLat: number; R: number; hour: number; wk: string; meshes: { color: number[]; mesh: any }[] } | null = null;
 
+// Size + centre the wave domain to the VISIBLE terrain: in the overview we unproject a
+// screen sample grid to the ground and take its (RMAX-capped) bounding box, so the wave
+// fills the window rather than a small fixed box centred on the map centre. Falls back to
+// a zoom-scaled square when unprojection isn't available (cockpit/chase, no canvas, tilt
+// looking past the horizon). Returns a square (max span) — flat cells self-skip, so the
+// overhang onto ridgeless ground/sea costs nothing visible.
+function waveDomain(cLat: number, cLon: number, zoom: number): { cLon: number; cLat: number; R: number } {
+  const mppx = 156543.03392 * Math.cos(cLat * Math.PI / 180) / 2 ** zoom;
+  const fallback = { cLon, cLat, R: Math.max(RMIN, Math.min(RMAX, mppx * 1100)) };
+  if (S.mode !== 'over') return fallback;
+  const width = mapDiv.clientWidth, height = mapDiv.clientHeight;
+  if (!width || !height) return fallback;
+  let vp: any;
+  try { vp = new MapView({ id: 'main' }).makeViewport({ width, height, viewState: S.mapVS as any }); }
+  catch { return fallback; }
+  const cos = Math.cos(cLat * Math.PI / 180);
+  let minLon = Infinity, maxLon = -Infinity, minLat = Infinity, maxLat = -Infinity, hits = 0;
+  const NS = 6;
+  for (let a = 0; a <= NS; a++) for (let b = 0; b <= NS; b++) {
+    const px = width * a / NS, py = height * (0.12 + 0.88 * b / NS);   // skip the top 12% (sky / near-horizon rays)
+    let g: number[] | null = null;
+    try { g = vp.unproject([px, py]); } catch { g = null; }
+    if (!g || !Number.isFinite(g[0]) || !Number.isFinite(g[1])) continue;
+    const dx = (g[0] - cLon) * 111320 * cos, dy = (g[1] - cLat) * 111320;
+    if (Math.hypot(dx, dy) > RMAX) continue;                          // drop the far, near-horizon samples
+    if (g[0] < minLon) minLon = g[0]; if (g[0] > maxLon) maxLon = g[0];
+    if (g[1] < minLat) minLat = g[1]; if (g[1] > maxLat) maxLat = g[1];
+    hits++;
+  }
+  if (hits < 4) return fallback;
+  const Rx = (maxLon - minLon) / 2 * 111320 * cos, Ry = (maxLat - minLat) / 2 * 111320;
+  return { cLon: (minLon + maxLon) / 2, cLat: (minLat + maxLat) / 2, R: Math.max(RMIN, Math.min(RMAX, Math.max(Rx, Ry))) };
+}
+
 export function waveLayers(k: number, alpha = 1): any[] {
   if (alpha <= 0) return [];
   const cLat = S.mapVS.latitude, cLon = S.mapVS.longitude, zoom = S.mapVS.zoom || 11;
@@ -67,16 +104,17 @@ export function waveLayers(k: number, alpha = 1): any[] {
   if (!(N > N_MIN)) return [];                                              // neutral / unstable → no wave
   const l = N / spd, lambda = 2 * Math.PI / l;                             // Scorer wavenumber + wavelength
   if (lambda < LAMBDA_MIN || lambda > LAMBDA_MAX) return [];
-  const mppx = 156543.03392 * Math.cos(cLat * Math.PI / 180) / 2 ** zoom;
-  const R = Math.max(4000, Math.min(20000, mppx * 700));
+  const dom = waveDomain(cLat, cLon, zoom);
+  const gLon = dom.cLon, gLat = dom.cLat, R = dom.R;
+  NG = Math.max(60, Math.min(100, Math.round(2 * R / NODE_M) + 1));   // resolution from the domain size, bounded for cost
   const wk = `${Math.round(wind[0])}|${Math.round(wind[1])}|${wxEpoch()}`;
-  if (cache && cache.hour === hour && cache.wk === wk && Math.abs(Math.log(cache.R / R)) < 0.25) {
-    const cosLat = Math.cos(cLat * Math.PI / 180);
-    const moved = Math.hypot((cache.cLon - cLon) * 111320 * cosLat, (cache.cLat - cLat) * 111320);
-    if (moved < R * 0.33) return mkLayers(cache.meshes, alpha);
+  if (cache && cache.hour === hour && cache.wk === wk && Math.abs(Math.log(cache.R / R)) < 0.2) {
+    const cosLat = Math.cos(gLat * Math.PI / 180);
+    const moved = Math.hypot((cache.cLon - gLon) * 111320 * cosLat, (cache.cLat - gLat) * 111320);
+    if (moved < R * 0.25) return mkLayers(cache.meshes, alpha);
   }
-  const mLng = 111320 * Math.cos(cLat * Math.PI / 180), mLat = 111320, sp = (2 * R) / (NG - 1);
-  const nlon = (i: number) => cLon + (-R + i * sp) / mLng, nlat = (j: number) => cLat + (-R + j * sp) / mLat;
+  const mLng = 111320 * Math.cos(gLat * Math.PI / 180), mLat = 111320, sp = (2 * R) / (NG - 1);
+  const nlon = (i: number) => gLon + (-R + i * sp) / mLng, nlat = (j: number) => gLat + (-R + j * sp) / mLat;
   // Pass 1: terrain forcing along the wind, w₀ = wind·∇terrain (m/s), per node; and the
   // highest ridge, so the elevated curtains sit above the terrain.
   const F = new Float32Array(NG * NG), ok = new Uint8Array(NG * NG);
@@ -131,6 +169,6 @@ export function waveLayers(k: number, alpha = 1): any[] {
       indices: { value: new Uint32Array(b.idx), size: 1 }, mode: 4,
     },
   } : null).filter(Boolean) as { color: number[]; mesh: any }[];
-  cache = { cLon, cLat, R, hour, wk, meshes };
+  cache = { cLon: gLon, cLat: gLat, R, hour, wk, meshes };
   return mkLayers(meshes, alpha);
 }
