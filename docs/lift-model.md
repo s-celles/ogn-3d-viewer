@@ -113,6 +113,13 @@ to the boundary-layer top, then a constant offline. Consequences: thermals are *
 over low ground**, **fade on a stable day**, **stop above the boundary layer**, and
 **strengthen through the afternoon** as the ceiling lifts.
 
+**3b. Convex-break trigger.** Thermals detach at **ridges and convex slope breaks**, not
+on the merely sun-warmed surface. Each cell's `Vz` is scaled by a **topographic-position
+bias** `1 + TRIG_GAIN · clamp(TPI / TPI_REF, −1, 1)`, where `TPI` is the cell's height
+above its 4-neighbour mean (convex > 0, concave < 0), `TRIG_GAIN = 0.4`, `TPI_REF = 18 m`.
+So convex triggers are favoured (up to ×1.4) and valley floors damped (down to ×0.6). The
+downwind **drift** of the released bubble is not modelled.
+
 **4. Colouring** (view-independent, fixed thresholds):
 
 - A **flat reference** `wRef` = Vz of flat reference ground under the same sun/weather.

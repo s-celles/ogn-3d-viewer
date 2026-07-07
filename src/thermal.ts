@@ -21,6 +21,8 @@ const GRAD = 80;         // slope-gradient baseline (m) — short, for the true 
 const OFF = 26;          // drape offset (m) — float above the fine terrain, no sinking/holes
 const ALBEDO = 0.2;      // uniform surface albedo (land-cover refinement: later)
 const BETA = 0.35;       // sensible-heat fraction of the absorbed flux (Bowen + ground)
+const TRIG_GAIN = 0.4;   // convex-break trigger: ± bias on the heated field from topographic position
+const TPI_REF = 18;      // m: TPI (height above the local mean) that saturates the trigger bias
 const G = 9.81, THETA = 290, RHOCP = 1200;   // gravity, ref pot. temp (K), ρ·cp (J/m³K)
 // Vz bins (m/s) → one mesh each: blue (weak) → red (strong).
 // Highlight only the better-exposed cells (relative to the view), on the shared warm
@@ -147,13 +149,13 @@ export function thermalLayers(k: number, alpha = 1): any[] {
     for (let idx = 0; idx < GN * GN; idx++) {
       const n = g.nodes[idx];
       if (Number.isNaN(n.h)) { vzN[idx] = NaN; continue; }
+      const i0 = idx % GN, j0 = (idx / GN) | 0;
       const zi = ziAt(n.h);
       if (zi < 100) { vzN[idx] = NaN; continue; }   // above the boundary layer → no thermal here
       const nl = Math.hypot(n.gx, n.gy, 1);
       const cosInc = Math.max(0, (su[0] * -n.gx + su[1] * -n.gy + su[2]) / nl);
       let shade = 1;                               // 1 = full sun, 0 = shadowed by upwind relief
       if (shadows && cosInc > 0) {
-        const i0 = idx % GN, j0 = (idx / GN) | 0;
         let horizon = 0;                           // steepest terrain angle toward the sun so far
         for (const d of sDists) {
           const si = Math.round(i0 + dIx * d), sj = Math.round(j0 + dJy * d);
@@ -164,8 +166,18 @@ export function thermalLayers(k: number, alpha = 1): any[] {
         }
         shade = Math.max(0, Math.min(1, (tanSun - horizon) / 0.06));   // soft edge over ~3.5°
       }
+      // Convex-break trigger bias: thermals detach at ridges / convex slope breaks, not on
+      // the merely sun-warmed surface. Weight by TPI (height above the 4-neighbour mean):
+      // convex ground (TPI>0) is favoured, concave (valley floors, TPI<0) damped. Cheap —
+      // reuses the grid elevations. (The downwind drift of the released bubble is not modelled.)
+      let sN = 0, cN = 0;
+      if (i0 > 0)      { const z = g.nodes[idx - 1].h;  if (!Number.isNaN(z)) { sN += z; cN++; } }
+      if (i0 < GN - 1) { const z = g.nodes[idx + 1].h;  if (!Number.isNaN(z)) { sN += z; cN++; } }
+      if (j0 > 0)      { const z = g.nodes[idx - GN].h; if (!Number.isNaN(z)) { sN += z; cN++; } }
+      if (j0 < GN - 1) { const z = g.nodes[idx + GN].h; if (!Number.isNaN(z)) { sN += z; cN++; } }
+      const trig = 1 + TRIG_GAIN * Math.max(-1, Math.min(1, (cN ? n.h - sN / cN : 0) / TPI_REF));
       const H = (dni * cosInc * shade + diff) * (1 - (alb ? alb[idx] : ALBEDO)) * (sens ? sens[idx] : BETA);
-      vzN[idx] = wStar(H, zi);                                          // absolute updraught Vz (m/s)
+      vzN[idx] = wStar(H, zi) * trig;                                  // absolute updraught Vz (m/s), biased to convex triggers
     }
     // Per-cell Vz into a 2D grid, then a light 3×3 blur — kills the bin checkerboard.
     const NW = GN - 1, W = new Float32Array(NW * NW).fill(NaN);
