@@ -1,6 +1,6 @@
 // ============ "Discover spots": a curated tabular data package + your own spots ============
-// The built-in dataset is a Frictionless Tabular Data Package (data/spots.csv +
-// data/datapackage.json), bundled as text so it works offline. Users can add
+// The built-in dataset is a Frictionless Tabular Data Package (data/spots/spots.csv +
+// data/spots/datapackage.json), bundled as text so it works offline. Users can add
 // their own spots (persisted in localStorage) and import/export them as CSV with
 // the same schema. A full-screen overlay lets you pick a site by continent, with
 // a world locator map (two-way hover highlighting); picking one drives the normal
@@ -16,7 +16,7 @@ import { codeCountry, codeFlag, flag as isoFlag } from './flags';
 import { fetchHotZones, hotCache, hotFresh, type HotZone } from './hotspots';
 import { scanWaveSites, ensureRelief, isWaveSite, siteRelief, siteTerrain, type WaveScore } from './wavescan';
 import { nearbyAerodromes } from './poi';
-import spotsCsv from '../data/spots.csv' with { type: 'text' };
+import spotsCsv from '../data/spots/spots.csv' with { type: 'text' };
 import type { Lang } from './types';
 
 interface Spot { code: string; name: string; country: string; continent: string; lat: number; lon: number; checked: string; blurb: string; user?: boolean; }

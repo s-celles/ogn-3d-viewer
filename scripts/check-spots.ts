@@ -1,5 +1,5 @@
 // Verify each spot's `code` against the OGN FlightBook and stamp the check date
-// into the `flightbook_checked` column of data/spots.csv (empty = not found).
+// into the `flightbook_checked` column of data/spots/spots.csv (empty = not found).
 // Run:  just check-spots   (or: bun run scripts/check-spots.ts)
 //
 // `blurb` is the last column and may contain commas, so it's kept verbatim; every
@@ -8,7 +8,7 @@ import { readFile, writeFile } from 'node:fs/promises';
 
 const API = 'https://flightbook.glidernet.org';
 const root = new URL('..', import.meta.url).pathname;
-const path = `${root}data/spots.csv`;
+const path = `${root}data/spots/spots.csv`;
 const today = new Date().toISOString().slice(0, 10);
 
 const csv = await readFile(path, 'utf8');
