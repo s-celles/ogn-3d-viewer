@@ -127,6 +127,14 @@
       <label class="lbl" style="margin:0" data-i18n="varioComp">Vario compensé (énergie totale)</label>
       <button id="compBtn" class="on">Activé</button>
     </div>
+    <div class="row spread">
+      <label class="lbl" style="margin:0"><span data-i18n="polarLabel">Polaire (netto)</span> : <b id="polarName">ASK 21</b></label>
+      <span style="display:flex;gap:4px">
+        <button id="polarBtn" data-i18n="polarImport" data-i18n-title="polarHint">Importer .plr…</button>
+        <button id="polarReset" data-i18n-title="polarResetHint" title="">↺</button>
+      </span>
+    </div>
+    <input id="plrInput" type="file" accept=".plr,.PLR" hidden>
     <div class="row windowOnly" style="flex-direction:column;align-items:stretch">
       <label class="lbl"><span data-i18n="windowLabel">Fenêtre (min) :</span> <b id="winval">10</b></label>
       <input id="win" type="range" min="0" max="30" value="10" step="1">

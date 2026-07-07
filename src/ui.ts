@@ -4,7 +4,7 @@ import { t, I18N } from './i18n';
 import { API_BASE, REPO_URL, MINZ, MAXZ, PMIN, PMAX, CHASE, clampv, BASEMAPS, IGN_CREDIT } from './config';
 import { APP_VERSION, GIT_HASH } from './version';
 import {
-  subjEl, viewsEl, cammodeEl, traceEl, trailFxEl, smoothBtn, compBtn, bankBtn, soundBtn, trafficModeEl, graphModeEl, graphClose, winEl, winval, playBtn, revBtn, segEl,
+  subjEl, viewsEl, cammodeEl, traceEl, trailFxEl, smoothBtn, compBtn, bankBtn, soundBtn, polarBtn, polarReset, polarName, plrInput, trafficModeEl, graphModeEl, graphClose, winEl, winval, playBtn, revBtn, segEl,
   exoEl, exval, groundEl, groundval, cacheEl, cacheval, acscaleEl, acscaleval, coneBtn, finesseEl, finval, safetyEl, safeval, coneRadEl, coneradval, labelsBtn, labelFieldsEl, shadowsEl, basemapEl, ignDemBtn, peaksBtn, peakDensityEl, minimapBtn, overviewHudBtn, activeOnlyBtn, airMassBtn, thermalBtn, liftComps, wxSimBtn, wxSimPanel, windModeEl, heightRefEl, clock12Btn, clearWpBtn, attribEl, curtainBtn, attrBtn, pitchEl, pitchval, scrub, scrubMin, scrubMax, clkEl, tzEl, lglist, rose, altsl, icaoEl, fblink, acEl,
   dateEl, loadBtn, langEl, discEl, infoBtn, copyBtn, shareBtn, collapseBtn, liveBtn, igcBtn, igcInput, mapDiv, prevAc, nextAc, resetSettingsBtn, afInfo,
 } from './dom';
@@ -21,7 +21,7 @@ import { render, updateHUD } from './render';
 import { loadFlights, refreshLive, statusMsg, setStatus, rebuild, syncUrl, loadTrackFiles } from './data';
 import { importCup, clearWaypoints, getWaypoints } from './poi';
 import { TRACK_EXT } from './track-import';
-import { parsePlr } from './polar';
+import { parsePlr, DEFAULT_POLAR } from './polar';
 import { varioAudio } from './vario-audio';
 import { refreshGraphTabs } from './graphs';
 import { syncGuide, openGuide } from './guide';
@@ -181,6 +181,18 @@ compBtn.onclick = () => {
   render(); // HUD vario refreshes (cockpit / chase)
 };
 
+// ---- glider polar for the netto vario: show the active one, import a .plr, reset ----
+polarBtn.onclick = () => plrInput.click();
+plrInput.addEventListener('change', e => {
+  const files = (e.target as HTMLInputElement).files;
+  if (files && files.length) importFiles(files, false);   // the .plr branch adopts it + syncs
+  plrInput.value = '';   // allow re-selecting the same file
+});
+polarReset.onclick = () => {
+  S.polar = { ...DEFAULT_POLAR };
+  render(); syncUI(); setStatus(`${t('polarLoaded')}: ${DEFAULT_POLAR.name}`);
+};
+
 // ---- horizon banking in cockpit follow mode, default on ----
 bankBtn.onclick = () => {
   S.bank = !S.bank;
@@ -302,6 +314,7 @@ export function syncControls(): void {
   syncSpeedUI();
   smoothBtn.classList.toggle('on', S.spline); compBtn.classList.toggle('on', S.compensated);
   bankBtn.classList.toggle('on', S.bank); soundBtn.classList.toggle('on', S.sound);
+  polarName.textContent = S.polar.name;
   coneBtn.classList.toggle('on', S.glideCone); labelsBtn.classList.toggle('on', S.labels);
   curtainBtn.classList.toggle('on', S.altCurtain); attrBtn.classList.toggle('on', S.showAttribution);
   document.body.classList.toggle('noattr', !S.showAttribution);
