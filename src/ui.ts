@@ -21,6 +21,7 @@ import { render, updateHUD } from './render';
 import { loadFlights, refreshLive, statusMsg, setStatus, rebuild, syncUrl, loadTrackFiles } from './data';
 import { importCup, clearWaypoints, getWaypoints } from './poi';
 import { TRACK_EXT } from './track-import';
+import { parsePlr } from './polar';
 import { varioAudio } from './vario-audio';
 import { refreshGraphTabs } from './graphs';
 import { syncGuide, openGuide } from './guide';
@@ -665,7 +666,17 @@ liveBtn.onclick = setLive;
 // Import: IGC/GPX/KML tracks go to the replay; a .cup file adds its waypoints
 // (SeeYou) as POIs. A file set may contain both.
 async function importFiles(files: FileList | File[], replace: boolean): Promise<void> {
-  const arr = [...files], cups = arr.filter(f => /\.cup$/i.test(f.name));
+  const arr = [...files];
+  const plrs = arr.filter(f => /\.plr$/i.test(f.name));
+  if (plrs.length) {   // adopt the last valid .plr as the active glider polar (for the netto vario)
+    const f = plrs[plrs.length - 1];
+    try {
+      const pl = parsePlr(await f.text(), f.name.replace(/\.plr$/i, ''));
+      if (pl) { S.polar = pl; render(); syncUI(); setStatus(`${t('polarLoaded')}: ${pl.name}`); }
+      else setStatus(t('polarBad'));
+    } catch { setStatus(t('polarBad')); }
+  }
+  const cups = arr.filter(f => /\.cup$/i.test(f.name));
   if (cups.length) {
     let added = 0;
     clearWaypoints();   // a .cup import replaces the previous waypoint set (no duplicates on re-import)

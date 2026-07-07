@@ -228,6 +228,8 @@ export interface AppState {
   // `date`/`hour` drive the sun (season + time of day) in sandbox mode, independent of
   // any loaded flights.
   wxSim: { on: boolean; wind: number; dir: number; shear: number; nStab: number; tsurf: number; rh: number; date: string; hour: number };
+  // Active glider polar (for the netto vario); imported from an XCSoar/LK8000 .plr.
+  polar: import('./polar').Polar;
   // Wind-flow representation: 'off'; 2D draped variants — 'drapeVec' (arrows),
   // 'drapeCol' (speed colours), 'drapeBoth', 'barbs' (station wind barbs); or 3D
   // profile views — 'layers' (arrows at altitude bands), 'rings', 'hodograph'.

@@ -1,7 +1,7 @@
 // ============ viewer: deck.gl instance, dynamic layers, HUD ============
 import { S } from './state';
 import { t } from './i18n';
-import { mapDiv, sunEl, moonEl, labelsDiv, hudreg, hudhdg, hudspd, hudalt, hudvar, lglist, focusBadge } from './dom';
+import { mapDiv, sunEl, moonEl, labelsDiv, hudreg, hudhdg, hudspd, hudalt, hudvar, hudnetto, lglist, focusBadge } from './dom';
 import {
   Deck, MapView, FirstPersonView, PathLayer, PolygonLayer, TripsLayer, ScatterplotLayer, SimpleMeshLayer, IconLayer,
   LightingEffect, AmbientLight, DirectionalLight, PathStyleExtension, PostProcessEffect, COORDINATE_SYSTEM,
@@ -12,6 +12,7 @@ import { drawTraffic } from './traffic';
 import { varioAudio } from './vario-audio';
 import { updateSky, getSun, getMoon, nightPolygon, sceneMs } from './sky';
 import { subjectTrack, shown, scaled, posAt, presence, airborne, isActive, headingAt, varioAt, compVarioAt, groundSpeedAt, clampCur, attitudeAt, nearestToCenter } from './flight-math';
+import { nettoAt } from './polar';
 import { GLIDER_MESH, PLANE_MESH, PROP_MESH, GLIDER_FLAT, PLANE_FLAT, isPowered } from './aircraft-mesh';
 import { getPeaks, getWaypoints, loadPeaks, type Poi } from './poi';
 import { updateMinimap } from './minimap';
@@ -933,7 +934,7 @@ export function updateHUD(): void {
   const pr = presence(tr);
   hudreg.textContent = tr.reg + ' · ' + tr.label + (pr && pr.offline ? ' · ' + t('offline') : '');
   if (!pr) {
-    hudhdg.textContent = '—'; hudspd.textContent = '—'; hudalt.textContent = '—';
+    hudhdg.textContent = '—'; hudspd.textContent = '—'; hudalt.textContent = '—'; hudnetto.textContent = '—'; hudnetto.className = 'vario';
     hudvar.textContent = S.cur < tr.rstart ? t('beforeTk') : t('landed'); hudvar.className = 'vario'; return;
   }
   const time = pr.time;
@@ -941,4 +942,7 @@ export function updateHUD(): void {
   hudhdg.textContent = Math.round(h).toString().padStart(3, '0') + '°'; hudalt.textContent = fmtAlt(p);
   hudspd.textContent = Math.round(groundSpeedAt(tr, time) * 3.6) + ' km/h';
   hudvar.textContent = (v >= 0 ? '+' : '') + v.toFixed(1) + ' m/s' + (S.compensated ? ' TE' : ''); hudvar.className = 'vario ' + (v >= 0.1 ? 'pos' : (v <= -0.1 ? 'neg' : ''));
+  // Netto = total-energy vario − the glider's own sink at this (ground-)speed.
+  const nz = nettoAt(S.polar, compVarioAt(tr, time), groundSpeedAt(tr, time));
+  hudnetto.textContent = (nz >= 0 ? '+' : '') + nz.toFixed(1) + ' m/s'; hudnetto.className = 'vario ' + (nz >= 0.1 ? 'pos' : (nz <= -0.1 ? 'neg' : ''));
 }

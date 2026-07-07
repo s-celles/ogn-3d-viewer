@@ -5,6 +5,7 @@
 import type { AppState, Lang } from './types';
 import { MODEL_SCALE, GROUND_ZOOM_DEFAULT, TERRAIN_N, FAR_PLANE, DECK_CACHE, OVERVIEW_MINZOOM, DEFAULT_BASEMAP } from './config';
 import { pickSettings, applyStored } from './settings';
+import { DEFAULT_POLAR } from './polar';
 
 const INIT = { longitude: 2.4, latitude: 46.6, zoom: 6, pitch: 0, bearing: 0, minZoom: OVERVIEW_MINZOOM, maxPitch: 85 };
 
@@ -25,7 +26,7 @@ export const S: AppState = {
   labels: false, labelFields: { reg: true, alt: true, speed: false, vario: false, hdg: false },
   shadowMode: 'off', altCurtain: false, showAttribution: true, basemap: DEFAULT_BASEMAP, ignDem: false,   // experimental, opt-in
   showPeaks: false, peakDensity: 0.35, minimap: true, overviewHud: false, activeOnly: false, airMass: false, thermalPot: false, liftOn: [true, true, true, false], liftMix: [0.34, 0.33, 0.33, 0], liftCalibrate: false,
-  wxSim: { on: false, wind: 20, dir: 270, shear: 3, nStab: 0.011, tsurf: 15, rh: 55, date: '2024-06-21', hour: 13 }, windMode: 'off', heightRef: 'af', clockUTC: false, clock12: false,
+  wxSim: { on: false, wind: 20, dir: 270, shear: 3, nStab: 0.011, tsurf: 15, rh: 55, date: '2024-06-21', hour: 13 }, polar: { ...DEFAULT_POLAR }, windMode: 'off', heightRef: 'af', clockUTC: false, clock12: false,
   live: false, liveTimer: null,
   INIT: { ...INIT },
   mapVS: { ...INIT },

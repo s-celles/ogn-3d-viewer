@@ -97,6 +97,7 @@ export const hudhdg     = $('hudhdg');
 export const hudspd     = $('hudspd');
 export const hudalt     = $('hudalt');
 export const hudvar     = $('hudvar');
+export const hudnetto   = $('hudnetto');
 export const langEl     = $<HTMLSelectElement>('lang');
 export const discEl     = $<HTMLElement>('disclaimer');
 export const infoBtn    = $<HTMLButtonElement>('infoBtn');

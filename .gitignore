@@ -16,6 +16,7 @@
 !*.yaml
 !*.png
 !*.ico
+!*.plr
 !LICENSE
 !.gitignore
 !/bun.lock
