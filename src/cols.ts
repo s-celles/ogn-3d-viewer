@@ -16,6 +16,8 @@ const COL_OFF = 45;      // m: lift the marker off the col
 const COL_WMIN = 3;      // m/s: min wind blowing THROUGH the col to count as workable
 const CURV_MIN = 4e-5;   // 1/m: min terrain curvature on both axes (rejects flats / noise)
 const RM = 420;          // m: ridge-tick half-length
+const ARM = 640;         // m: half-length of the through-flow glyph (each side of the col)
+const DROP = 300;        // m: how far the windward/lee ends sit below the col crest
 const MAXC = 26;         // cap on markers
 
 interface Col { lon: number; lat: number; h: number; ex: number; ey: number; through: number }   // ex,ey = through-axis unit; through = signed wind-through (m/s)
@@ -24,18 +26,22 @@ let cache: { cLon: number; cLat: number; R: number; hour: number; wk: string; co
 function build(cols: Col[], k: number): any[] {
   if (!cols.length) return [];
   const segs: { path: number[][]; c: [number, number, number] }[] = [];
+  const LIFT: [number, number, number] = [80, 210, 120], MILD: [number, number, number] = [228, 190, 92], SINK: [number, number, number] = [90, 150, 235];
   for (const c of cols) {
-    const z = (c.h + COL_OFF) * k, mLng = 111320 * Math.cos(c.lat * Math.PI / 180), mLat = 111320;
-    const P = (ox: number, oy: number): number[] => [c.lon + ox / mLng, c.lat + oy / mLat, z];
-    const col: [number, number, number] = Math.abs(c.through) >= 6 ? [80, 210, 120] : [228, 190, 92];   // strong / mild through-wind
+    const zc = (c.h + COL_OFF) * k, zlow = (c.h + COL_OFF - DROP) * k, mLng = 111320 * Math.cos(c.lat * Math.PI / 180), mLat = 111320;
+    const P = (ox: number, oy: number, z: number): number[] => [c.lon + ox / mLng, c.lat + oy / mLat, z];
     const rx = -c.ey, ry = c.ex;                                 // ridge unit (⟂ to the through-axis)
-    segs.push({ path: [P(rx * RM, ry * RM), P(-rx * RM, -ry * RM)], c: [210, 215, 225] });   // the ridge line (grey)
-    const s = Math.sign(c.through) || 1, ax = c.ex * s, ay = c.ey * s;   // downwind through direction
-    const AL = Math.max(320, Math.min(1150, 320 + Math.abs(c.through) * 95)), tx = ax * AL, ty = ay * AL;
-    segs.push({ path: [P(0, 0), P(tx, ty)], c: col });           // through-wind arrow
-    const bx = -ax, by = -ay, hx = -ay, hy = ax;                 // back + perpendicular, for the arrowhead
-    segs.push({ path: [P(tx, ty), P(tx + bx * 190 + hx * 115, ty + by * 190 + hy * 115)], c: col });
-    segs.push({ path: [P(tx, ty), P(tx + bx * 190 - hx * 115, ty + by * 190 - hy * 115)], c: col });
+    segs.push({ path: [P(rx * RM, ry * RM, zc), P(-rx * RM, -ry * RM, zc)], c: [210, 215, 225] });   // the ridge line (grey)
+    const s = Math.sign(c.through) || 1, ax = c.ex * s, ay = c.ey * s;   // downwind (through) direction
+    const lift = Math.abs(c.through) >= 6 ? LIFT : MILD;
+    // Flow OVER the col: rises up the windward slope (lift, green) to the crest, then sinks
+    // down the lee (blue). The exploitable side is the windward one — the tail, not the head.
+    const col0 = P(0, 0, zc), windPt = P(-ax * ARM, -ay * ARM, zlow), leePt = P(ax * ARM, ay * ARM, zlow);
+    segs.push({ path: [windPt, col0], c: lift });                // windward climb (exploitable)
+    segs.push({ path: [col0, leePt], c: SINK });                 // lee descent (sink / rotor)
+    const hx = -ay, hy = ax;                                     // ridge-perpendicular, for the arrowhead on the lee end
+    segs.push({ path: [leePt, P(ax * ARM - ax * 200 + hx * 120, ay * ARM - ay * 200 + hy * 120, zlow)], c: SINK });
+    segs.push({ path: [leePt, P(ax * ARM - ax * 200 - hx * 120, ay * ARM - ay * 200 - hy * 120, zlow)], c: SINK });
   }
   return [new PathLayer({
     id: 'cols', data: segs, getPath: (d: any) => d.path, getColor: (d: any) => [d.c[0], d.c[1], d.c[2], 235],
