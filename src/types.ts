@@ -202,6 +202,8 @@ export interface AppState {
   // Named summits (OSM) + imported waypoints, shown as poles + labels.
   showPeaks: boolean;
   peakDensity: number;   // 0..1 — how many summit labels to show
+  // Mark the wind-workable mountain passes (saddles the wind blows through) around the view.
+  cols: boolean;
   // Inset 2D minimap (flat tiles + track + heading) shown in the immersive views.
   minimap: boolean;
   // Show the HUD (focused glider telemetry) in the overview too (opt-in).

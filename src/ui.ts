@@ -5,7 +5,7 @@ import { API_BASE, REPO_URL, MINZ, MAXZ, PMIN, PMAX, CHASE, clampv, BASEMAPS, IG
 import { APP_VERSION, GIT_HASH } from './version';
 import {
   subjEl, viewsEl, cammodeEl, traceEl, trailFxEl, smoothBtn, compBtn, bankBtn, soundBtn, nettoBtn, polarBtn, polarReset, polarName, polarRow, plrInput, trafficModeEl, graphModeEl, graphClose, winEl, winval, playBtn, revBtn, segEl,
-  exoEl, exval, groundEl, groundval, cacheEl, cacheval, acscaleEl, acscaleval, coneBtn, finesseEl, finval, safetyEl, safeval, coneRadEl, coneradval, labelsBtn, labelFieldsEl, shadowsEl, basemapEl, ignDemBtn, peaksBtn, peakDensityEl, minimapBtn, overviewHudBtn, activeOnlyBtn, anonBtn, airMassBtn, thermalBtn, liftComps, heatStoreEl, wxSimBtn, wxSimPanel, windModeEl, heightRefEl, clock12Btn, clearWpBtn, attribEl, curtainBtn, attrBtn, pitchEl, pitchval, scrub, scrubMin, scrubMax, clkEl, tzEl, lglist, rose, altsl, icaoEl, fblink, acEl,
+  exoEl, exval, groundEl, groundval, cacheEl, cacheval, acscaleEl, acscaleval, coneBtn, finesseEl, finval, safetyEl, safeval, coneRadEl, coneradval, labelsBtn, labelFieldsEl, shadowsEl, basemapEl, ignDemBtn, peaksBtn, peakDensityEl, colsBtn, minimapBtn, overviewHudBtn, activeOnlyBtn, anonBtn, airMassBtn, thermalBtn, liftComps, heatStoreEl, wxSimBtn, wxSimPanel, windModeEl, heightRefEl, clock12Btn, clearWpBtn, attribEl, curtainBtn, attrBtn, pitchEl, pitchval, scrub, scrubMin, scrubMax, clkEl, tzEl, lglist, rose, altsl, icaoEl, fblink, acEl,
   dateEl, loadBtn, langEl, discEl, infoBtn, copyBtn, shareBtn, collapseBtn, liveBtn, igcBtn, igcInput, mapDiv, prevAc, nextAc, resetSettingsBtn, afInfo,
 } from './dom';
 import { codeFlag, flag } from './flags';
@@ -403,6 +403,11 @@ peaksBtn.onclick = () => {
   document.body.classList.toggle('peaks', S.showPeaks);
   updateMapCredit(); render();   // render() triggers the view-driven summit fetch
 };
+// ---- workable cols (wind-through mountain passes) ----
+colsBtn.onclick = () => {
+  S.cols = !S.cols;
+  colsBtn.textContent = S.cols ? t('on') : t('off'); colsBtn.classList.toggle('on', S.cols); render();
+};
 peakDensityEl.addEventListener('input', e => { S.peakDensity = parseFloat((e.target as HTMLInputElement).value); render(); });
 // ---- inset 2D minimap toggle ----
 minimapBtn.onclick = () => {
@@ -791,6 +796,7 @@ export function applyI18n(): void {
   curtainBtn.textContent = S.altCurtain ? t('on') : t('off'); curtainBtn.classList.toggle('on', S.altCurtain);
   ignDemBtn.textContent = S.ignDem ? t('on') : t('off'); ignDemBtn.classList.toggle('on', S.ignDem);
   peaksBtn.textContent = S.showPeaks ? t('on') : t('off'); peaksBtn.classList.toggle('on', S.showPeaks);
+  colsBtn.textContent = S.cols ? t('on') : t('off'); colsBtn.classList.toggle('on', S.cols);
   attrBtn.textContent = S.showAttribution ? t('on') : t('off'); attrBtn.classList.toggle('on', S.showAttribution);
   [...trafficModeEl.options].forEach(o => o.textContent = t(o.dataset.k!));
   document.body.classList.toggle('traffic', S.trafficMode !== 'off');

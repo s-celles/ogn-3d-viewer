@@ -19,6 +19,7 @@ import { updateMinimap } from './minimap';
 import { airMassLayers } from './airmass';
 import { waveMassLayers } from './wavemass';
 import { ridgeLayers, windAtAlt } from './ridge';
+import { colLayers } from './cols';
 import { convergLayers } from './converg';
 import { waveLayers } from './wave';
 import { liftWeight } from './lift';
@@ -552,6 +553,7 @@ function dynamicLayers() {
     ...(S.airMass ? [...airMassLayers(k), ...waveMassLayers(k)] : []),
     ...(S.windMode !== 'off' ? windLayers(k) : []),
     ...poiPoleLayers(k),
+    ...(S.cols ? colLayers(k) : []),
   ];
 }
 
