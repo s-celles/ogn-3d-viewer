@@ -282,9 +282,31 @@ function updatePeakFetch(): void {
   if (peakTimer) clearTimeout(peakTimer);   // debounce: only fetch once the view settles on a cell
   peakTimer = setTimeout(() => loadPeaks(lon - M, lat - M, lon + M, lat + M).then(render), 300);
 }
+// Pick a spatially-spread subset of the (highest-first) peaks: greedy min-distance
+// thinning so the label budget covers the whole view — otherwise the top-N by absolute
+// elevation all pile into the highest massif and the nearer/lower terrain gets nothing.
+// Memoised on the peak list + count (both change rarely), so it's free per frame.
+let peakSpread: { ref: Poi[]; n: number; out: Poi[] } | null = null;
+function spreadPeaks(all: Poi[], n: number): Poi[] {
+  if (all.length <= n) return all;
+  if (peakSpread && peakSpread.ref === all && peakSpread.n === n) return peakSpread.out;
+  const cosl = Math.max(0.1, Math.cos(viewCenter()[1] * Math.PI / 180));
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  for (const p of all) { if (p.lon < minX) minX = p.lon; if (p.lon > maxX) maxX = p.lon; if (p.lat < minY) minY = p.lat; if (p.lat > maxY) maxY = p.lat; }
+  const D2 = Math.max(1e-8, (maxX - minX) * cosl * (maxY - minY) / n) * 0.64;   // (~0.8× the target spacing)²
+  const kept: Poi[] = [];
+  for (const p of all) {   // highest first → the tallest peak in each neighbourhood wins its spot
+    if (kept.length >= n) break;
+    let ok = true;
+    for (const q of kept) { const dx = (q.lon - p.lon) * cosl, dy = q.lat - p.lat; if (dx * dx + dy * dy < D2) { ok = false; break; } }
+    if (ok) kept.push(p);
+  }
+  peakSpread = { ref: all, n, out: kept };
+  return kept;
+}
 function activePois(): Poi[] {
   if (!S.showPeaks) return [];
-  const peaks = getPeaks().slice(0, peakCount()), wps = getWaypoints();   // peaks are already area-local
+  const peaks = spreadPeaks(getPeaks(), peakCount()), wps = getWaypoints();   // peaks are already area-local
   if (!wps.length) return peaks;
   const [clon, clat] = viewCenter(), R = 1.2;                              // a .cup can hold thousands → only render nearby
   return [...peaks, ...wps.filter(p => Math.abs(p.lon - clon) < R && Math.abs(p.lat - clat) < R)];
