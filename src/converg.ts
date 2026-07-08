@@ -10,6 +10,8 @@ import { S } from './state';
 import { SimpleMeshLayer, COORDINATE_SYSTEM } from './deck';
 import { terrainElevAt } from './terrain';
 import { windBg } from './ridge';
+import { sunLightDir, sceneMs } from './sky';
+import { getLC, sampleGrid, lcVersion } from './landcover';
 import { wxEpoch } from './weather';
 import { LIFT_COLORS, SINK_COLORS } from './liftviz';
 
@@ -19,6 +21,20 @@ const OFF = 12;          // patch lift off the surface (m) — avoid z-fighting
 const ALPHA = 0.85;      // how strongly terrain blocks the into-slope wind component
 const CONV_MIN = 0.05;   // min |normalised divergence| drawn
 const CONV_FRAC = [0.12, 0.22];   // sub-levels (3 colours per side)
+// Lake/sea breeze: on a sunny day the cool water and warm land drive a breeze from water to
+// land, converging (lift) just inland of the shore and sinking over the water. Modelled from
+// the curvature of a smoothed water-cover field, scaled by insolation, damped by strong wind.
+const LB_GAIN = 2.5;     // lake-breeze convergence gain (× insolation × water-field curvature)
+const LB_BLUR = 5;       // cells: blur radius of the water field → how far the breeze reaches inland
+const LB_WATER = 0.12;   // land-cover sensible fraction below this ⇒ a water cell
+const INSOL_REF = 0.25;  // sin(sun elevation) at which the land–water heating contrast saturates
+// Separable box blur (radius r) of an NG×NG field — smooths the water mask.
+function boxBlur(src: Float32Array, n: number, r: number): Float32Array {
+  const tmp = new Float32Array(n * n), out = new Float32Array(n * n);
+  for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) { let s = 0, c = 0; for (let d = -r; d <= r; d++) { const ii = i + d; if (ii < 0 || ii >= n) continue; s += src[j * n + ii]; c++; } tmp[j * n + i] = s / c; }
+  for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) { let s = 0, c = 0; for (let d = -r; d <= r; d++) { const jj = j + d; if (jj < 0 || jj >= n) continue; s += tmp[jj * n + i]; c++; } out[j * n + i] = s / c; }
+  return out;
+}
 // Shared lift ramp: convergence (rising) warm, divergence (sinking) cool blue.
 const COLORS = [LIFT_COLORS[0], LIFT_COLORS[2], LIFT_COLORS[4], ...SINK_COLORS];   // 3 conv + 3 div
 
@@ -52,11 +68,16 @@ export function convergLayers(k: number, alpha = 1): any[] {
   if (alpha <= 0) return [];
   const cLat = S.mapVS.latitude, cLon = S.mapVS.longitude, zoom = S.mapVS.zoom || 11;
   const wind = windBg(cLat, cLon); if (!wind) return [];
-  const spd = Math.hypot(wind[0], wind[1]); if (spd < 1.5) return [];   // calm → no convergence
+  const spd = Math.hypot(wind[0], wind[1]);
   const mppx = 156543.03392 * Math.cos(cLat * Math.PI / 180) / 2 ** zoom;
   const R = Math.max(4000, Math.min(20000, mppx * 700));
+  // Lake-breeze source: the sun's heating contrast + a water mask (only fetched by day).
+  const ld = sunLightDir(sceneMs(), cLat, cLon);
+  const insol = Number.isFinite(ld[2]) ? Math.max(0, Math.min(1, -ld[2] / INSOL_REF)) : 0;
+  const lc = insol > 0 && S.source !== 'file' ? getLC(cLat, cLon, R) : null;
+  if (spd < 1.5 && !lc) return [];   // calm AND no lake-breeze source → nothing
   const hour = S.wxSim.on ? Math.floor(S.wxSim.hour) : Math.floor((S.G0 + S.cur) / 3600);
-  const wk = `${Math.round(wind[0])}|${Math.round(wind[1])}|${wxEpoch()}`;
+  const wk = `${Math.round(wind[0])}|${Math.round(wind[1])}|${wxEpoch()}|${lc ? lcVersion() : -1}`;
   if (cache && cache.hour === hour && cache.wk === wk && Math.abs(Math.log(cache.R / R)) < 0.25) {
     const cosLat = Math.cos(cLat * Math.PI / 180);
     const moved = Math.hypot((cache.cLon - cLon) * 111320 * cosLat, (cache.cLat - cLat) * 111320);
@@ -84,13 +105,27 @@ export function convergLayers(k: number, alpha = 1): any[] {
   if (ready < NG * NG * 0.4) return [];   // terrain not loaded here yet — retry next frame, don't cache
   // Pass 2: horizontal divergence, normalised (dimensionless: fraction of the wind lost
   // per cell) so it's view-independent. Convergence = −divergence.
-  const norm = sp / spd, invS = 1 / (2 * sp);
+  const norm = sp / Math.max(spd, 1), invS = 1 / (2 * sp);
   const Cn = new Float32Array(NG * NG).fill(NaN);
   for (let j = 1; j < NG - 1; j++) for (let i = 1; i < NG - 1; i++) {
     const idx = j * NG + i;
     if (!ok[idx] || !ok[idx + 1] || !ok[idx - 1] || !ok[idx + NG] || !ok[idx - NG]) continue;
     const div = (U[idx + 1] - U[idx - 1]) * invS + (Vv[idx + NG] - Vv[idx - NG]) * invS;   // ∂u/∂x + ∂v/∂y
     Cn[idx] = -div * norm;
+  }
+  // Lake/sea breeze: curvature of a smoothed water-cover field → convergence (lift) just
+  // inland of the shore, subsidence over the water; scaled by insolation, damped by wind.
+  if (lc) {
+    const { sens } = sampleGrid(lc, cLat, cLon, R, NG);
+    const wm = new Float32Array(NG * NG);
+    for (let idx = 0; idx < NG * NG; idx++) wm[idx] = sens[idx] < LB_WATER ? 1 : 0;
+    const wS = boxBlur(wm, NG, LB_BLUR);
+    const damp = Math.max(0.2, Math.min(1, 1 - (spd - 3) / 9));   // strong synoptic wind washes the breeze out
+    for (let j = 1; j < NG - 1; j++) for (let i = 1; i < NG - 1; i++) {
+      const idx = j * NG + i; if (!ok[idx]) continue;
+      const lap = wS[idx + 1] + wS[idx - 1] + wS[idx + NG] + wS[idx - NG] - 4 * wS[idx];   // land-side shore: +, over water: −
+      Cn[idx] = (Number.isNaN(Cn[idx]) ? 0 : Cn[idx]) + LB_GAIN * insol * damp * lap;
+    }
   }
   // Pass 3: light 3×3 blur (curvature is noisier than gradient) then bin + drape.
   const bins: Bin[] = [0, 1, 2, 3, 4, 5].map(() => ({ pos: [], nrm: [], idx: [] }));   // 0-2 conv, 3-5 div

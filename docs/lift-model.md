@@ -192,6 +192,12 @@ lift because it responds to terrain **curvature**, not gradient:
 2. Drape the horizontal **divergence** `∂u/∂x + ∂v/∂y`, normalised by `step / |wind|`
    (dimensionless, view-independent). Convergence = −divergence: warm where it piles up
    (entry `CONV_MIN = 0.05`), blue in the lee. Light 3×3 blur (curvature is noisy).
+3. **Lake/sea breeze.** On a sunny day the cool water and warm land drive a breeze from
+   water to land. Blur the OSM **water mask** (`LB_BLUR` cells) and add `LB_GAIN · insol ·
+   damp · ∇²(water)` to the convergence: its curvature gives **lift a few km inland of the
+   shore** (the sea-breeze front) and **subsidence over the water**, scaled by insolation and
+   damped by strong synoptic wind. Works on a **calm** sunny day (the terrain-convergence
+   calm cutoff is lifted when a water source is present).
 
 ### Wave (`wave.ts`)
 
