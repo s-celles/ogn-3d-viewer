@@ -12,6 +12,7 @@ const OVERPASS = 'https://overpass-api.de/api/interpreter';
 export interface LCClass { alb: number; sens: number; iner: number; pri: number }
 const CLS: Record<string, LCClass> = {
   water: { alb: 0.06, sens: 0.03, iner: 0.95, pri: 6 },
+  ice: { alb: 0.45, sens: 0.05, iner: 0.90, pri: 6 },     // glaciers / permanent snow — reflective and cold, no thermals
   forest: { alb: 0.12, sens: 0.20, iner: 0.45, pri: 5 },
   urban: { alb: 0.12, sens: 0.70, iner: 0.85, pri: 4 },   // dark, dry, impervious → strong sensible heat (urban heat island), stored & released late
   bare: { alb: 0.30, sens: 0.75, iner: 0.65, pri: 3 },
@@ -22,7 +23,8 @@ export const LC_DEFAULT: LCClass = { alb: 0.20, sens: 0.40, iner: 0.40, pri: 0 }
 
 function classify(t: Record<string, string>): LCClass | null {
   const lu = t.landuse, nat = t.natural;
-  if (nat === 'water' || lu === 'reservoir' || lu === 'basin') return CLS.water;
+  if (nat === 'water' || nat === 'bay' || nat === 'strait' || nat === 'wetland' || lu === 'reservoir' || lu === 'basin') return CLS.water;
+  if (nat === 'glacier') return CLS.ice;
   if (nat === 'wood' || lu === 'forest') return CLS.forest;
   if (lu === 'residential' || lu === 'industrial' || lu === 'commercial' || lu === 'retail' || lu === 'farmyard'
     || lu === 'construction' || lu === 'garages' || lu === 'railway' || lu === 'landfill' || lu === 'port' || lu === 'harbour') return CLS.urban;
@@ -57,10 +59,35 @@ async function fetchLC(key: string, s: number, w: number, n: number, e: number):
       for (const p of geom) { ring.push(p.lon, p.lat); if (p.lon < minLon) minLon = p.lon; if (p.lon > maxLon) maxLon = p.lon; if (p.lat < minLat) minLat = p.lat; if (p.lat > maxLat) maxLat = p.lat; }
       polys.push({ cls, bb: [minLon, minLat, maxLon, maxLat], ring });
     };
+    // A multipolygon's outer boundary is often split across several member ways (open arcs),
+    // so stitch them end-to-end into closed rings — otherwise big lakes/forests aren't filled
+    // and fall back to the default surface (e.g. spurious thermals over a lake).
+    const kkey = (p: Geo): string => p.lon.toFixed(6) + ',' + p.lat.toFixed(6);
+    const assembleRings = (members: Array<{ type: string; role?: string; geometry?: Geo[] }>): Geo[][] => {
+      const ways = members.filter(m => m.type === 'way' && m.role !== 'inner' && m.geometry && m.geometry.length >= 2).map(m => m.geometry as Geo[]);
+      const used = new Array(ways.length).fill(false), rings: Geo[][] = [];
+      for (let i = 0; i < ways.length; i++) {
+        if (used[i]) continue;
+        used[i] = true;
+        let ring = ways[i].slice(), grew = true;
+        while (grew && kkey(ring[0]) !== kkey(ring[ring.length - 1])) {
+          grew = false;
+          const end = ring[ring.length - 1];
+          for (let j = 0; j < ways.length; j++) {
+            if (used[j]) continue;
+            const w = ways[j];
+            if (kkey(w[0]) === kkey(end)) { ring = ring.concat(w.slice(1)); used[j] = true; grew = true; break; }
+            if (kkey(w[w.length - 1]) === kkey(end)) { ring = ring.concat(w.slice(0, -1).reverse()); used[j] = true; grew = true; break; }
+          }
+        }
+        if (ring.length >= 3) rings.push(ring);
+      }
+      return rings;
+    };
     for (const el of (data.elements || [])) {
       const cls = classify(el.tags || {}); if (!cls) continue;
       if (el.type === 'way') addRing(cls, el.geometry);
-      else if (el.type === 'relation' && el.members) for (const m of el.members) if (m.type === 'way' && m.role !== 'inner') addRing(cls, m.geometry);   // outer rings only (holes ignored)
+      else if (el.type === 'relation' && el.members) for (const ring of assembleRings(el.members)) addRing(cls, ring);   // outer rings only (holes ignored)
     }
     cache.set(key, { polys });
   } catch { cache.set(key, null); }
