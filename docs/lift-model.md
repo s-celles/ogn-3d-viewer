@@ -155,7 +155,10 @@ redistribution (mean ≈ 1), gated off on calm or stable days.
 **LCL** (cloudbase, `weatherCloudbase`). On a **cu day** (`ceiling ≥ cloudbase`) the
 strongest thermal cores are marked with a **cumulus** at the cloudbase (thinned, capped
 at 60, skipped where terrain pokes through the base); a **blue day**
-(`ceiling < cloudbase`) gets none.
+(`ceiling < cloudbase`) gets none. Each cumulus is **drifted downwind** of its trigger by
+the layer wind × the parcel's climb time to the base (`Δz / DRIFT_CLIMB`, capped), so the
+cloud sits downwind of the hot slope — matching the leaning columns of the track-based air-mass
+reconstruction.
 
 ### Slope lift (`ridge.ts`)
 

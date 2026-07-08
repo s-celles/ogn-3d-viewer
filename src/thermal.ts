@@ -36,6 +36,8 @@ const STREET_RATIO = 2.7;   // across-wind cloud-street spacing ≈ this × the 
 const STREET_ZI_MIN = 800;  // m: minimum convective depth for streets to organise
 const STREET_WIND_MIN = 4;  // m/s: minimum boundary-layer wind for streets
 const STREET_AMP = 0.5;     // ± modulation of the heat flux along / between the streets
+const DRIFT_CLIMB = 2.5;    // m/s: nominal in-thermal climb, for the parcel's time to reach cloudbase
+const DRIFT_CAP = 6000;     // m: cap the downwind cumulus drift so clouds stay in the domain
 const STORE_GAIN = 1.4;  // strength of the diurnal heat storage/restitution modulation (× S.heatStore × inertia)
 const TAU_H = 2.6;       // h: ground heat-storage time constant (the lag before stored heat is released)
 const IREF = 0.4;        // reference-ground inertia (the flat reference gets the same diurnal modulation)
@@ -278,12 +280,21 @@ export function thermalLayers(k: number, alpha = 1): any[] {
     const cu: Puff[] = [];
     if (isCu) {
       const cb = cloudbase as number, THIN = 6, MAX_CU = 60, occ = new Set<string>();
+      const dw = wx ? weatherWind(wx, hour, (gRefH + cb) / 2) : null;   // layer wind for the downwind drift
       for (let j = 0; j < NW && cu.length < MAX_CU; j++) for (let i = 0; i < NW; i++) {
         const w = Ws[j * NW + i]; if (Number.isNaN(w) || w < 0.72 * W_FULL) continue;
         const bk = `${(i / THIN) | 0},${(j / THIN) | 0}`; if (occ.has(bk)) continue;
         const gh = g.nodes[j * GN + i].h; if (Number.isNaN(gh) || cb < gh + 60) continue;   // base below the ground here
         occ.add(bk);
-        cu.push({ pos: [nlon(i), nlat(j), cb * k], size: 260 + Math.min(1, w / W_FULL) * 420 });
+        // Cumulus drift downwind: the parcel is carried by the wind while it climbs from the
+        // trigger to cloudbase (t ≈ Δz / climb), so the cloud sits downwind of the hot slope.
+        let dlon = 0, dlat = 0;
+        if (dw) {
+          let dE = dw[0] * (cb - gh) / DRIFT_CLIMB, dN = dw[1] * (cb - gh) / DRIFT_CLIMB;
+          const dm = Math.hypot(dE, dN); if (dm > DRIFT_CAP) { dE *= DRIFT_CAP / dm; dN *= DRIFT_CAP / dm; }
+          dlon = dE / g.mLng; dlat = dN / g.mLat;
+        }
+        cu.push({ pos: [nlon(i) + dlon, nlat(j) + dlat, cb * k], size: 260 + Math.min(1, w / W_FULL) * 420 });
       }
     }
     cache = { terr: g, k, bucket, wxr: !!wx, lcv: lcp.lcv, cal, wxe, hs: S.heatStore, meshes, cu };
