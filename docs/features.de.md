@@ -19,7 +19,7 @@
 - **Bodenauflösung** — einstellbarer Detailgrad der Satellitenbilder (z13 bis z18).
 - **Drei Ansichten** — Übersicht (von oben), Cockpit (Egoperspektive, der Horizont neigt sich in Kurven) und eine Verfolgerkamera.
 - **Cockpit-Kamera** — Kurs folgen oder freie Sicht.
-- **Head-up-Display (HUD)** — Kurs, Höhe, Vario — und optional **Netto / Super-Netto** — des verfolgten Segelflugzeugs.
+- **Head-up-Display (HUD)** — Kurs, Höhe, eine **Windfahne** auf Flughöhe, Vario — und optional **Netto / Super-Netto** — des verfolgten Segelflugzeugs.
 - **Gleitkegel** — ein optionaler Erreichbarkeitskegel um den Flugplatz (Gleitzahl, Sicherheitshöhe und Radius einstellbar).
 - **Bodenschatten** — senkrecht nach unten (Positionsanzeige) oder in Sonnenrichtung geworfen.
 - **Höhenvorhang** — ein durchscheinender Vorhang von jedem Track bis zum Boden.

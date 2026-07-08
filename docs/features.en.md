@@ -19,7 +19,7 @@
 - **Ground resolution** — adjustable satellite-imagery detail level (z13 to z18).
 - **Three views** — top-down overview, cockpit (first-person, the horizon banks in turns) and a chase camera following the glider.
 - **Cockpit camera** — lock-to-heading or free look.
-- **Head-up display (HUD)** — heading, altitude, vario — and, opt-in, **netto / super netto** — for the followed glider.
+- **Head-up display (HUD)** — heading, altitude, a flight-level **wind barb**, vario — and, opt-in, **netto / super netto** — for the followed glider.
 - **Final-glide cone** — an optional reachability cone around the airfield (adjustable glide ratio, safety height and radius).
 - **Ground shadows** — cast straight down (position indicator) or along the sun direction.
 - **Altitude curtain** — a translucent drape from each track down to the ground.

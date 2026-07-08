@@ -19,7 +19,7 @@ Rejeu 3D des vols de planeurs de l'[Open Glider Network](http://wiki.glidernet.o
 - **Résolution du sol** — niveau de détail de l'imagerie satellite réglable (z13 à z18).
 - **Trois vues** — vue d'ensemble (dessus), vue cockpit (subjective, l'horizon s'incline dans les virages) et caméra poursuite qui suit le planeur.
 - **Caméra cockpit** — suivi du cap ou regard libre.
-- **Affichage tête haute (HUD)** — cap, altitude, vario — et, en option, **netto / super netto** — du planeur suivi.
+- **Affichage tête haute (HUD)** — cap, altitude, une **barbule de vent** au niveau de vol, vario — et, en option, **netto / super netto** — du planeur suivi.
 - **Cône de finesse** — un cône d'atteignabilité optionnel autour de l'aérodrome (finesse, hauteur de sécurité et rayon réglables).
 - **Ombres au sol** — projetées à la verticale (indicateur de position) ou selon la direction du soleil.
 - **Rideau d'altitude** — un voile translucide reliant chaque trace au sol.

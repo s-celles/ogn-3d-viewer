@@ -1,7 +1,7 @@
 // ============ viewer: deck.gl instance, dynamic layers, HUD ============
 import { S } from './state';
 import { t } from './i18n';
-import { mapDiv, sunEl, moonEl, labelsDiv, hudreg, hudhdg, hudspd, hudalt, hudvar, hudnetto, hudnettoK, hudsuper, hudsuperK, lglist, focusBadge } from './dom';
+import { mapDiv, sunEl, moonEl, labelsDiv, hudreg, hudhdg, hudspd, hudalt, hudvar, hudnetto, hudnettoK, hudsuper, hudsuperK, hudwindbarb, hudwindtxt, lglist, focusBadge } from './dom';
 import {
   Deck, MapView, FirstPersonView, PathLayer, PolygonLayer, TripsLayer, ScatterplotLayer, SimpleMeshLayer, IconLayer,
   LightingEffect, AmbientLight, DirectionalLight, PathStyleExtension, PostProcessEffect, COORDINATE_SYSTEM,
@@ -18,7 +18,7 @@ import { getPeaks, getWaypoints, loadPeaks, type Poi } from './poi';
 import { updateMinimap } from './minimap';
 import { airMassLayers } from './airmass';
 import { waveMassLayers } from './wavemass';
-import { ridgeLayers } from './ridge';
+import { ridgeLayers, windAtAlt } from './ridge';
 import { convergLayers } from './converg';
 import { waveLayers } from './wave';
 import { liftWeight } from './lift';
@@ -955,6 +955,34 @@ function fmtAlt(p: Pos3): string {
 // ---- HUD ----
 const varioCls = (x: number): string => 'vario ' + (x >= 0.1 ? 'pos' : (x <= -0.1 ? 'neg' : ''));
 const fmtVario = (x: number): string => (x >= 0 ? '+' : '') + x.toFixed(1) + ' m/s';
+// A meteorological wind barb (SVG, currentColor): staff toward where the wind comes FROM
+// (up = north), barbs on the left — half = 5 kt, full = 10 kt, pennant = 50 kt (rounded to
+// 5 kt); calm (< 1 kt) = a small circle. `az` is the FROM azimuth in degrees.
+function windBarbSvg(kt: number, az: number, size = 36): string {
+  const cx = size / 2, cy = size / 2, sw = 'stroke="currentColor" stroke-width="1.5"';
+  if (kt < 1) return `<circle cx="${cx}" cy="${cy}" r="4" fill="none" ${sw}/>`;
+  const a = az * Math.PI / 180, dx = Math.sin(a), dy = -Math.cos(a), L = size * 0.42;
+  const tx = cx + dx * L, ty = cy + dy * L, px = -dy, py = dx;   // tip = FROM end; px,py = barb side (left)
+  const bl = size * 0.30, slot = L * 0.2, lean = 0.35, f = (n: number) => n.toFixed(1);
+  const P = (d: number): [number, number] => [tx - dx * d, ty - dy * d];   // point on staff, d from tip toward centre
+  const B = (b: [number, number], s: number): [number, number] => [b[0] + px * bl * s + dx * bl * lean * s, b[1] + py * bl * s + dy * bl * lean * s];
+  let five = Math.round(kt / 5) * 5; const pen = Math.floor(five / 50); five -= pen * 50;
+  const full = Math.floor(five / 10); five -= full * 10; const half = Math.floor(five / 5);
+  let e = `<line x1="${f(cx)}" y1="${f(cy)}" x2="${f(tx)}" y2="${f(ty)}" ${sw}/>`, d = 0;
+  for (let i = 0; i < pen; i++) { const b0 = P(d), b1 = P(d + slot), ap = B(b0, 1); e += `<polygon points="${f(b0[0])},${f(b0[1])} ${f(ap[0])},${f(ap[1])} ${f(b1[0])},${f(b1[1])}" fill="currentColor" stroke="none"/>`; d += slot; }
+  if (pen) d += slot * 0.4;
+  for (let i = 0; i < full; i++) { const b0 = P(d), be = B(b0, 1); e += `<line x1="${f(b0[0])}" y1="${f(b0[1])}" x2="${f(be[0])}" y2="${f(be[1])}" ${sw}/>`; d += slot; }
+  if (half) { const b0 = P(pen + full ? d : slot), be = B(b0, 0.5); e += `<line x1="${f(b0[0])}" y1="${f(b0[1])}" x2="${f(be[0])}" y2="${f(be[1])}" ${sw}/>`; }
+  return e;
+}
+// Set the HUD wind barb + text from the wind at the glider's position/altitude (or '—').
+function setHudWind(p: Pos3 | null): void {
+  const w = p ? windAtAlt(p[1], p[0], p[2]) : null;
+  if (!w) { hudwindbarb.innerHTML = ''; hudwindtxt.textContent = '—'; return; }
+  const spd = Math.hypot(w[0], w[1]), az = (Math.atan2(-w[0], -w[1]) * 180 / Math.PI + 360) % 360;
+  hudwindbarb.innerHTML = windBarbSvg(spd * 1.94384, az);
+  hudwindtxt.textContent = Math.round(az).toString().padStart(3, '0') + '° · ' + Math.round(spd * 3.6) + ' km/h';
+}
 export function updateHUD(): void {
   // Netto / super-netto rows are opt-in (S.nettoMode) — show/hide their grid cells.
   const nm = S.nettoMode;
@@ -966,13 +994,13 @@ export function updateHUD(): void {
   const pr = presence(tr);
   hudreg.textContent = displayReg(tr) + ' · ' + tr.label + (pr && pr.offline ? ' · ' + t('offline') : '');
   if (!pr) {
-    hudhdg.textContent = '—'; hudspd.textContent = '—'; hudalt.textContent = '—';
+    hudhdg.textContent = '—'; hudspd.textContent = '—'; hudalt.textContent = '—'; setHudWind(null);
     hudnetto.textContent = '—'; hudnetto.className = 'vario'; hudsuper.textContent = '—'; hudsuper.className = 'vario';
     hudvar.textContent = S.cur < tr.rstart ? t('beforeTk') : t('landed'); hudvar.className = 'vario'; return;
   }
   const time = pr.time;
   const p = posAt(tr, time), h = headingAt(tr, time), v = S.compensated ? compVarioAt(tr, time) : varioAt(tr, time);
-  hudhdg.textContent = Math.round(h).toString().padStart(3, '0') + '°'; hudalt.textContent = fmtAlt(p);
+  hudhdg.textContent = Math.round(h).toString().padStart(3, '0') + '°'; hudalt.textContent = fmtAlt(p); setHudWind(p);
   hudspd.textContent = Math.round(groundSpeedAt(tr, time) * 3.6) + ' km/h';
   hudvar.textContent = fmtVario(v) + (S.compensated ? ' TE' : ''); hudvar.className = varioCls(v);
   if (nm !== 'off') {
