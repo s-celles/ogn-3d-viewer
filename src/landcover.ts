@@ -2,10 +2,8 @@
 // Overpass landuse/natural polygons for the view, offline-first, cached by bbox, then
 // rasterised onto the thermal grid so the potential varies over flat terrain too (dry
 // fields / bare ground pump; forest, water barely). Typical albedo + sensible-heat
-// fraction per class. Ways only (v1) — some large multipolygon forests/lakes may be
-// missed. Rough and illustrative — see the docs.
-import { S } from './state';
-
+// fraction per class. Ways + relation multipolygons (outer rings; inner holes ignored).
+// Rough and illustrative — see the docs.
 const OVERPASS = 'https://overpass-api.de/api/interpreter';
 
 // alb = albedo, sens = sensible-heat fraction, iner = thermal inertia/admittance (0..1:
@@ -15,7 +13,7 @@ export interface LCClass { alb: number; sens: number; iner: number; pri: number 
 const CLS: Record<string, LCClass> = {
   water: { alb: 0.06, sens: 0.03, iner: 0.95, pri: 6 },
   forest: { alb: 0.12, sens: 0.20, iner: 0.45, pri: 5 },
-  urban: { alb: 0.15, sens: 0.60, iner: 0.85, pri: 4 },
+  urban: { alb: 0.12, sens: 0.70, iner: 0.85, pri: 4 },   // dark, dry, impervious → strong sensible heat (urban heat island), stored & released late
   bare: { alb: 0.30, sens: 0.75, iner: 0.65, pri: 3 },
   farm: { alb: 0.20, sens: 0.52, iner: 0.35, pri: 2 },
   grass: { alb: 0.22, sens: 0.35, iner: 0.30, pri: 1 },
@@ -26,8 +24,9 @@ function classify(t: Record<string, string>): LCClass | null {
   const lu = t.landuse, nat = t.natural;
   if (nat === 'water' || lu === 'reservoir' || lu === 'basin') return CLS.water;
   if (nat === 'wood' || lu === 'forest') return CLS.forest;
-  if (lu === 'residential' || lu === 'industrial' || lu === 'commercial' || lu === 'retail' || lu === 'farmyard') return CLS.urban;
-  if (nat === 'bare_rock' || nat === 'scree' || nat === 'sand' || nat === 'beach' || nat === 'fell' || nat === 'shingle') return CLS.bare;
+  if (lu === 'residential' || lu === 'industrial' || lu === 'commercial' || lu === 'retail' || lu === 'farmyard'
+    || lu === 'construction' || lu === 'garages' || lu === 'railway' || lu === 'landfill' || lu === 'port' || lu === 'harbour') return CLS.urban;
+  if (nat === 'bare_rock' || nat === 'scree' || nat === 'sand' || nat === 'beach' || nat === 'fell' || nat === 'shingle' || nat === 'rock' || lu === 'quarry') return CLS.bare;
   if (lu === 'farmland' || lu === 'vineyard' || lu === 'orchard' || lu === 'greenfield') return CLS.farm;
   if (lu === 'meadow' || lu === 'grass' || nat === 'grassland' || nat === 'scrub' || nat === 'heath') return CLS.grass;
   return null;
@@ -42,18 +41,26 @@ let ver = 0;
 export const lcVersion = (): number => ver;
 
 async function fetchLC(key: string, s: number, w: number, n: number, e: number): Promise<void> {
-  const q = `[out:json][timeout:30];(way["landuse"](${s},${w},${n},${e});way["natural"](${s},${w},${n},${e}););out geom;`;
+  // Fetch ways AND relations: big built-up areas / lakes / forests are often tagged as
+  // multipolygon relations, and missing them left towns unclassified (→ under-heated).
+  const bb = `${s},${w},${n},${e}`;
+  const q = `[out:json][timeout:30];(way["landuse"](${bb});relation["landuse"](${bb});way["natural"](${bb});relation["natural"](${bb}););out geom;`;
   try {
     const res = await fetch(OVERPASS, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: 'data=' + encodeURIComponent(q) });
     if (!res.ok) throw new Error('http ' + res.status);
-    const data = await res.json() as { elements?: Array<{ type: string; geometry?: Array<{ lat: number; lon: number }>; tags?: Record<string, string> }> };
+    type Geo = { lat: number; lon: number };
+    const data = await res.json() as { elements?: Array<{ type: string; geometry?: Geo[]; members?: Array<{ type: string; role?: string; geometry?: Geo[] }>; tags?: Record<string, string> }> };
     const polys: Poly[] = [];
-    for (const el of (data.elements || [])) {
-      if (el.type !== 'way' || !el.geometry || el.geometry.length < 3) continue;
-      const cls = classify(el.tags || {}); if (!cls) continue;
+    const addRing = (cls: LCClass, geom?: Geo[]): void => {
+      if (!geom || geom.length < 3) return;
       const ring: number[] = []; let minLon = 180, minLat = 90, maxLon = -180, maxLat = -90;
-      for (const p of el.geometry) { ring.push(p.lon, p.lat); if (p.lon < minLon) minLon = p.lon; if (p.lon > maxLon) maxLon = p.lon; if (p.lat < minLat) minLat = p.lat; if (p.lat > maxLat) maxLat = p.lat; }
+      for (const p of geom) { ring.push(p.lon, p.lat); if (p.lon < minLon) minLon = p.lon; if (p.lon > maxLon) maxLon = p.lon; if (p.lat < minLat) minLat = p.lat; if (p.lat > maxLat) maxLat = p.lat; }
       polys.push({ cls, bb: [minLon, minLat, maxLon, maxLat], ring });
+    };
+    for (const el of (data.elements || [])) {
+      const cls = classify(el.tags || {}); if (!cls) continue;
+      if (el.type === 'way') addRing(cls, el.geometry);
+      else if (el.type === 'relation' && el.members) for (const m of el.members) if (m.type === 'way' && m.role !== 'inner') addRing(cls, m.geometry);   // outer rings only (holes ignored)
     }
     cache.set(key, { polys });
   } catch { cache.set(key, null); }
