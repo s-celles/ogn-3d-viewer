@@ -91,7 +91,10 @@ H = (DNI · cos(inc) · shade + diffuse) · (1 − albedo) · β
   radiation — so it already accounts for **cloud attenuation**.
 - `cos(inc)` is the sun's incidence on the local slope (DEM aspect × sun geometry).
 - `albedo` and `β` (sensible-heat / Bowen fraction) come from OSM land-cover per cell,
-  else uniform defaults `ALBEDO = 0.2`, `β = BETA = 0.35`.
+  else uniform defaults `ALBEDO = 0.2`, `β = BETA = 0.35`. Above a **seasonal snow line**
+  (`SNOW_MID = 2100 m ± SNOW_AMP = 1100 m` by day-of-year, hemisphere-aware) the albedo
+  blends to snow (`SNOW_ALB = 0.72`) over a `SNOW_BAND = 300 m` band, so snowfields/glaciers
+  reflect the sun and barely heat — no spurious thermals over the high peaks.
 - `shade` ∈ [0,1] is the **cast shadow**: a grid-space horizon march toward the sun —
   if upwind terrain rises above the sun line, the direct beam is blocked (diffuse only).
   Soft edge over ~3.5°. Skipped when the sun is near the zenith.
@@ -153,14 +156,19 @@ Slope lift is wind deflected by the ground, so it is **predicted** from the DEM 
 wind — everywhere, with or without traffic:
 
 ```
-w = (wind · ∇terrain) · shelter
+w = (wind · ∇terrain) · shelter  +  ANA_GAIN · insol · cos(inc) · |∇terrain|
 ```
 
 `shelter` ∈ [0.2, 1.4] refines the wind with the terrain: higher ground the upwind
 distance `LU = 900 m` away shelters a cell (`H_SHELTER = 320 m` → ~fully sheltered),
-an exposed windward crest keeps or boosts it. Windward (`w > 0`) is warm, leeward
-(`w < 0`) blue; drawn above `W_MIN = 0.4 m/s`; calm wind (< 1.5 m/s) → nothing. Patches
-are tilted to the slope so the bands lie on the ground.
+an exposed windward crest keeps or boosts it. The second term is the **anabatic**
+(thermally-driven upslope) wind: on a sunny day the heated slopes drive an up-slope flow
+that lifts even when the synoptic wind is calm — scaled by the **insolation** `insol`
+(`sin(sun elevation)/INSOL_REF`, 0 at night) and each cell's **sun incidence**, strongest
+on steep sun-facing slopes and converging toward the crests. Windward/anabatic (`w > 0`)
+is warm, leeward (`w < 0`) blue; drawn above `W_MIN = 0.4 m/s`. Patches are tilted to the
+slope so the bands lie on the ground. (So ridges now "work" on a calm sunny day, not only
+in wind.)
 
 ### Convergence (`converg.ts`)
 

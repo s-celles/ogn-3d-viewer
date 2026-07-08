@@ -10,6 +10,7 @@ import { S } from './state';
 import { SimpleMeshLayer, COORDINATE_SYSTEM } from './deck';
 import { terrainElevAt } from './terrain';
 import { getWeather, weatherWind, wxEpoch } from './weather';
+import { sunLightDir, sceneMs } from './sky';
 import { getThermals } from './airmass';
 import { LIFT_COLORS, SINK_COLORS } from './liftviz';
 
@@ -17,6 +18,8 @@ const OFF = 10;          // patch lift off the surface, to avoid z-fighting (m)
 const LU = 900;          // upwind probe distance for terrain sheltering (m)
 const H_SHELTER = 320;   // upwind terrain this much higher → wind ~fully sheltered (m)
 const W_MIN = 0.4;       // m/s: weakest slope lift / sink drawn
+const ANA_GAIN = 4.0;    // anabatic (thermal upslope) wind gain — sunny slopes lift on calm days
+const INSOL_REF = 0.25;  // sin(sun elevation) at which daytime heating saturates the anabatic wind
 // Strength bins → one mesh each. Shared lift ramp: windward lift is warm (it climbs),
 // leeward sink (w<0) cool blue (it descends), both keyed by |w|.
 const COLORS = [LIFT_COLORS[0], LIFT_COLORS[2], LIFT_COLORS[4], ...SINK_COLORS];
@@ -90,8 +93,15 @@ export function ridgeLayers(k: number, alpha = 1): any[] {
   // the viewpoint instead of staying pinned to the airfield.
   const cLat = S.mapVS.latitude, cLon = S.mapVS.longitude, zoom = S.mapVS.zoom || 11;
   const wind = windBg(cLat, cLon); if (!wind) return [];
-  const s0 = Math.hypot(wind[0], wind[1]); if (s0 < 1.5) return [];   // calm → no slope lift
-  const upE = -wind[0] / s0, upN = -wind[1] / s0;                     // upwind unit, for terrain sheltering
+  const s0 = Math.hypot(wind[0], wind[1]);
+  // Anabatic (thermally-driven upslope) wind: on a sunny day the heated slopes drive an
+  // up-slope flow that lifts even when the synoptic wind is calm. Its strength follows the
+  // insolation (sun elevation) globally and the sun-facing exposure of each cell below.
+  const ld = sunLightDir(sceneMs(), cLat, cLon), su: [number, number, number] = [-ld[0], -ld[1], -ld[2]];
+  const insol = Number.isFinite(su[2]) ? Math.max(0, Math.min(1, su[2] / INSOL_REF)) : 0;
+  if (s0 < 1.5 && insol <= 0) return [];                              // calm AND night → nothing
+  const calm = s0 < 0.5;
+  const upE = calm ? 0 : -wind[0] / s0, upN = calm ? 0 : -wind[1] / s0;   // upwind unit, for terrain sheltering
   const mppx = 156543.03392 * Math.cos(cLat * Math.PI / 180) / 2 ** zoom;   // metres per pixel
   const R = Math.max(4000, Math.min(20000, mppx * 700));
   const STEP = Math.max(150, Math.min(500, R / 55));
@@ -116,9 +126,13 @@ export function ridgeLayers(k: number, alpha = 1): any[] {
     const gx = (hE - hW) / (2 * STEP), gy = (hN - hS) / (2 * STEP);   // terrain gradient (m/m)
     // Refine the wind with the terrain: higher ground upwind shelters this cell
     // (less lift in the lee); an exposed windward crest keeps or boosts it.
-    const hUp = terrainElevAt(lon + upE * LU / mLng, lat + upN * LU / mLat);
+    const hUp = calm ? null : terrainElevAt(lon + upE * LU / mLng, lat + upN * LU / mLat);
     const scale = hUp == null ? 1 : Math.max(0.2, Math.min(1.4, 1 - (hUp - hC) / H_SHELTER));
-    const w = (wind[0] * gx + wind[1] * gy) * scale;                  // forced vertical velocity (m/s)
+    // Anabatic upslope contribution: heated (sun-facing) slopes lift, ∝ insolation × sun
+    // incidence × slope — added to the synoptic wind·∇terrain (uphill = lift).
+    const slope = Math.hypot(gx, gy), nl = Math.hypot(gx, gy, 1);
+    const cosInc = insol > 0 ? Math.max(0, (su[0] * -gx + su[1] * -gy + su[2]) / nl) : 0;
+    const w = (wind[0] * gx + wind[1] * gy) * scale + ANA_GAIN * insol * cosInc * slope;   // synoptic + anabatic (m/s)
     const aw = Math.abs(w);
     if (aw < W_MIN) continue;                                         // near-flat / cross-wind
     const lvl = aw >= 2 ? 2 : aw >= 1 ? 1 : 0;
