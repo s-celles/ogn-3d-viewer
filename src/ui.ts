@@ -471,13 +471,13 @@ buildLiftMixer(liftComps, render);
 // ---- weather sandbox: a synthetic atmosphere driving every physics model ----
 type WxK = 'wind' | 'dir' | 'shear' | 'nStab' | 'tsurf' | 'rh' | 'hour';
 const WX_SLIDERS: { k: WxK; min: number; max: number; step: number; ik: string; unit: string; fmt?: (v: number) => string }[] = [
+  { k: 'hour', min: 0, max: 23.5, step: 0.5, ik: 'wxHour', unit: ' h', fmt: v => v.toFixed(1) },   // right under the date (both drive the sun)
   { k: 'wind', min: 0, max: 50, step: 1, ik: 'wxWind', unit: ' m/s' },
   { k: 'dir', min: 0, max: 350, step: 10, ik: 'wxDir', unit: '°' },
   { k: 'shear', min: 0, max: 8, step: 0.5, ik: 'wxShear', unit: ' m/s/km', fmt: v => v.toFixed(1) },
   { k: 'nStab', min: 0.004, max: 0.02, step: 0.001, ik: 'wxStab', unit: ' /s', fmt: v => v.toFixed(3) },
   { k: 'tsurf', min: -10, max: 40, step: 1, ik: 'wxTsurf', unit: ' °C' },
   { k: 'rh', min: 20, max: 95, step: 5, ik: 'wxRh', unit: ' %' },
-  { k: 'hour', min: 0, max: 23.5, step: 0.5, ik: 'wxHour', unit: ' h', fmt: v => v.toFixed(1) },
 ];
 const wxInputs: Record<string, HTMLInputElement> = {}, wxVals: Record<string, HTMLElement> = {};
 let wxDateEl: HTMLInputElement;
