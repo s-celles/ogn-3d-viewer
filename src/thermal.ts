@@ -20,6 +20,15 @@ const GN = 80;           // grid nodes per side (map resolution)
 const GRAD = 80;         // slope-gradient baseline (m) — short, for the true local slope
 const OFF = 26;          // drape offset (m) — float above the fine terrain, no sinking/holes
 const ALBEDO = 0.2;      // uniform surface albedo (land-cover refinement: later)
+const SNOW_ALB = 0.72;   // albedo of snow cover — reflects most of the sun, so it barely heats
+const SNOW_MID = 2100, SNOW_AMP = 1100, SNOW_BAND = 300;   // m: seasonal snow line (mid ± amplitude) and its blend width
+// Seasonal snow line (m): high in summer, low in winter; flipped in the southern hemisphere.
+function snowLineM(ms: number, lat: number): number {
+  const d = new Date(ms);
+  let doy = (Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()) - Date.UTC(d.getUTCFullYear(), 0, 1)) / 86400000;
+  if (lat < 0) doy = (doy + 182.5) % 365;
+  return SNOW_MID + SNOW_AMP * Math.cos(2 * Math.PI * (doy - 200) / 365);   // peaks ~late July (NH)
+}
 const BETA = 0.35;       // sensible-heat fraction of the absorbed flux (Bowen + ground)
 const TRIG_GAIN = 0.4;   // convex-break trigger: ± bias on the heated field from topographic position
 const TPI_REF = 18;      // m: TPI (height above the local mean) that saturates the trigger bias
@@ -147,6 +156,7 @@ export function thermalLayers(k: number, alpha = 1): any[] {
   // Diurnal heat storage: each surface's inertia sets how much its heating lags the sun
   // and lingers into the late afternoon (rock/urban keep pumping; dry fields collapse).
   const dM = S.heatStore > 0 ? diurnalStore(nowMs(), cLat, cLon) : 0;
+  const snowLine = snowLineM(nowMs(), cLat);   // above it, snow albedo shuts thermals down
   const mStore = (iner: number): number => Math.max(0.3, Math.min(2, 1 + STORE_GAIN * S.heatStore * iner * dM));
   const wRef = wStar((dni * su[2] + diff) * (1 - ALBEDO) * BETA * mStore(IREF), ziAt(gRef != null ? gRef : (S.AF ? S.AF.elev : 0)));   // flat reference ground
   const scaleRef = Math.max(0.15, wRef);
@@ -201,7 +211,10 @@ export function thermalLayers(k: number, alpha = 1): any[] {
       if (j0 > 0)      { const z = g.nodes[idx - GN].h; if (!Number.isNaN(z)) { sN += z; cN++; } }
       if (j0 < GN - 1) { const z = g.nodes[idx + GN].h; if (!Number.isNaN(z)) { sN += z; cN++; } }
       const trig = 1 + TRIG_GAIN * Math.max(-1, Math.min(1, (cN ? n.h - sN / cN : 0) / TPI_REF));
-      const H = (dni * cosInc * shade + diff) * (1 - (alb ? alb[idx] : ALBEDO)) * (sens ? sens[idx] : BETA) * mStore(iners ? iners[idx] : IREF);
+      // Snow cover above the seasonal snow line: blend to snow albedo → very little heating.
+      const albC = alb ? alb[idx] : ALBEDO, sf = Math.max(0, Math.min(1, (n.h - snowLine) / SNOW_BAND));
+      const albE = albC + (SNOW_ALB - albC) * sf;
+      const H = (dni * cosInc * shade + diff) * (1 - albE) * (sens ? sens[idx] : BETA) * mStore(iners ? iners[idx] : IREF);
       vzN[idx] = wStar(H, zi) * trig;                                  // absolute updraught Vz (m/s), biased to convex triggers
     }
     // Per-cell Vz into a 2D grid, then a light 3×3 blur — kills the bin checkerboard.
