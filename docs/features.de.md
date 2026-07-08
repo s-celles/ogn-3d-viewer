@@ -59,6 +59,7 @@
 - **Sprachen** — Französisch, Englisch, Deutsch, Spanisch, Italienisch (automatisch erkannt).
 
 - **Teilbare Links** — die **🔗**-Schaltfläche kopiert einen Link, der den genauen Zustand wiederherstellt: Flugplatz, Datum, Live/Wiedergabe, **Ansicht** (Übersicht/Cockpit/Verfolger), verfolgtes Luftfahrzeug, Geschwindigkeit und **Zeitpunkt** der Wiedergabe. Das **ⓘ**-Panel zeigt zudem einen **QR-Code** des aktuellen Links — scannen Sie ihn, um dieselbe Ansicht auf dem Handy zu öffnen.
+- **Bild-Export** — die **📷**-Schaltfläche lädt die aktuelle 3D-Szene als **PNG** (verlustfrei) oder **WebP** (kleiner — Format im Panel wählen) herunter. Passt zum **anonymen Modus** für teilbare Screenshots. Erfasst Karte/Gelände/Spuren; die DOM-Overlays (Beschriftungen, HUD, Minikarte) sind nicht enthalten.
 
 ## Entwicklermodus
 

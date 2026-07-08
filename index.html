@@ -36,6 +36,7 @@
     <div style="display:flex;gap:6px;align-items:center">
       <button id="shareBtn" data-i18n-title="shareLink" title="" style="display:none">📤</button>
       <button id="copyBtn" data-i18n-title="copyLink" title="">🔗</button>
+      <button id="exportBtn" data-i18n-title="exportImg" title="">📷</button>
       <button id="infoBtn" data-i18n-title="info" title="">ⓘ</button>
       <button id="collapseBtn" data-i18n-title="collapse" title="">▾</button>
     </div>
@@ -249,6 +250,10 @@
     <div class="row spread">
       <label class="lbl" style="margin:0" data-i18n="attribution">Attribution carte</label>
       <button id="attrBtn" class="on">Activé</button>
+    </div>
+    <div class="row spread">
+      <label class="lbl" style="margin:0" data-i18n="exportFmtLabel">Format d'export</label>
+      <select id="exportFmt" style="width:auto;flex:0 0 auto"><option value="png">PNG</option><option value="webp">WebP</option></select>
     </div>
     <div class="row spread">
       <label class="lbl" style="margin:0" data-i18n="langLabel">Langue</label>

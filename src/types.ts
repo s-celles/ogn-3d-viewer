@@ -253,6 +253,8 @@ export interface AppState {
   clockUTC: boolean;
   // 12-hour clock (AM/PM) instead of 24-hour.
   clock12: boolean;
+  // Image-export format for the 📷 button (PNG lossless / WebP smaller).
+  exportFmt: 'png' | 'webp';
   // Follow the browser locale for the UI language (the "Auto" language choice).
   langAuto: boolean;
   windowMin: number;

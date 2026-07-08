@@ -59,6 +59,7 @@ Rejeu 3D des vols de planeurs de l'[Open Glider Network](http://wiki.glidernet.o
 - **Langues** — français, anglais, allemand, espagnol, italien (détection automatique).
 
 - **Liens partageables** — le bouton **🔗** copie un lien qui rouvre l'état exact : aérodrome, date, direct/rejeu, **vue** (ensemble/subjective/poursuite), aéronef suivi, vitesse et **instant** de lecture. Le panneau **ⓘ** affiche aussi un **QR code** du lien courant — scannez-le pour ouvrir la même vue sur mobile.
+- **Export image** — le bouton **📷** télécharge la scène 3D courante en **PNG** (sans perte) ou **WebP** (plus léger — choisissez le format dans le panneau). Se marie au **mode anonyme** pour des captures partageables. Capture la carte/relief/traces ; les surcouches DOM (étiquettes, HUD, mini-carte) ne sont pas incluses.
 
 ## Mode développeur
 

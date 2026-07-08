@@ -6,7 +6,7 @@ import { APP_VERSION, GIT_HASH } from './version';
 import {
   subjEl, viewsEl, cammodeEl, traceEl, trailFxEl, smoothBtn, compBtn, bankBtn, soundBtn, nettoBtn, polarBtn, polarReset, polarName, polarRow, plrInput, trafficModeEl, graphModeEl, graphClose, winEl, winval, playBtn, revBtn, segEl,
   exoEl, exval, groundEl, groundval, cacheEl, cacheval, acscaleEl, acscaleval, coneBtn, finesseEl, finval, safetyEl, safeval, coneRadEl, coneradval, labelsBtn, labelFieldsEl, shadowsEl, basemapEl, ignDemBtn, peaksBtn, peakDensityEl, colsBtn, minimapBtn, overviewHudBtn, activeOnlyBtn, anonBtn, airMassBtn, thermalBtn, liftComps, heatStoreEl, wxSimBtn, wxSimPanel, windModeEl, heightRefEl, clock12Btn, clearWpBtn, attribEl, curtainBtn, attrBtn, pitchEl, pitchval, scrub, scrubMin, scrubMax, clkEl, tzEl, lglist, rose, altsl, icaoEl, fblink, acEl,
-  dateEl, loadBtn, langEl, discEl, infoBtn, copyBtn, shareBtn, collapseBtn, liveBtn, igcBtn, igcInput, mapDiv, prevAc, nextAc, resetSettingsBtn, afInfo,
+  dateEl, loadBtn, langEl, discEl, infoBtn, copyBtn, shareBtn, exportBtn, exportFmtEl, collapseBtn, liveBtn, igcBtn, igcInput, mapDiv, prevAc, nextAc, resetSettingsBtn, afInfo,
 } from './dom';
 import { codeFlag, flag } from './flags';
 import { buildLiftMixer, syncLiftMixer } from './liftmixer';
@@ -17,7 +17,7 @@ import { clearStored } from './settings';
 import { postCacheCap } from './sw-cache';
 import { subjectTrack, airborne, isActive, headingAt, clampCur, fmt, fmtTod, dayShift, statsFor, displayReg } from './flight-math';
 import { makeTerrain, clearDemCache } from './terrain';
-import { render, updateHUD } from './render';
+import { render, updateHUD, exportImage } from './render';
 import { loadFlights, refreshLive, statusMsg, setStatus, rebuild, syncUrl, loadTrackFiles } from './data';
 import { importCup, clearWaypoints, getWaypoints } from './poi';
 import { TRACK_EXT } from './track-import';
@@ -797,6 +797,7 @@ export function applyI18n(): void {
   ignDemBtn.textContent = S.ignDem ? t('on') : t('off'); ignDemBtn.classList.toggle('on', S.ignDem);
   peaksBtn.textContent = S.showPeaks ? t('on') : t('off'); peaksBtn.classList.toggle('on', S.showPeaks);
   colsBtn.textContent = S.cols ? t('on') : t('off'); colsBtn.classList.toggle('on', S.cols);
+  exportFmtEl.value = S.exportFmt;
   attrBtn.textContent = S.showAttribution ? t('on') : t('off'); attrBtn.classList.toggle('on', S.showAttribution);
   [...trafficModeEl.options].forEach(o => o.textContent = t(o.dataset.k!));
   document.body.classList.toggle('traffic', S.trafficMode !== 'off');
@@ -953,6 +954,13 @@ copyBtn.onclick = async () => {
 // Native share sheet — the primary link button. Where it exists we hide 🔗
 // entirely (the share sheet already offers "copy"); 🔗 is only the fallback.
 if (HAS_SHARE) { shareBtn.style.display = ''; copyBtn.style.display = 'none'; }
+// ---- image export (📷): download the 3D scene as PNG / WebP ----
+exportFmtEl.addEventListener('change', () => { S.exportFmt = exportFmtEl.value === 'webp' ? 'webp' : 'png'; });
+exportBtn.onclick = () => {
+  exportImage(S.exportFmt);
+  const prev = exportBtn.textContent; exportBtn.textContent = '✓'; exportBtn.classList.add('on');
+  setTimeout(() => { exportBtn.textContent = prev; exportBtn.classList.remove('on'); }, 1000);
+};
 shareBtn.onclick = async () => {
   try { await navigator.share({ title: 'OGN 3D Viewer', url: (S.ready && S.source !== 'file') ? shareUrl() : appUrl() }); }
   catch { /* user dismissed / unsupported */ }

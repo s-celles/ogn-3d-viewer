@@ -827,12 +827,35 @@ function computeChase() {
 
 let deckgl: Deck;
 
+// ---- image export (PNG / WebP) ----
+// deck renders to a WebGL canvas whose buffer isn't preserved, so we grab it inside
+// onAfterRender — right after the draw, when the pixels are still valid. The DOM overlays
+// (labels, HUD, minimap) live outside the canvas and are not captured.
+let pendingCapture: 'png' | 'webp' | null = null;
+function doCapture(fmt: 'png' | 'webp'): void {
+  const canvas: HTMLCanvasElement | null = (deckgl as any).getCanvas?.() ?? mapDiv.querySelector('canvas');
+  if (!canvas) return;
+  canvas.toBlob((blob) => {
+    if (!blob) return;
+    const url = URL.createObjectURL(blob), a = document.createElement('a');
+    const d = new Date(), p = (n: number) => String(n).padStart(2, '0');
+    a.href = url; a.download = `ogn-3d-${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}.${fmt}`;
+    a.click(); setTimeout(() => URL.revokeObjectURL(url), 8000);
+  }, fmt === 'webp' ? 'image/webp' : 'image/png', fmt === 'webp' ? 0.92 : undefined);
+}
+/** Download the current 3D scene as a PNG or WebP (captured on the next rendered frame). */
+export function exportImage(fmt: 'png' | 'webp'): void {
+  pendingCapture = fmt;
+  deckgl.redraw('capture');   // force a fresh frame so onAfterRender fires with valid pixels
+}
+
 // Create the terrain layer and the deck.gl instance. Called once from main.ts.
 export function initDeck(): void {
   S.terrainInst = makeTerrain();
   deckgl = new Deck({
     parent: mapDiv,
     views: [new MapView({ id: 'main' })], viewState: { main: S.mapVS }, controller: { keyboard: false }, effects: [lighting],
+    onAfterRender: () => { if (pendingCapture) { const f = pendingCapture; pendingCapture = null; doCapture(f); } },
     onViewStateChange: ({ viewState, interactionState }: any) => {
       if (S.mode === 'over') {
         S.mapVS = viewState; const it = interactionState || {};

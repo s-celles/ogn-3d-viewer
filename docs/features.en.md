@@ -59,6 +59,7 @@
 - **Languages** — French, English, German, Spanish, Italian (auto-detected).
 
 - **Shareable links** — the **🔗** button copies a link that reopens the exact state: airfield, date, live/replay, **view** (overview/cockpit/chase), followed aircraft, speed and the playback **moment**. The **ⓘ** panel also shows a **QR code** of the current link — scan it to open the same view on a phone.
+- **Export image** — the **📷** button downloads the current 3D scene as **PNG** (lossless) or **WebP** (smaller — pick the format in the panel). Pairs with **anonymous mode** for shareable screenshots. Captures the map/terrain/tracks; the DOM overlays (labels, HUD, minimap) aren't included.
 
 ## Developer mode
 
