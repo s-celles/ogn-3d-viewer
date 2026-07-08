@@ -223,6 +223,9 @@ export interface AppState {
   // global day-scale factor. Off by default — a global factor can dim favourable
   // slopes that simply had no traffic.
   liftCalibrate: boolean;
+  // Diurnal ground heat storage strength (0..1): how much surfaces store midday heat and
+  // release it in the late afternoon, weighted by each land-cover's thermal inertia. 0 = off.
+  heatStore: number;
   // Weather sandbox: when `on`, a synthetic atmosphere replaces the fetched weather
   // (uniform wind + a chosen stability), so wave/thermal/etc. can be explored "what-if".
   // `date`/`hour` drive the sun (season + time of day) in sandbox mode, independent of

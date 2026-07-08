@@ -228,6 +228,10 @@
       <button id="thermalBtn">Désactivé</button>
     </div>
     <div class="row" id="liftComps" style="gap:16px;flex-wrap:wrap"></div>
+    <div class="row thermalOnly" style="flex-direction:column;align-items:stretch">
+      <label class="lbl" data-i18n="heatStore" data-i18n-title="heatStoreHint" title="">Inertie du sol (stockage)</label>
+      <input id="heatStore" type="range" min="0" max="1" value="0.5" step="0.05">
+    </div>
     <div id="dayStruct" style="margin-top:6px"></div>
     <div class="row spread">
       <label class="lbl" style="margin:0" data-i18n="wxSim" data-i18n-title="wxSimHint" title="">Simulateur météo</label>

@@ -5,7 +5,7 @@ import { API_BASE, REPO_URL, MINZ, MAXZ, PMIN, PMAX, CHASE, clampv, BASEMAPS, IG
 import { APP_VERSION, GIT_HASH } from './version';
 import {
   subjEl, viewsEl, cammodeEl, traceEl, trailFxEl, smoothBtn, compBtn, bankBtn, soundBtn, nettoBtn, polarBtn, polarReset, polarName, polarRow, plrInput, trafficModeEl, graphModeEl, graphClose, winEl, winval, playBtn, revBtn, segEl,
-  exoEl, exval, groundEl, groundval, cacheEl, cacheval, acscaleEl, acscaleval, coneBtn, finesseEl, finval, safetyEl, safeval, coneRadEl, coneradval, labelsBtn, labelFieldsEl, shadowsEl, basemapEl, ignDemBtn, peaksBtn, peakDensityEl, minimapBtn, overviewHudBtn, activeOnlyBtn, airMassBtn, thermalBtn, liftComps, wxSimBtn, wxSimPanel, windModeEl, heightRefEl, clock12Btn, clearWpBtn, attribEl, curtainBtn, attrBtn, pitchEl, pitchval, scrub, scrubMin, scrubMax, clkEl, tzEl, lglist, rose, altsl, icaoEl, fblink, acEl,
+  exoEl, exval, groundEl, groundval, cacheEl, cacheval, acscaleEl, acscaleval, coneBtn, finesseEl, finval, safetyEl, safeval, coneRadEl, coneradval, labelsBtn, labelFieldsEl, shadowsEl, basemapEl, ignDemBtn, peaksBtn, peakDensityEl, minimapBtn, overviewHudBtn, activeOnlyBtn, airMassBtn, thermalBtn, liftComps, heatStoreEl, wxSimBtn, wxSimPanel, windModeEl, heightRefEl, clock12Btn, clearWpBtn, attribEl, curtainBtn, attrBtn, pitchEl, pitchval, scrub, scrubMin, scrubMax, clkEl, tzEl, lglist, rose, altsl, icaoEl, fblink, acEl,
   dateEl, loadBtn, langEl, discEl, infoBtn, copyBtn, shareBtn, collapseBtn, liveBtn, igcBtn, igcInput, mapDiv, prevAc, nextAc, resetSettingsBtn, afInfo,
 } from './dom';
 import { codeFlag, flag } from './flags';
@@ -295,6 +295,7 @@ export function syncControls(): void {
   shadowsEl.value = S.shadowMode; langEl.value = langValue();
   if (BASEMAPS[S.basemap]) basemapEl.value = S.basemap;
   peakDensityEl.value = String(S.peakDensity); document.body.classList.toggle('peaks', S.showPeaks);
+  heatStoreEl.value = String(S.heatStore); document.body.classList.toggle('thermal', S.thermalPot);
   document.body.classList.toggle('minimap', S.minimap);
   minimapBtn.textContent = S.minimap ? t('on') : t('off'); minimapBtn.classList.toggle('on', S.minimap);
   document.body.classList.toggle('ovhud', S.overviewHud);
@@ -458,8 +459,11 @@ airMassBtn.onclick = () => {
 // ---- estimated lift-potential field (thermal + slope lift, blended) ----
 thermalBtn.onclick = () => {
   S.thermalPot = !S.thermalPot;
-  thermalBtn.textContent = S.thermalPot ? t('on') : t('off'); thermalBtn.classList.toggle('on', S.thermalPot); render();
+  thermalBtn.textContent = S.thermalPot ? t('on') : t('off'); thermalBtn.classList.toggle('on', S.thermalPot);
+  document.body.classList.toggle('thermal', S.thermalPot); render();
 };
+// Diurnal ground heat-storage strength (surface inertia → later, prolonged thermals).
+heatStoreEl.addEventListener('input', e => { S.heatStore = parseFloat((e.target as HTMLInputElement).value); render(); });
 // Lift-potential component blend: a simplex "mixer" (axis for 2 components, triangle
 // for 3, N-gon beyond — see liftmixer.ts). Extensible: add a component in lift.ts and
 // it grows a vertex here.

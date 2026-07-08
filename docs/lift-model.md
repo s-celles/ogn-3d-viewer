@@ -120,6 +120,17 @@ above its 4-neighbour mean (convex > 0, concave < 0), `TRIG_GAIN = 0.4`, `TPI_RE
 So convex triggers are favoured (up to ×1.4) and valley floors damped (down to ×0.6). The
 downwind **drift** of the released bubble is not modelled.
 
+**3c. Diurnal heat storage** *(slider `S.heatStore`, 0..1)* — the ground stores part of the
+midday heating and releases it in the late afternoon. A first-order reservoir lags the day's
+solar forcing (time constant `TAU_H = 2.6 h`); its offset from the instantaneous forcing,
+`ΔM = (reservoir − forcing)/peak`, is **negative in the morning** (charging → thermals damped
+and delayed) and **positive in the late afternoon** (releasing → thermals boosted and
+prolonged). Each cell's `Vz` is scaled by `1 + STORE_GAIN·heatStore·inertia·ΔM`, where the
+per-land-cover **thermal inertia** decides how much a surface lags and lingers: rock/urban
+high (keep pumping late), dry fields/grass low (peak early, collapse fast), water highest but
+moot (it barely heats). The flat reference gets the same modulation, so it shifts the whole
+day's rhythm as well as the spatial pattern. `heatStore = 0` disables it.
+
 **4. Colouring** (view-independent, fixed thresholds):
 
 - A **flat reference** `wRef` = Vz of flat reference ground under the same sun/weather.
@@ -307,9 +318,9 @@ fresh deck layer instances each frame.
 
 ## Roadmap
 
-- **Diurnal accumulation / decay** — integrate the day's heating instead of the
-  instantaneous flux, so mornings ramp up and evenings collapse (fixes the deep
-  late-afternoon ceiling).
+- ~~**Diurnal accumulation / decay**~~ — *done* (3c): a soil heat-storage reservoir with
+  per-land-cover thermal inertia shifts the peak into the afternoon and prolongs late thermals.
+  Could still integrate the convective *ceiling* over the day (currently instantaneous).
 - **Netto** — subtract the glider's polar sink from the observed climb for a truer air
   Vz (would also sharpen the [calibration](#calibration-against-the-tracks-calibts)).
 - **Local assimilation** — nudge the field toward the observed climbs *spatially*, not

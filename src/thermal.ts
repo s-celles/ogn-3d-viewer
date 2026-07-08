@@ -23,6 +23,9 @@ const ALBEDO = 0.2;      // uniform surface albedo (land-cover refinement: later
 const BETA = 0.35;       // sensible-heat fraction of the absorbed flux (Bowen + ground)
 const TRIG_GAIN = 0.4;   // convex-break trigger: ± bias on the heated field from topographic position
 const TPI_REF = 18;      // m: TPI (height above the local mean) that saturates the trigger bias
+const STORE_GAIN = 1.4;  // strength of the diurnal heat storage/restitution modulation (× S.heatStore × inertia)
+const TAU_H = 2.6;       // h: ground heat-storage time constant (the lag before stored heat is released)
+const IREF = 0.4;        // reference-ground inertia (the flat reference gets the same diurnal modulation)
 const G = 9.81, THETA = 290, RHOCP = 1200;   // gravity, ref pot. temp (K), ρ·cp (J/m³K)
 // Vz bins (m/s) → one mesh each: blue (weak) → red (strong).
 // Highlight only the better-exposed cells (relative to the view), on the shared warm
@@ -70,22 +73,40 @@ function ensureTerr(cLat: number, cLon: number, R: number): TGrid | null {
 
 // Per-node albedo + sensible fraction from OSM land-cover (null → uniform defaults),
 // cached per terrain grid and land-cover version.
-let lcCache: { terr: TGrid; lcv: number; alb: Float32Array | null; sens: Float32Array | null } | null = null;
-function lcParams(g: TGrid, cLat: number, cLon: number, R: number): { alb: Float32Array | null; sens: Float32Array | null; lcv: number } {
+let lcCache: { terr: TGrid; lcv: number; alb: Float32Array | null; sens: Float32Array | null; iner: Float32Array | null } | null = null;
+function lcParams(g: TGrid, cLat: number, cLon: number, R: number): { alb: Float32Array | null; sens: Float32Array | null; iner: Float32Array | null; lcv: number } {
   const lc = S.source !== 'file' ? getLC(cLat, cLon, R) : null;
   const lcv = lc ? lcVersion() : -1;
   if (!lcCache || lcCache.terr !== g || lcCache.lcv !== lcv) {
-    const r = lc ? sampleGrid(lc, cLat, cLon, R, GN) : { alb: null, sens: null };
-    lcCache = { terr: g, lcv, alb: r.alb, sens: r.sens };
+    const r = lc ? sampleGrid(lc, cLat, cLon, R, GN) : { alb: null, sens: null, iner: null };
+    lcCache = { terr: g, lcv, alb: r.alb, sens: r.sens, iner: r.iner };
   }
-  return { alb: lcCache.alb, sens: lcCache.sens, lcv };
+  return { alb: lcCache.alb, sens: lcCache.sens, iner: lcCache.iner, lcv };
+}
+
+// Diurnal ground heat storage: a first-order reservoir lagging the day's solar forcing,
+// so heat absorbed around midday is released in the late afternoon. Returns ΔM at the
+// current time = (reservoir − instantaneous forcing) / peak forcing — negative in the
+// morning (ground charging → thermals damped / late), positive in the late afternoon
+// (ground releasing → thermals boosted / prolonged). Cheap: 24 sun-elevation samples.
+function diurnalStore(nowMsVal: number, cLat: number, cLon: number): number {
+  const DAY = 86400000, dayStart = Math.floor(nowMsVal / DAY) * DAY;
+  const F = new Float64Array(24); let Fmax = 0;
+  for (let h = 0; h < 24; h++) { const ld = sunLightDir(dayStart + h * 3600000, cLat, cLon); const f = Math.max(0, -ld[2]); F[h] = f; if (f > Fmax) Fmax = f; }
+  if (Fmax <= 1e-4) return 0;                                   // polar night → no cycle
+  const a = 1 - Math.exp(-1 / TAU_H);
+  const Sr = new Float64Array(24); let s = 0;
+  for (let pass = 0; pass < 3; pass++) for (let h = 0; h < 24; h++) { s += a * (F[h] - s); Sr[h] = s; }   // spin up to a periodic day
+  const hf = ((nowMsVal - dayStart) / 3600000) % 24, h0 = Math.floor(hf), h1 = (h0 + 1) % 24, fr = hf - h0;
+  const Ff = F[h0] + (F[h1] - F[h0]) * fr, Sf = Sr[h0] + (Sr[h1] - Sr[h0]) * fr;
+  return (Sf - Ff) / Fmax;
 }
 
 // Instant (ms UTC) for the sun — shared with the scene lighting (sandbox-aware).
 const nowMs = sceneMs;
 
 interface Puff { pos: [number, number, number]; size: number }
-let cache: { terr: TGrid; k: number; bucket: number; wxr: boolean; lcv: number; cal: number; wxe: number; meshes: { color: number[]; mesh: any }[]; cu: Puff[] } | null = null;
+let cache: { terr: TGrid; k: number; bucket: number; wxr: boolean; lcv: number; cal: number; wxe: number; hs: number; meshes: { color: number[]; mesh: any }[]; cu: Puff[] } | null = null;
 
 /** Draped patches coloured by the estimated thermal updraft (Vz), from sun × slope
  *  × heat flux × w*. Empty at night or when the terrain/date is unavailable. */
@@ -123,19 +144,23 @@ export function thermalLayers(k: number, alpha = 1): any[] {
   const cal = liftCalibration();
   const wStar = (H: number, zi: number): number => cal * 0.6 * Math.cbrt((G / THETA) * (H / RHOCP) * zi);
   const gRef = terrainElevAt(cLon, cLat);
-  const wRef = wStar((dni * su[2] + diff) * (1 - ALBEDO) * BETA, ziAt(gRef != null ? gRef : (S.AF ? S.AF.elev : 0)));   // flat reference ground
+  // Diurnal heat storage: each surface's inertia sets how much its heating lags the sun
+  // and lingers into the late afternoon (rock/urban keep pumping; dry fields collapse).
+  const dM = S.heatStore > 0 ? diurnalStore(nowMs(), cLat, cLon) : 0;
+  const mStore = (iner: number): number => Math.max(0.3, Math.min(2, 1 + STORE_GAIN * S.heatStore * iner * dM));
+  const wRef = wStar((dni * su[2] + diff) * (1 - ALBEDO) * BETA * mStore(IREF), ziAt(gRef != null ? gRef : (S.AF ? S.AF.elev : 0)));   // flat reference ground
   const scaleRef = Math.max(0.15, wRef);
 
   const lcp = lcParams(g, cLat, cLon, R);
   const bucket = Math.floor((S.G0 + S.cur) / 900);   // recompute every ~15 min of sim time
   const wxe = wxEpoch();                              // sandbox atmosphere version (incl. its date/hour)
-  if (!cache || cache.terr !== g || cache.k !== k || cache.bucket !== bucket || cache.wxr !== !!wx || cache.lcv !== lcp.lcv || cache.cal !== cal || cache.wxe !== wxe) {
+  if (!cache || cache.terr !== g || cache.k !== k || cache.bucket !== bucket || cache.wxr !== !!wx || cache.lcv !== lcp.lcv || cache.cal !== cal || cache.wxe !== wxe || cache.hs !== S.heatStore) {
     const bins = COLORS.map(() => ({ pos: [] as number[], nrm: [] as number[], idx: [] as number[] }));
     const nlon = (i: number) => g.cLon + (-g.R + i * g.sp) / g.mLng, nlat = (j: number) => g.cLat + (-g.R + j * g.sp) / g.mLat;
     // Per node: sun incidence on the slope × heat flux (albedo + sensible fraction
     // from land-cover, else uniform) → w*, then the fractional anomaly vs the flat
     // reference. Positive = better-heated than flat (rises), negative = worse (sinks).
-    const alb = lcp.alb, sens = lcp.sens, vzN = new Float32Array(GN * GN);
+    const alb = lcp.alb, sens = lcp.sens, iners = lcp.iner, vzN = new Float32Array(GN * GN);
     // Topographic cast shadows: scan the DEM toward the sun; if upwind terrain rises
     // above the sun line, the direct beam is blocked and only diffuse light remains.
     // Grid-space horizon march (nearest-node, geometric steps) — cheap, and it fixes
@@ -176,7 +201,7 @@ export function thermalLayers(k: number, alpha = 1): any[] {
       if (j0 > 0)      { const z = g.nodes[idx - GN].h; if (!Number.isNaN(z)) { sN += z; cN++; } }
       if (j0 < GN - 1) { const z = g.nodes[idx + GN].h; if (!Number.isNaN(z)) { sN += z; cN++; } }
       const trig = 1 + TRIG_GAIN * Math.max(-1, Math.min(1, (cN ? n.h - sN / cN : 0) / TPI_REF));
-      const H = (dni * cosInc * shade + diff) * (1 - (alb ? alb[idx] : ALBEDO)) * (sens ? sens[idx] : BETA);
+      const H = (dni * cosInc * shade + diff) * (1 - (alb ? alb[idx] : ALBEDO)) * (sens ? sens[idx] : BETA) * mStore(iners ? iners[idx] : IREF);
       vzN[idx] = wStar(H, zi) * trig;                                  // absolute updraught Vz (m/s), biased to convex triggers
     }
     // Per-cell Vz into a 2D grid, then a light 3×3 blur — kills the bin checkerboard.
@@ -228,7 +253,7 @@ export function thermalLayers(k: number, alpha = 1): any[] {
         cu.push({ pos: [nlon(i), nlat(j), cb * k], size: 260 + Math.min(1, w / W_FULL) * 420 });
       }
     }
-    cache = { terr: g, k, bucket, wxr: !!wx, lcv: lcp.lcv, cal, wxe, meshes, cu };
+    cache = { terr: g, k, bucket, wxr: !!wx, lcv: lcp.lcv, cal, wxe, hs: S.heatStore, meshes, cu };
   }
   const layers: any[] = cache.meshes.map((m, i) => new SimpleMeshLayer({
     id: 'thermal-' + i, data: [{}], getPosition: () => [0, 0, 0], _instanced: false,

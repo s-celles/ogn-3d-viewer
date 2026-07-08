@@ -8,16 +8,19 @@ import { S } from './state';
 
 const OVERPASS = 'https://overpass-api.de/api/interpreter';
 
-export interface LCClass { alb: number; sens: number; pri: number }   // albedo, sensible fraction, priority on overlap
+// alb = albedo, sens = sensible-heat fraction, iner = thermal inertia/admittance (0..1:
+// high = stores heat then releases it late, e.g. rock/urban; low = heats & cools fast,
+// e.g. dry fields), pri = priority on overlap.
+export interface LCClass { alb: number; sens: number; iner: number; pri: number }
 const CLS: Record<string, LCClass> = {
-  water: { alb: 0.06, sens: 0.03, pri: 6 },
-  forest: { alb: 0.12, sens: 0.20, pri: 5 },
-  urban: { alb: 0.15, sens: 0.60, pri: 4 },
-  bare: { alb: 0.30, sens: 0.75, pri: 3 },
-  farm: { alb: 0.20, sens: 0.52, pri: 2 },
-  grass: { alb: 0.22, sens: 0.35, pri: 1 },
+  water: { alb: 0.06, sens: 0.03, iner: 0.95, pri: 6 },
+  forest: { alb: 0.12, sens: 0.20, iner: 0.45, pri: 5 },
+  urban: { alb: 0.15, sens: 0.60, iner: 0.85, pri: 4 },
+  bare: { alb: 0.30, sens: 0.75, iner: 0.65, pri: 3 },
+  farm: { alb: 0.20, sens: 0.52, iner: 0.35, pri: 2 },
+  grass: { alb: 0.22, sens: 0.35, iner: 0.30, pri: 1 },
 };
-export const LC_DEFAULT: LCClass = { alb: 0.20, sens: 0.40, pri: 0 };
+export const LC_DEFAULT: LCClass = { alb: 0.20, sens: 0.40, iner: 0.40, pri: 0 };
 
 function classify(t: Record<string, string>): LCClass | null {
   const lu = t.landuse, nat = t.natural;
@@ -84,9 +87,10 @@ function inRing(ring: number[], lon: number, lat: number): boolean {
 
 /** Rasterise the land-cover onto a GN×GN grid → per-node albedo + sensible fraction
  *  (defaults where no polygon covers a node; highest-priority class wins overlaps). */
-export function sampleGrid(lc: LC, cLat: number, cLon: number, R: number, GN: number): { alb: Float32Array; sens: Float32Array } {
+export function sampleGrid(lc: LC, cLat: number, cLon: number, R: number, GN: number): { alb: Float32Array; sens: Float32Array; iner: Float32Array } {
   const mLat = 111320, mLng = 111320 * Math.cos(cLat * Math.PI / 180), sp = (2 * R) / (GN - 1);
-  const alb = new Float32Array(GN * GN).fill(LC_DEFAULT.alb), sens = new Float32Array(GN * GN).fill(LC_DEFAULT.sens), pri = new Int8Array(GN * GN);
+  const alb = new Float32Array(GN * GN).fill(LC_DEFAULT.alb), sens = new Float32Array(GN * GN).fill(LC_DEFAULT.sens);
+  const iner = new Float32Array(GN * GN).fill(LC_DEFAULT.iner), pri = new Int8Array(GN * GN);
   const nlon = (i: number) => cLon + (-R + i * sp) / mLng, nlat = (j: number) => cLat + (-R + j * sp) / mLat;
   const idxLon = (lon: number) => ((lon - cLon) * mLng + R) / sp, idxLat = (lat: number) => ((lat - cLat) * mLat + R) / sp;
   for (const p of lc.polys) {
@@ -94,8 +98,8 @@ export function sampleGrid(lc: LC, cLat: number, cLon: number, R: number, GN: nu
     const j0 = Math.max(0, Math.floor(idxLat(p.bb[1]))), j1 = Math.min(GN - 1, Math.ceil(idxLat(p.bb[3])));
     for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) {
       const idx = j * GN + i; if (pri[idx] >= p.cls.pri) continue;
-      if (inRing(p.ring, nlon(i), nlat(j))) { pri[idx] = p.cls.pri; alb[idx] = p.cls.alb; sens[idx] = p.cls.sens; }
+      if (inRing(p.ring, nlon(i), nlat(j))) { pri[idx] = p.cls.pri; alb[idx] = p.cls.alb; sens[idx] = p.cls.sens; iner[idx] = p.cls.iner; }
     }
   }
-  return { alb, sens };
+  return { alb, sens, iner };
 }

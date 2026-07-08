@@ -25,7 +25,7 @@ export const S: AppState = {
   glideCone: false, glideRatio: 10, safetyHeight: 0, coneRadiusKm: 25,
   labels: false, labelFields: { reg: true, alt: true, speed: false, vario: false, hdg: false },
   shadowMode: 'off', altCurtain: false, showAttribution: true, basemap: DEFAULT_BASEMAP, ignDem: false,   // experimental, opt-in
-  showPeaks: false, peakDensity: 0.35, minimap: true, overviewHud: false, activeOnly: false, airMass: false, thermalPot: false, liftOn: [true, true, true, false], liftMix: [0.34, 0.33, 0.33, 0], liftCalibrate: false,
+  showPeaks: false, peakDensity: 0.35, minimap: true, overviewHud: false, activeOnly: false, airMass: false, thermalPot: false, liftOn: [true, true, true, false], liftMix: [0.34, 0.33, 0.33, 0], liftCalibrate: false, heatStore: 0.5,
   wxSim: { on: false, wind: 20, dir: 270, shear: 3, nStab: 0.011, tsurf: 15, rh: 55, date: '2024-06-21', hour: 13 }, polar: { ...DEFAULT_POLAR }, nettoMode: 'off', windMode: 'off', heightRef: 'af', clockUTC: false, clock12: false,
   live: false, liveTimer: null,
   INIT: { ...INIT },
