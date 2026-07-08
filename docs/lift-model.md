@@ -213,7 +213,10 @@ downwind like the classic mountain-wave diagram), tinted warm where rising / blu
 sinking — not draped on the ground like the surface-driven components. Gated: wind ≥
 `WIND_MIN = 7 m/s`, `N > N_MIN`, and `λ ∈ [2, 35] km`; otherwise nothing.
 **Off by default** (the mixer's 4th vertex, enabled by its checkbox) since it only applies
-on windy, stable days.
+on windy, stable days. Beneath the smooth wave, a **rotor** is drawn as ragged grey roll
+clouds low over the terrain (`ROTOR_HGT = 220 m`) in the strongest-updraft cells
+(`w > ROTOR_W = 0.9 m/s`) — the resonant decay concentrates them under the **first crest**
+downwind of the ridge, flagging the turbulent hazard under the lift.
 
 A companion **worldwide wave scan** (`wavescan.ts`, the Discover **🌊** tab) ranks every
 spot for a date on four ingredients: the same **U / N / λ** test, plus the site's actual

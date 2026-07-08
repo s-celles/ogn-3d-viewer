@@ -10,10 +10,11 @@
 // vertical velocity, like the classic mountain-wave diagram. Not draped on the ground.
 // The "Onde" component of the lift potential. Rough (see the docs).
 import { S } from './state';
-import { SimpleMeshLayer, COORDINATE_SYSTEM, MapView } from './deck';
+import { SimpleMeshLayer, IconLayer, COORDINATE_SYSTEM, MapView } from './deck';
 import { mapDiv } from './dom';
 import { terrainElevAt } from './terrain';
 import { windBg } from './ridge';
+import { cloudSprite } from './airmass';
 import { getWeather, weatherStability, wxEpoch } from './weather';
 import { LIFT_COLORS, SINK_COLORS } from './liftviz';
 
@@ -31,6 +32,12 @@ const ETA_GAIN = 320;    // gain on the streamline vertical displacement η (m)
 const ETA_MAX = 260;     // m: clamp η so sheets never cross
 const W_LO = 0.4, W_HI = 1.2;    // |w| thresholds: neutral / mild / strong colouring
 const NEUTRAL: [number, number, number, number] = [175, 205, 235, 30];   // faint band where the flow is level
+// Rotor: a turbulent low-level roll beneath the wave crests (the hazard under the smooth wave).
+const ROTOR_W = 0.9;     // m/s: crest updraft strong enough to spin a rotor beneath it
+const ROTOR_HGT = 220;   // m: height of the rotor / roll-cloud band above the terrain
+const ROTOR_THIN = 5, ROTOR_MAX = 48;   // thinning bucket + cap for rotor puffs
+const ROTOR_COL: [number, number, number, number] = [150, 142, 138, 205];   // dirty-grey ragged roll cloud
+interface Puff { pos: [number, number, number]; size: number }
 // Streamline colour ramp by vertical velocity: strong up → mild up → level → mild down → strong down.
 const SHEET = [LIFT_COLORS[4], LIFT_COLORS[2], NEUTRAL, SINK_COLORS[1], SINK_COLORS[0]];
 
@@ -50,13 +57,22 @@ function addSheetQuad(b: Bin, nlon: (i: number) => number, nlat: (j: number) => 
   b.idx.push(s, s + 1, s + 2, s, s + 2, s + 3);
 }
 
-const mkLayers = (meshes: { color: number[]; mesh: any }[], alpha: number): any[] => meshes.map((m, i) => new SimpleMeshLayer({
-  id: 'wave-' + i, data: [{}], getPosition: () => [0, 0, 0], _instanced: false,
-  coordinateSystem: COORDINATE_SYSTEM.LNGLAT, getColor: [m.color[0], m.color[1], m.color[2], Math.round(m.color[3] * alpha)],
-  material: false, parameters: meshParams, mesh: m.mesh,
-} as any));
+const mkLayers = (meshes: { color: number[]; mesh: any }[], rotor: Puff[], alpha: number): any[] => {
+  const ls: any[] = meshes.map((m, i) => new SimpleMeshLayer({
+    id: 'wave-' + i, data: [{}], getPosition: () => [0, 0, 0], _instanced: false,
+    coordinateSystem: COORDINATE_SYSTEM.LNGLAT, getColor: [m.color[0], m.color[1], m.color[2], Math.round(m.color[3] * alpha)],
+    material: false, parameters: meshParams, mesh: m.mesh,
+  } as any));
+  if (rotor.length) ls.push(new IconLayer({
+    id: 'wave-rotor', data: rotor, iconAtlas: cloudSprite(), iconMapping: { p: { x: 0, y: 0, width: 128, height: 128, mask: true } } as any,
+    getIcon: () => 'p', getPosition: (d: any) => d.pos, getSize: (d: any) => d.size,
+    getColor: [ROTOR_COL[0], ROTOR_COL[1], ROTOR_COL[2], Math.round(ROTOR_COL[3] * alpha)], sizeUnits: 'meters', billboard: true,
+    parameters: { depthCompare: 'less-equal', depthWriteEnabled: false } as any,
+  } as any));
+  return ls;
+};
 
-let cache: { cLon: number; cLat: number; R: number; hour: number; wk: string; meshes: { color: number[]; mesh: any }[] } | null = null;
+let cache: { cLon: number; cLat: number; R: number; hour: number; wk: string; meshes: { color: number[]; mesh: any }[]; rotor: Puff[] } | null = null;
 
 // Size + centre the wave domain to the VISIBLE terrain: in the overview we unproject a
 // screen sample grid to the ground and take its (RMAX-capped) bounding box, so the wave
@@ -111,13 +127,13 @@ export function waveLayers(k: number, alpha = 1): any[] {
   if (cache && cache.hour === hour && cache.wk === wk && Math.abs(Math.log(cache.R / R)) < 0.2) {
     const cosLat = Math.cos(gLat * Math.PI / 180);
     const moved = Math.hypot((cache.cLon - gLon) * 111320 * cosLat, (cache.cLat - gLat) * 111320);
-    if (moved < R * 0.25) return mkLayers(cache.meshes, alpha);
+    if (moved < R * 0.25) return mkLayers(cache.meshes, cache.rotor, alpha);
   }
   const mLng = 111320 * Math.cos(gLat * Math.PI / 180), mLat = 111320, sp = (2 * R) / (NG - 1);
   const nlon = (i: number) => gLon + (-R + i * sp) / mLng, nlat = (j: number) => gLat + (-R + j * sp) / mLat;
   // Pass 1: terrain forcing along the wind, w₀ = wind·∇terrain (m/s), per node; and the
   // highest ridge, so the elevated curtains sit above the terrain.
-  const F = new Float32Array(NG * NG), ok = new Uint8Array(NG * NG);
+  const F = new Float32Array(NG * NG), ok = new Uint8Array(NG * NG), HT = new Float32Array(NG * NG);
   let ready = 0, maxTerr = -Infinity;
   for (let j = 0; j < NG; j++) for (let i = 0; i < NG; i++) {
     const lon = nlon(i), lat = nlat(j), idx = j * NG + i;
@@ -125,7 +141,7 @@ export function waveLayers(k: number, alpha = 1): any[] {
     const hE = terrainElevAt(lon + GB / mLng, lat), hW = terrainElevAt(lon - GB / mLng, lat);
     const hN = terrainElevAt(lon, lat + GB / mLat), hS = terrainElevAt(lon, lat - GB / mLat);
     if (hC == null || hE == null || hW == null || hN == null || hS == null) continue;
-    F[idx] = wind[0] * (hE - hW) / (2 * GB) + wind[1] * (hN - hS) / (2 * GB); ok[idx] = 1; ready++;
+    F[idx] = wind[0] * (hE - hW) / (2 * GB) + wind[1] * (hN - hS) / (2 * GB); ok[idx] = 1; HT[idx] = hC; ready++;
     if (hC > maxTerr) maxTerr = hC;
   }
   if (ready < NG * NG * 0.4) return [];   // terrain not loaded here yet — retry next frame
@@ -169,6 +185,15 @@ export function waveLayers(k: number, alpha = 1): any[] {
       indices: { value: new Uint32Array(b.idx), size: 1 }, mode: 4,
     },
   } : null).filter(Boolean) as { color: number[]; mesh: any }[];
-  cache = { cLon: gLon, cLat: gLat, R, hour, wk, meshes };
-  return mkLayers(meshes, alpha);
+  // Rotor: turbulent roll clouds low under the strongest crests — the hazard beneath the
+  // smooth wave. Placed near the terrain in the strong-updraft cells (thinned), the resonant
+  // decay concentrates them under the first crest downwind of the ridge.
+  const rotor: Puff[] = [], occ = new Set<string>();
+  for (let j = 0; j < NG && rotor.length < ROTOR_MAX; j++) for (let i = 0; i < NG; i++) {
+    const idx = j * NG + i; if (!ok[idx] || wN[idx] < ROTOR_W) continue;
+    const bk = `${(i / ROTOR_THIN) | 0},${(j / ROTOR_THIN) | 0}`; if (occ.has(bk)) continue; occ.add(bk);
+    rotor.push({ pos: [nlon(i), nlat(j), (HT[idx] + ROTOR_HGT) * k], size: 320 + Math.min(1, (wN[idx] - ROTOR_W) / 1.5) * 380 });
+  }
+  cache = { cLon: gLon, cLat: gLat, R, hour, wk, meshes, rotor };
+  return mkLayers(meshes, rotor, alpha);
 }
