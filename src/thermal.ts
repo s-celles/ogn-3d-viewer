@@ -10,7 +10,7 @@ import { S } from './state';
 import { SimpleMeshLayer, IconLayer, COORDINATE_SYSTEM } from './deck';
 import { terrainElevAt } from './terrain';
 import { sunLightDir, sceneMs } from './sky';
-import { getWeather, weatherRad, weatherConvTop, weatherCloudbase, wxEpoch } from './weather';
+import { getWeather, weatherRad, weatherConvTop, weatherCloudbase, weatherWind, wxEpoch } from './weather';
 import { cloudSprite } from './airmass';
 import { getLC, sampleGrid, lcVersion } from './landcover';
 import { liftCalibration } from './calib';
@@ -32,6 +32,10 @@ function snowLineM(ms: number, lat: number): number {
 const BETA = 0.35;       // sensible-heat fraction of the absorbed flux (Bowen + ground)
 const TRIG_GAIN = 0.4;   // convex-break trigger: ± bias on the heated field from topographic position
 const TPI_REF = 18;      // m: TPI (height above the local mean) that saturates the trigger bias
+const STREET_RATIO = 2.7;   // across-wind cloud-street spacing ≈ this × the convective depth z_i
+const STREET_ZI_MIN = 800;  // m: minimum convective depth for streets to organise
+const STREET_WIND_MIN = 4;  // m/s: minimum boundary-layer wind for streets
+const STREET_AMP = 0.5;     // ± modulation of the heat flux along / between the streets
 const STORE_GAIN = 1.4;  // strength of the diurnal heat storage/restitution modulation (× S.heatStore × inertia)
 const TAU_H = 2.6;       // h: ground heat-storage time constant (the lag before stored heat is released)
 const IREF = 0.4;        // reference-ground inertia (the flat reference gets the same diurnal modulation)
@@ -157,6 +161,20 @@ export function thermalLayers(k: number, alpha = 1): any[] {
   // and lingers into the late afternoon (rock/urban keep pumping; dry fields collapse).
   const dM = S.heatStore > 0 ? diurnalStore(nowMs(), cLat, cLon) : 0;
   const snowLine = snowLineM(nowMs(), cLat);   // above it, snow albedo shuts thermals down
+  // Cloud streets: with enough boundary-layer wind and convective depth, thermals organise
+  // into rolls aligned with the wind, spaced ~STREET_RATIO×z_i — lift on the street lines,
+  // subsidence between. Modulate the heat flux across-wind (a redistribution, mean ≈ 1).
+  const gRefH = gRef != null ? gRef : (S.AF ? S.AF.elev : 0), ziRef = ziAt(gRefH);
+  let stK = 0, stAmp = 0, stPE = 0, stPN = 0;
+  const stWind = wx && ziRef > STREET_ZI_MIN ? weatherWind(wx, hour, gRefH + Math.max(400, ziRef * 0.5)) : null;
+  if (stWind) {
+    const ws = Math.hypot(stWind[0], stWind[1]);
+    if (ws > STREET_WIND_MIN) {
+      stPE = -stWind[1] / ws; stPN = stWind[0] / ws;   // unit ⟂ to the wind (across-street)
+      stK = 2 * Math.PI / (STREET_RATIO * ziRef);
+      stAmp = STREET_AMP * Math.min(1, (ws - STREET_WIND_MIN) / 2);
+    }
+  }
   const mStore = (iner: number): number => Math.max(0.3, Math.min(2, 1 + STORE_GAIN * S.heatStore * iner * dM));
   const wRef = wStar((dni * su[2] + diff) * (1 - ALBEDO) * BETA * mStore(IREF), ziAt(gRef != null ? gRef : (S.AF ? S.AF.elev : 0)));   // flat reference ground
   const scaleRef = Math.max(0.15, wRef);
@@ -214,7 +232,9 @@ export function thermalLayers(k: number, alpha = 1): any[] {
       // Snow cover above the seasonal snow line: blend to snow albedo → very little heating.
       const albC = alb ? alb[idx] : ALBEDO, sf = Math.max(0, Math.min(1, (n.h - snowLine) / SNOW_BAND));
       const albE = albC + (SNOW_ALB - albC) * sf;
-      const H = (dni * cosInc * shade + diff) * (1 - albE) * (sens ? sens[idx] : BETA) * mStore(iners ? iners[idx] : IREF);
+      // Cloud-street organisation: across-wind cosine banding of the heat flux.
+      const st = stAmp > 0 ? 1 + stAmp * Math.cos(stK * ((-g.R + i0 * g.sp) * stPE + (-g.R + j0 * g.sp) * stPN)) : 1;
+      const H = (dni * cosInc * shade + diff) * (1 - albE) * (sens ? sens[idx] : BETA) * mStore(iners ? iners[idx] : IREF) * st;
       vzN[idx] = wStar(H, zi) * trig;                                  // absolute updraught Vz (m/s), biased to convex triggers
     }
     // Per-cell Vz into a 2D grid, then a light 3×3 blur — kills the bin checkerboard.

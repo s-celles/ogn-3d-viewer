@@ -134,6 +134,13 @@ high (keep pumping late), dry fields/grass low (peak early, collapse fast), wate
 moot (it barely heats). The flat reference gets the same modulation, so it shifts the whole
 day's rhythm as well as the spatial pattern. `heatStore = 0` disables it.
 
+**3d. Cloud streets.** With enough boundary-layer wind (`> STREET_WIND_MIN = 4 m/s`) and
+convective depth (`z_i > STREET_ZI_MIN = 800 m`), convection organises into **rolls aligned
+with the wind**. The heat flux is modulated by an across-wind cosine of wavelength
+`STREET_RATIO · z_i ≈ 2.7 z_i` (`±STREET_AMP = 0.5`): **lift on the street lines, subsidence
+between**, so the warm field — and the cumulus that top its cores — line up into streets. A
+redistribution (mean ≈ 1), gated off on calm or stable days.
+
 **4. Colouring** (view-independent, fixed thresholds):
 
 - A **flat reference** `wRef` = Vz of flat reference ground under the same sun/weather.
