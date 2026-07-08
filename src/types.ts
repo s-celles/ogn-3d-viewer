@@ -208,6 +208,9 @@ export interface AppState {
   overviewHud: boolean;
   // Only show/cycle gliders airborne at the current time (opt-in).
   activeOnly: boolean;
+  // Anonymous mode: hide real registrations behind neutral tags (G1, G2, …) everywhere they
+  // show — for screenshots. Internal identity (subject, solo, deep links) keeps the real reg.
+  anon: boolean;
   // Show the reconstructed air mass (thermal columns + cumulus) from the tracks.
   airMass: boolean;
   // Show the estimated lift-potential field (thermal + slope lift, physics).

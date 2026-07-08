@@ -4,6 +4,14 @@ import { GLIDER, ARROW, LIVE, clampv } from './config';
 import { isPowered } from './aircraft-mesh';
 import type { RenderTrack, Pos3, RelPoint, TrackPoint } from './types';
 
+/** The registration to DISPLAY: the real one, or a neutral anonymised tag (G1, G2, …) in
+ *  anonymous mode — for screenshots. Internal identity (subject, solo, URL) keeps the real reg. */
+export function displayReg(tr: RenderTrack): string {
+  if (!S.anon) return tr.reg;
+  const i = S.TRACKS.indexOf(tr);
+  return i >= 0 ? 'G' + (i + 1) : '—';
+}
+
 // Subdivisions inserted per beacon segment when spline smoothing is on.
 const SPLINE_SUBDIV = 8;
 

@@ -11,7 +11,7 @@ import { drawGraphs } from './graphs';
 import { drawTraffic } from './traffic';
 import { varioAudio } from './vario-audio';
 import { updateSky, getSun, getMoon, nightPolygon, sceneMs } from './sky';
-import { subjectTrack, shown, scaled, posAt, presence, airborne, isActive, headingAt, varioAt, compVarioAt, groundSpeedAt, clampCur, attitudeAt, nearestToCenter } from './flight-math';
+import { subjectTrack, shown, scaled, posAt, presence, airborne, isActive, headingAt, varioAt, compVarioAt, groundSpeedAt, clampCur, attitudeAt, nearestToCenter, displayReg } from './flight-math';
 import { nettoAt, minSink } from './polar';
 import { GLIDER_MESH, PLANE_MESH, PROP_MESH, GLIDER_FLAT, PLANE_FLAT, isPowered } from './aircraft-mesh';
 import { getPeaks, getWaypoints, loadPeaks, type Poi } from './poi';
@@ -593,7 +593,7 @@ function labelText(tr: RenderTrack, time: number): string {
   if (lf.speed) parts.push(Math.round(groundSpeedAt(tr, time) * 3.6) + ' km/h');
   if (lf.vario) { const v = S.compensated ? compVarioAt(tr, time) : varioAt(tr, time); parts.push((v >= 0 ? '+' : '') + v.toFixed(1) + ' m/s'); }
   if (lf.hdg) parts.push(Math.round(headingAt(tr, time)).toString().padStart(3, '0') + '°');
-  return [lf.reg ? tr.reg : '', parts.join('  ')].filter(Boolean).join('\n');
+  return [lf.reg ? displayReg(tr) : '', parts.join('  ')].filter(Boolean).join('\n');
 }
 function updateLabels(): void {
   const lf = S.labelFields, on = S.ready && S.labels && (lf.reg || lf.alt || lf.speed || lf.vario || lf.hdg);
@@ -899,7 +899,7 @@ function updateFocusUI(): void {
     focusBadge.style.display = 'flex';
     focusBadge.innerHTML = `<span class="lbl2">${t('focusLabel')}</span>` +
       `<span class="dot" style="background:rgb(${tr.color.join(',')})"></span>` +
-      `<span class="reg">${tr.reg}</span><span class="mut">${tr.label}</span>`;
+      `<span class="reg">${displayReg(tr)}</span><span class="mut">${tr.label}</span>`;
   } else {
     focusBadge.style.display = 'none'; focusBadge.innerHTML = '';
   }
@@ -964,7 +964,7 @@ export function updateHUD(): void {
   // In the overview the HUD (opt-in) reads the focused glider; elsewhere the subject.
   const tr = (S.mode === 'over' && S.focus ? S.TRACKS.find(t2 => t2.reg === S.focus) : null) || subjectTrack();
   const pr = presence(tr);
-  hudreg.textContent = tr.reg + ' · ' + tr.label + (pr && pr.offline ? ' · ' + t('offline') : '');
+  hudreg.textContent = displayReg(tr) + ' · ' + tr.label + (pr && pr.offline ? ' · ' + t('offline') : '');
   if (!pr) {
     hudhdg.textContent = '—'; hudspd.textContent = '—'; hudalt.textContent = '—';
     hudnetto.textContent = '—'; hudnetto.className = 'vario'; hudsuper.textContent = '—'; hudsuper.className = 'vario';

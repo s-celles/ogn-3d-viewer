@@ -5,7 +5,7 @@ import { API_BASE, REPO_URL, MINZ, MAXZ, PMIN, PMAX, CHASE, clampv, BASEMAPS, IG
 import { APP_VERSION, GIT_HASH } from './version';
 import {
   subjEl, viewsEl, cammodeEl, traceEl, trailFxEl, smoothBtn, compBtn, bankBtn, soundBtn, nettoBtn, polarBtn, polarReset, polarName, polarRow, plrInput, trafficModeEl, graphModeEl, graphClose, winEl, winval, playBtn, revBtn, segEl,
-  exoEl, exval, groundEl, groundval, cacheEl, cacheval, acscaleEl, acscaleval, coneBtn, finesseEl, finval, safetyEl, safeval, coneRadEl, coneradval, labelsBtn, labelFieldsEl, shadowsEl, basemapEl, ignDemBtn, peaksBtn, peakDensityEl, minimapBtn, overviewHudBtn, activeOnlyBtn, airMassBtn, thermalBtn, liftComps, heatStoreEl, wxSimBtn, wxSimPanel, windModeEl, heightRefEl, clock12Btn, clearWpBtn, attribEl, curtainBtn, attrBtn, pitchEl, pitchval, scrub, scrubMin, scrubMax, clkEl, tzEl, lglist, rose, altsl, icaoEl, fblink, acEl,
+  exoEl, exval, groundEl, groundval, cacheEl, cacheval, acscaleEl, acscaleval, coneBtn, finesseEl, finval, safetyEl, safeval, coneRadEl, coneradval, labelsBtn, labelFieldsEl, shadowsEl, basemapEl, ignDemBtn, peaksBtn, peakDensityEl, minimapBtn, overviewHudBtn, activeOnlyBtn, anonBtn, airMassBtn, thermalBtn, liftComps, heatStoreEl, wxSimBtn, wxSimPanel, windModeEl, heightRefEl, clock12Btn, clearWpBtn, attribEl, curtainBtn, attrBtn, pitchEl, pitchval, scrub, scrubMin, scrubMax, clkEl, tzEl, lglist, rose, altsl, icaoEl, fblink, acEl,
   dateEl, loadBtn, langEl, discEl, infoBtn, copyBtn, shareBtn, collapseBtn, liveBtn, igcBtn, igcInput, mapDiv, prevAc, nextAc, resetSettingsBtn, afInfo,
 } from './dom';
 import { codeFlag, flag } from './flags';
@@ -15,7 +15,7 @@ import qrcode from 'qrcode-generator';
 const HAS_SHARE = typeof navigator !== 'undefined' && 'share' in navigator;   // Web Share API available?
 import { clearStored } from './settings';
 import { postCacheCap } from './sw-cache';
-import { subjectTrack, airborne, isActive, headingAt, clampCur, fmt, fmtTod, dayShift, statsFor } from './flight-math';
+import { subjectTrack, airborne, isActive, headingAt, clampCur, fmt, fmtTod, dayShift, statsFor, displayReg } from './flight-math';
 import { makeTerrain, clearDemCache } from './terrain';
 import { render, updateHUD } from './render';
 import { loadFlights, refreshLive, statusMsg, setStatus, rebuild, syncUrl, loadTrackFiles } from './data';
@@ -301,6 +301,7 @@ export function syncControls(): void {
   document.body.classList.toggle('ovhud', S.overviewHud);
   overviewHudBtn.textContent = S.overviewHud ? t('on') : t('off'); overviewHudBtn.classList.toggle('on', S.overviewHud);
   activeOnlyBtn.textContent = S.activeOnly ? t('on') : t('off'); activeOnlyBtn.classList.toggle('on', S.activeOnly);
+  anonBtn.textContent = S.anon ? t('on') : t('off'); anonBtn.classList.toggle('on', S.anon);
   heightRefEl.value = S.heightRef;
   airMassBtn.textContent = S.airMass ? t('on') : t('off'); airMassBtn.classList.toggle('on', S.airMass);
   thermalBtn.textContent = S.thermalPot ? t('on') : t('off'); thermalBtn.classList.toggle('on', S.thermalPot);
@@ -420,6 +421,14 @@ activeOnlyBtn.onclick = () => {
   S.activeOnly = !S.activeOnly;
   activeOnlyBtn.textContent = S.activeOnly ? t('on') : t('off'); activeOnlyBtn.classList.toggle('on', S.activeOnly);
   render();
+};
+// ---- anonymous mode: hide real registrations (screenshots) ----
+anonBtn.onclick = () => {
+  S.anon = !S.anon;
+  anonBtn.textContent = S.anon ? t('on') : t('off'); anonBtn.classList.toggle('on', S.anon);
+  // Refresh the subject dropdown labels live (built once at load).
+  [...subjEl.options].forEach(o => { const tr = S.TRACKS.find(t2 => t2.reg === o.value); if (tr) o.textContent = `${displayReg(tr)} — ${tr.label}`; });
+  buildLegend(); render();
 };
 // ---- height reference for the parenthetical altitude (departure AD / ground / none) ----
 ([['af', 'heightRefAf'], ['ground', 'heightRefGround'], ['off', 'heightRefOff']] as const)
@@ -573,7 +582,7 @@ export function buildLegend(): void {
                   `${s.avgKmh.toFixed(0)}→${s.maxKmh.toFixed(0)} km/h · vz ${s.maxClimb.toFixed(1)} m/s`;
     d.innerHTML = `<span class="dot" style="background:rgb(${tr.color.join(',')})"></span>` +
                   `<div class="lgtext">` +
-                    `<div class="lgtop"><span class="loc"></span><span class="reg">${tr.reg}</span><span class="mut">${tr.label} · ${tr.maxalt} m · ${dur} ${t('min')}</span></div>` +
+                    `<div class="lgtop"><span class="loc"></span><span class="reg">${displayReg(tr)}</span><span class="mut">${tr.label} · ${tr.maxalt} m · ${dur} ${t('min')}</span></div>` +
                     `<div class="mut2">${stats}</div>` +
                   `</div>`;
     d.style.cursor = 'pointer'; d.style.opacity = (S.solo && S.solo !== tr.reg) ? '0.45' : '1';

@@ -21,6 +21,7 @@ export const smoothBtn  = $<HTMLButtonElement>('smoothBtn');
 export const compBtn    = $<HTMLButtonElement>('compBtn');
 export const bankBtn    = $<HTMLButtonElement>('bankBtn');
 export const soundBtn   = $<HTMLButtonElement>('soundBtn');
+export const anonBtn    = $<HTMLButtonElement>('anonBtn');
 export const polarBtn   = $<HTMLButtonElement>('polarBtn');
 export const polarReset = $<HTMLButtonElement>('polarReset');
 export const polarName  = $('polarName');

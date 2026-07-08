@@ -8,7 +8,7 @@ import { t } from './i18n';
 import { statusEl, loadBtn, subjEl, viewsEl, playBtn, icaoEl } from './dom';
 import { render } from './render';
 import { buildLegend, syncUI, applyFollowClass, setCollapsed } from './ui';
-import { buildRel } from './flight-math';
+import { buildRel, displayReg } from './flight-math';
 import type { FBLogbook, FBDevice, FetchResult, FBAirfield, Track, TrackPoint, RGB, ViewStateLike } from './types';
 
 interface Task { dev: FBDevice; t0: number; t1: number; maxalt: number; stop: number; }
@@ -252,7 +252,7 @@ export function rebuild(af: FBAirfield | null, tzoff: number | null, preserve: b
   S.TRACKS.forEach(tr => {
     if (seenReg.has(tr.reg)) return; seenReg.add(tr.reg);
     const o = document.createElement('option'); o.value = tr.reg;
-    o.textContent = `${tr.reg} — ${tr.label}`; subjEl.appendChild(o);
+    o.textContent = `${displayReg(tr)} — ${tr.label}`; subjEl.appendChild(o);
   });
   subjEl.value = S.subject!;
   S.ready = true; document.body.classList.add('loaded');
