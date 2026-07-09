@@ -18,16 +18,17 @@ const MIRRORS = [
 ];
 const COOLDOWN = 60000;   // ms: pause all building fetches after a full failure
 let cooldownUntil = 0;
+// Race all mirrors — the first to answer wins, so one slow/hung instance doesn't hold us up.
 async function overpass(q: string): Promise<any> {
-  let lastErr: unknown = new Error('no mirror');
-  for (const url of MIRRORS) {
+  const body = 'data=' + encodeURIComponent(q);
+  return Promise.any(MIRRORS.map(async url => {
+    const ac = new AbortController(), to = setTimeout(() => ac.abort(), 15000);
     try {
-      const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: 'data=' + encodeURIComponent(q) });
-      if (!res.ok) { lastErr = new Error('http ' + res.status); continue; }
+      const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body, signal: ac.signal });
+      if (!res.ok) throw new Error('http ' + res.status);
       return await res.json();
-    } catch (e) { lastErr = e; }
-  }
-  throw lastErr;
+    } finally { clearTimeout(to); }
+  }));
 }
 const MINZOOM = 9.5;     // below this the view is too wide for the (radius-capped) fetch to be useful
 const LEVEL_H = 3.2, ROOF_H = 1.5, DEF_H = 7;   // m per level, roof add, fallback height (~2 levels)
@@ -144,7 +145,7 @@ export function buildingLayers(k: number): any[] {
   const cLat = S.mapVS.latitude, cLon = S.mapVS.longitude, zoom = S.mapVS.zoom || 11;
   if (zoom < MINZOOM) { dbg(`zoom ${zoom.toFixed(1)} < ${MINZOOM} — zoom in to load buildings`); return []; }
   const mppx = 156543.03392 * Math.cos(cLat * Math.PI / 180) / 2 ** zoom;
-  const R = Math.max(1200, Math.min(3500, mppx * 350));   // small fetch radius — dense cities blow up Overpass otherwise
+  const R = Math.max(1000, Math.min(2800, mppx * 300));   // small fetch radius — dense cities blow up Overpass otherwise
   const all = getBuildings(cLat, cLon, R); if (!all) { dbg(Date.now() < cooldownUntil ? 'Overpass backoff…' : 'loading…'); return []; }
   // Cache the merged geometry — rebuild only when the fetched area / exaggeration changes
   // (or while terrain is still streaming in, so late-loading grounds get picked up).
