@@ -11,7 +11,7 @@ export type PoiCat = 'summit' | 'airfield' | 'outland' | 'obstacle' | 'landmark'
 export interface Poi { lon: number; lat: number; ele: number; name: string; kind: 'peak' | 'wp'; cat: PoiCat }
 
 // ---- OSM peaks via Overpass, cached by rounded bbox --------------------------
-const OVERPASS = 'https://overpass-api.de/api/interpreter';
+import { overpass } from './overpass';
 const CKEY = 'ogn.peaks';
 const cache = new Map<string, Poi[]>();
 // Only non-empty results are ever cached, so a stale/empty entry (from a past
@@ -40,9 +40,8 @@ export async function loadPeaks(west: number, south: number, east: number, north
   if (pending === key) return; pending = key;
   const q = `[out:json][timeout:25];node["natural"="peak"](${r(s)},${r(w)},${r(n)},${r(e)});out;`;
   try {
-    const res = await fetch(OVERPASS, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: 'data=' + encodeURIComponent(q) });
-    if (!res.ok) throw new Error('http ' + res.status);
-    const data = await res.json() as { elements?: Array<{ lat: number; lon: number; tags?: Record<string, string> }> };
+    const data = await overpass(q) as { elements?: Array<{ lat: number; lon: number; tags?: Record<string, string> }> } | null;
+    if (!data) { if (pending === key) pending = ''; return; }
     const list: Poi[] = [];
     for (const el of (data.elements || [])) {
       const t = el.tags || {}, ele = parseFloat(String(t.ele));
@@ -65,9 +64,8 @@ export async function nearbyAerodromes(lat: number, lon: number): Promise<Aerodr
   const hit = adCache.get(key); if (hit) return hit;
   const q = `[out:json][timeout:25];nwr["aeroway"="aerodrome"](around:25000,${lat},${lon});out center tags;`;
   try {
-    const res = await fetch(OVERPASS, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: 'data=' + encodeURIComponent(q) });
-    if (!res.ok) throw new Error('http ' + res.status);
-    const data = await res.json() as { elements?: Array<{ lat?: number; lon?: number; center?: { lat: number; lon: number }; tags?: Record<string, string> }> };
+    const data = await overpass(q) as { elements?: Array<{ lat?: number; lon?: number; center?: { lat: number; lon: number }; tags?: Record<string, string> }> } | null;
+    if (!data) return [];
     const cs = Math.cos(lat * Math.PI / 180);
     const list: Array<Aerodrome & { d: number }> = [];
     for (const el of (data.elements || [])) {

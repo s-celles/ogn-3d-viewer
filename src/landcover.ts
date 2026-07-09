@@ -4,7 +4,7 @@
 // fields / bare ground pump; forest, water barely). Typical albedo + sensible-heat
 // fraction per class. Ways + relation multipolygons (outer rings; inner holes ignored).
 // Rough and illustrative — see the docs.
-const OVERPASS = 'https://overpass-api.de/api/interpreter';
+import { overpass, overpassDown } from './overpass';
 
 // alb = albedo, sens = sensible-heat fraction, iner = thermal inertia/admittance (0..1:
 // high = stores heat then releases it late, e.g. rock/urban; low = heats & cools fast,
@@ -49,11 +49,10 @@ async function fetchLC(key: string, s: number, w: number, n: number, e: number):
   // multipolygon relations, and missing them left towns unclassified (→ under-heated).
   const bb = `${s},${w},${n},${e}`;
   const q = `[out:json][timeout:30];(way["landuse"](${bb});relation["landuse"](${bb});way["natural"](${bb});relation["natural"](${bb}););out geom;`;
+  type Geo = { lat: number; lon: number };
   try {
-    const res = await fetch(OVERPASS, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: 'data=' + encodeURIComponent(q) });
-    if (!res.ok) throw new Error('http ' + res.status);
-    type Geo = { lat: number; lon: number };
-    const data = await res.json() as { elements?: Array<{ type: string; geometry?: Geo[]; members?: Array<{ type: string; role?: string; geometry?: Geo[] }>; tags?: Record<string, string> }> };
+    const data = await overpass(q) as { elements?: Array<{ type: string; geometry?: Geo[]; members?: Array<{ type: string; role?: string; geometry?: Geo[] }>; tags?: Record<string, string> }> } | null;
+    if (!data) return;   // failed / backing off — leave uncached so it retries once Overpass is back
     const polys: Poly[] = [];
     const addRing = (cls: LCClass, geom?: Geo[]): void => {
       if (!geom || geom.length < 3) return;
@@ -92,7 +91,7 @@ async function fetchLC(key: string, s: number, w: number, n: number, e: number):
       else if (el.type === 'relation' && el.members) for (const ring of assembleRings(el.members)) addRing(cls, ring);   // outer rings only (holes ignored)
     }
     cache.set(key, { polys });
-  } catch { cache.set(key, null); }
+  } catch { /* parse error — skip (uncached, retried later) */ }
   ver++;   // consumers re-read (their caches key on lcVersion())
 }
 
@@ -103,7 +102,7 @@ const bboxKey = (cLat: number, cLon: number, R: number): string => `${cLat.toFix
 export function getLC(cLat: number, cLon: number, R: number): LC | null {
   const key = bboxKey(cLat, cLon, R);
   if (cache.has(key)) return cache.get(key) ?? null;
-  if (!inflight.has(key)) {
+  if (!inflight.has(key) && !overpassDown()) {
     inflight.add(key);
     const mLat = 111320, mLng = 111320 * Math.cos(cLat * Math.PI / 180), dLat = R / mLat, dLon = R / mLng;
     fetchLC(key, cLat - dLat, cLon - dLon, cLat + dLat, cLon + dLon).finally(() => inflight.delete(key));
