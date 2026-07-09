@@ -16,7 +16,7 @@ const MIRRORS = [
   'https://overpass.private.coffee/api/interpreter',
   'https://overpass-api.de/api/interpreter',
 ];
-const COOLDOWN = 60000;   // ms: pause all building fetches after a full failure
+const COOLDOWN = 180000;   // ms: pause all building fetches after a full failure (be a good citizen)
 let cooldownUntil = 0;
 // Race all mirrors — the first to answer wins, so one slow/hung instance doesn't hold us up.
 async function overpass(q: string): Promise<any> {
@@ -137,16 +137,13 @@ function mkBuildingLayers(g: BuiltGeo): any[] {
   ];
 }
 
-let lastDbg = 0;
-const dbg = (m: string): void => { const n = Date.now(); if (n - lastDbg > 2000) { lastDbg = n; console.info('[buildings] ' + m); } };
-
 /** Extruded OSM buildings around the view (opt-in). Empty when zoomed out or still loading. */
 export function buildingLayers(k: number): any[] {
   const cLat = S.mapVS.latitude, cLon = S.mapVS.longitude, zoom = S.mapVS.zoom || 11;
-  if (zoom < MINZOOM) { dbg(`zoom ${zoom.toFixed(1)} < ${MINZOOM} — zoom in to load buildings`); return []; }
+  if (zoom < MINZOOM) return [];
   const mppx = 156543.03392 * Math.cos(cLat * Math.PI / 180) / 2 ** zoom;
   const R = Math.max(1000, Math.min(2800, mppx * 300));   // small fetch radius — dense cities blow up Overpass otherwise
-  const all = getBuildings(cLat, cLon, R); if (!all) { dbg(Date.now() < cooldownUntil ? 'Overpass backoff…' : 'loading…'); return []; }
+  const all = getBuildings(cLat, cLon, R); if (!all) return [];
   // Cache the merged geometry — rebuild only when the fetched area / exaggeration changes
   // (or while terrain is still streaming in, so late-loading grounds get picked up).
   const key = `${bboxKey(cLat, cLon, R)}|${k.toFixed(2)}|${ver}`;
