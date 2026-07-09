@@ -7,6 +7,7 @@ import {
   subjEl, viewsEl, cammodeEl, traceEl, trailFxEl, smoothBtn, compBtn, bankBtn, soundBtn, nettoBtn, polarBtn, polarReset, polarName, polarRow, plrInput, trafficModeEl, graphModeEl, graphClose, winEl, winval, playBtn, revBtn, segEl,
   exoEl, exval, groundEl, groundval, cacheEl, cacheval, acscaleEl, acscaleval, coneBtn, finesseEl, finval, safetyEl, safeval, coneRadEl, coneradval, labelsBtn, labelFieldsEl, shadowsEl, basemapEl, ignDemBtn, peaksBtn, peakDensityEl, colsBtn, minimapBtn, overviewHudBtn, activeOnlyBtn, anonBtn, airMassBtn, thermalBtn, liftComps, heatStoreEl, wxSimBtn, wxSimPanel, windModeEl, heightRefEl, clock12Btn, clearWpBtn, attribEl, curtainBtn, attrBtn, pitchEl, pitchval, scrub, scrubMin, scrubMax, clkEl, tzEl, lglist, rose, altsl, icaoEl, fblink, acEl,
   dateEl, loadBtn, langEl, discEl, infoBtn, copyBtn, shareBtn, exportBtn, exportFmtEl, collapseBtn, liveBtn, igcBtn, igcInput, mapDiv, prevAc, nextAc, resetSettingsBtn, afInfo,
+  gotoPlaceEl, gotoAltEl, gotoAglEl, gotoHdgEl, gotoBtn,
 } from './dom';
 import { codeFlag, flag } from './flags';
 import { buildLiftMixer, syncLiftMixer } from './liftmixer';
@@ -19,7 +20,9 @@ import { subjectTrack, airborne, isActive, headingAt, clampCur, fmt, fmtTod, day
 import { makeTerrain, clearDemCache } from './terrain';
 import { render, updateHUD, exportImage } from './render';
 import { loadFlights, refreshLive, statusMsg, setStatus, rebuild, syncUrl, loadTrackFiles } from './data';
-import { importCup, clearWaypoints, getWaypoints } from './poi';
+import { importCup, clearWaypoints, getWaypoints, getPeaks } from './poi';
+import { terrainElevAt } from './terrain';
+import { findSpot } from './spots';
 import { TRACK_EXT } from './track-import';
 import { parsePlr, DEFAULT_POLAR } from './polar';
 import { varioAudio } from './vario-audio';
@@ -71,6 +74,7 @@ clock12Btn.onclick = () => { S.clock12 = !S.clock12; clock12Btn.textContent = S.
 });
 export function setMode(m: Mode): void {
   if ((m === 'fpv' || m === 'chase') && !S.ready) return;
+  S.obs = null;   // any completed view switch leaves the free-observer (teleport)
   const from = S.mode; S.mode = m;
   [...viewsEl.children].forEach(c => asEl(c).classList.toggle('on', asEl(c).dataset.m === m));
   document.body.classList.toggle('fpv', m === 'fpv');
@@ -91,6 +95,32 @@ export function gotoSpot(lat: number, lon: number): void {
   const vs = { longitude: lon, latitude: lat, zoom: 11, pitch: 55, bearing: 0, maxPitch: 85 };
   S.mapVS = { ...vs }; S.mapTarget = { ...vs };
   render();
+}
+// Resolve a place string to coordinates: "lat, lon", a loaded summit/waypoint name,
+// the current airfield code, or a curated spot (code / name). ele = known elevation, else null.
+function resolvePlace(str: string): { lon: number; lat: number; ele: number | null; name: string } | null {
+  const s = str.trim(); if (!s) return null;
+  const m = s.match(/^\s*([-+]?\d+(?:\.\d+)?)\s*[,;]?\s+?\s*([-+]?\d+(?:\.\d+)?)\s*$/) || s.match(/^\s*([-+]?\d+(?:\.\d+)?)\s*,\s*([-+]?\d+(?:\.\d+)?)\s*$/);
+  if (m) { const lat = +m[1], lon = +m[2]; if (Math.abs(lat) <= 90 && Math.abs(lon) <= 180) return { lon, lat, ele: null, name: `${lat.toFixed(4)}, ${lon.toFixed(4)}` }; }
+  const q = s.toLowerCase();
+  for (const p of [...getWaypoints(), ...getPeaks()]) if (p.name && p.name.toLowerCase().includes(q)) return { lon: p.lon, lat: p.lat, ele: p.ele, name: p.name };
+  if (S.AF && S.AF.code && S.AF.code.toLowerCase() === q) return { lon: S.AF.lon, lat: S.AF.lat, ele: S.AF.elev, name: S.AF.name };
+  const sp = findSpot(s); return sp ? { lon: sp.lon, lat: sp.lat, ele: null, name: sp.name } : null;
+}
+// Teleport a free first-person observer to a place, at an altitude/AGL and initial heading.
+function doTeleport(): void {
+  const place = resolvePlace(gotoPlaceEl.value);
+  if (!place) { setStatus(t('gotoNotFound')); return; }
+  const ground = terrainElevAt(place.lon, place.lat) ?? place.ele ?? (S.AF ? S.AF.elev : 0);
+  const val = parseFloat(gotoAltEl.value); const h = Number.isFinite(val) ? val : 1000;
+  const alt = gotoAglEl.checked ? ground + h : h;
+  const hdg = ((parseFloat(gotoHdgEl.value) || 0) % 360 + 360) % 360;
+  S.obs = { lon: place.lon, lat: place.lat, alt, bearing: hdg, pitch: 0 };
+  S.mode = 'fpv'; S.fpvFollow = false;
+  document.body.classList.toggle('fpv', true); document.body.classList.toggle('chase', false);
+  [...viewsEl.children].forEach(c => asEl(c).classList.toggle('on', asEl(c).dataset.m === 'fpv'));
+  applyFollowClass(); syncAcScale(); render(); syncUI();
+  setStatus(`🛰 ${place.name} · ${Math.round(alt)} m`);
 }
 // Drop any loaded flight so the scene is empty terrain — used when flying to a
 // hot spot that has no loadable airfield (a named OGN receiver).
@@ -797,7 +827,7 @@ export function applyI18n(): void {
   ignDemBtn.textContent = S.ignDem ? t('on') : t('off'); ignDemBtn.classList.toggle('on', S.ignDem);
   peaksBtn.textContent = S.showPeaks ? t('on') : t('off'); peaksBtn.classList.toggle('on', S.showPeaks);
   colsBtn.textContent = S.cols ? t('on') : t('off'); colsBtn.classList.toggle('on', S.cols);
-  exportFmtEl.value = S.exportFmt;
+  exportFmtEl.value = S.exportFmt; gotoPlaceEl.placeholder = t('gotoPlacePh');
   attrBtn.textContent = S.showAttribution ? t('on') : t('off'); attrBtn.classList.toggle('on', S.showAttribution);
   [...trafficModeEl.options].forEach(o => o.textContent = t(o.dataset.k!));
   document.body.classList.toggle('traffic', S.trafficMode !== 'off');
@@ -961,6 +991,10 @@ exportBtn.onclick = () => {
   const prev = exportBtn.textContent; exportBtn.textContent = '✓'; exportBtn.classList.add('on');
   setTimeout(() => { exportBtn.textContent = prev; exportBtn.classList.remove('on'); }, 1000);
 };
+// ---- teleport (free observer): go to a place at an altitude/AGL + initial heading ----
+gotoBtn.onclick = doTeleport;
+gotoPlaceEl.addEventListener('keydown', e => { if ((e as KeyboardEvent).key === 'Enter') doTeleport(); });
+gotoHdgEl.addEventListener('keydown', e => { if ((e as KeyboardEvent).key === 'Enter') doTeleport(); });
 shareBtn.onclick = async () => {
   try { await navigator.share({ title: 'OGN 3D Viewer', url: (S.ready && S.source !== 'file') ? shareUrl() : appUrl() }); }
   catch { /* user dismissed / unsupported */ }

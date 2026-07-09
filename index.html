@@ -75,6 +75,15 @@
   <div id="controls">
     <div class="sep"></div>
     <div class="row"><span class="clock" data-i18n-title="clockToggle" title="" style="cursor:pointer"><span id="clk">--:--</span><small id="tz">…</small></span><span id="liveBadge"><span class="livedot"></span><span data-i18n="liveLabel">EN DIRECT</span></span></div>
+    <div class="sep"></div>
+    <div class="row"><label class="lbl" style="margin:0" data-i18n="teleport" data-i18n-title="teleportHint" title="">🛰 Téléportation</label></div>
+    <div class="row"><input id="gotoPlace" type="text" style="flex:1;min-width:0" placeholder="lat, lon · code · nom"></div>
+    <div class="row" style="gap:6px;align-items:center;flex-wrap:wrap">
+      <input id="gotoAlt" type="number" value="1000" step="50" style="width:5em" data-i18n-title="gotoAltHint" title="">
+      <label class="lbl" style="margin:0;display:flex;gap:3px;align-items:center"><input id="gotoAgl" type="checkbox"><span data-i18n="agl">sol</span></label>
+      <input id="gotoHdg" type="number" value="0" min="0" max="359" step="10" style="width:4em" data-i18n-title="gotoHdgHint" title=""><span class="mut">°</span>
+      <button id="gotoBtn" style="margin-left:auto" data-i18n="gotoGo">Aller</button>
+    </div>
 
     <div class="row liveHide">
       <button id="rev" data-i18n-title="playBack" title="">◀</button>

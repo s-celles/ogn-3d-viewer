@@ -49,6 +49,14 @@ function loadUser(): Spot[] {
 function saveUser(): void { try { localStorage.setItem(KEY, JSON.stringify(USER)); } catch { /* private mode / quota */ } }
 const allSpots = (): Spot[] => [...USER, ...BUILTIN];   // user spots first
 
+/** Look up a curated spot by exact code, else by a name substring (for teleport). */
+export function findSpot(q: string): { lon: number; lat: number; name: string } | null {
+  const s = q.trim().toLowerCase(); if (!s) return null;
+  const all = allSpots();
+  const hit = all.find(sp => sp.code.toLowerCase() === s) || all.find(sp => sp.name.toLowerCase().includes(s));
+  return hit ? { lon: hit.lon, lat: hit.lat, name: hit.name } : null;
+}
+
 // Continent tab order + labels (kept local rather than bloating i18n.ts).
 const CONTS = ['Europe', 'North America', 'South America', 'Africa', 'Asia', 'Oceania'];
 const CONT_L: Record<string, Record<Lang, string>> = {

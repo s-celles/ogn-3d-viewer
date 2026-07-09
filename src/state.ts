@@ -20,7 +20,7 @@ export const S: AppState = {
   AF: null, G0: 0, G1: 0, SPAN: 1, TRACKS: [], ready: false,
   exo: 1.0, groundZoom: GROUND_ZOOM_DEFAULT, cacheScale: 1, altOffset: 0, cur: 0, playing: false, speed: 8, dir: 1, solo: null,
   mode: 'over', source: 'ogn', subject: null, focus: null, focusLock: null, fpvPitch: 6, fpvFollow: true, bank: true, freeCam: { bearing: 0, pitch: 6 },
-  chase: { az: 0, el: 17, dist: 25 },
+  chase: { az: 0, el: 17, dist: 25 }, obs: null,
   trace: 'window', trailFx: 'basic', modelScale: { ...MODEL_SCALE }, windowMin: 10, spline: true, compensated: true, sound: true, trafficMode: 'directional', graphMode: 'off',
   glideCone: false, glideRatio: 10, safetyHeight: 0, coneRadiusKm: 25,
   labels: false, labelFields: { reg: true, alt: true, speed: false, vario: false, hdg: false },

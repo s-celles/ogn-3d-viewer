@@ -796,6 +796,8 @@ function rollUp(F: Pos3, phi: number): Pos3 {
 // First-person view state pinned to the subject glider. In follow mode the
 // horizon banks with the estimated roll; free look stays level.
 function computeFPV() {
+  // Free observer (teleport): anchored at a fixed point/altitude, free look.
+  if (S.obs) return { longitude: S.obs.lon, latitude: S.obs.lat, position: [0, 0, S.obs.alt * S.exo], bearing: S.obs.bearing, pitch: S.obs.pitch };
   const tr = subjectTrack(), time = clampCur(tr), p = posAt(tr, time);
   const base = { longitude: p[0], latitude: p[1], position: [0, 0, groundClamp(p) * S.exo + 3] };
   if (!S.fpvFollow) return { ...base, bearing: S.freeCam.bearing, pitch: S.freeCam.pitch };
@@ -860,6 +862,13 @@ export function initDeck(): void {
       if (S.mode === 'over') {
         S.mapVS = viewState; const it = interactionState || {};
         if (it.isDragging || it.isPanning || it.isRotating || it.isZooming) { S.mapTarget = { ...viewState }; S.focusLock = null; }   // panning resumes nearest-to-centre focus
+      } else if (S.mode === 'fpv' && S.obs) {
+        S.obs.bearing = viewState.bearing; S.obs.pitch = viewState.pitch;   // free look from the teleport point
+        const pos = viewState.position;                                     // fold any translation into the anchor
+        if (pos && (pos[0] || pos[1] || pos[2])) {
+          const mLng = 111320 * Math.cos(S.obs.lat * Math.PI / 180) || 1;
+          S.obs.lon += pos[0] / mLng; S.obs.lat += pos[1] / 111320; S.obs.alt = Math.max(0, S.obs.alt + pos[2] / S.exo);
+        }
       } else if (S.mode === 'fpv' && !S.fpvFollow) { S.freeCam = { bearing: viewState.bearing, pitch: viewState.pitch }; }
     },
     layers: [S.terrainInst, ...dynamicLayers()],
@@ -1013,6 +1022,15 @@ export function updateHUD(): void {
   const nm = S.nettoMode;
   hudnettoK.style.display = hudnetto.style.display = nm !== 'off' ? '' : 'none';
   hudsuperK.style.display = hudsuper.style.display = nm === 'super' ? '' : 'none';
+  if (S.obs) {   // free observer (teleport): show its position/heading/AGL + the wind there
+    hudreg.textContent = '🛰 ' + t('observer');
+    hudhdg.textContent = Math.round(((S.obs.bearing % 360) + 360) % 360).toString().padStart(3, '0') + '°';
+    const g = terrainElevAt(S.obs.lon, S.obs.lat);
+    hudalt.textContent = Math.round(S.obs.alt) + ' m' + (g != null ? ` (${S.obs.alt - g >= 0 ? '+' : ''}${Math.round(S.obs.alt - g)} m ${t('agl')})` : '');
+    hudspd.textContent = '—'; hudvar.textContent = '—'; hudvar.className = 'vario';
+    hudnetto.textContent = '—'; hudnetto.className = 'vario'; hudsuper.textContent = '—'; hudsuper.className = 'vario';
+    setHudWind([S.obs.lon, S.obs.lat, S.obs.alt]); return;
+  }
   if (!S.ready) return;
   // In the overview the HUD (opt-in) reads the focused glider; elsewhere the subject.
   const tr = (S.mode === 'over' && S.focus ? S.TRACKS.find(t2 => t2.reg === S.focus) : null) || subjectTrack();

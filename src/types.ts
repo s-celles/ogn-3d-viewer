@@ -167,6 +167,9 @@ export interface AppState {
   fpvFollow: boolean;
   bank: boolean;
   freeCam: { bearing: number; pitch: number };
+  // Free first-person observer (teleport): when set, the cockpit view is anchored here
+  // (lon/lat, altitude m MSL) with this bearing/pitch instead of following a glider.
+  obs: { lon: number; lat: number; alt: number; bearing: number; pitch: number } | null;
   // Chase-cam viewpoint relative to the aircraft: az = orbit angle around it
   // (0 = directly behind), el = elevation above it (deg), dist = slant range (m).
   chase: { az: number; el: number; dist: number };
