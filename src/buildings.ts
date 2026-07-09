@@ -10,10 +10,10 @@ import { terrainElevAt } from './terrain';
 import type { RGB } from './types';
 
 const OVERPASS = 'https://overpass-api.de/api/interpreter';
-const MINZOOM = 12.4;    // below this the view spans too much to fetch/extrude a whole region
+const MINZOOM = 11;      // below this the view spans too much to fetch/extrude a whole region
 const LEVEL_H = 3.2, ROOF_H = 1.5, DEF_H = 7;   // m per level, roof add, fallback height (~2 levels)
 const SKIRT = 3;         // m: sink the base below ground so walls meet the terrain on slopes
-const MAXB = 6000;       // cap rendered buildings (largest footprints first)
+const MAXB = 12000;      // cap rendered buildings (largest footprints first)
 const WALL: RGB = [198, 192, 183], ROOF: RGB = [150, 146, 139];
 
 interface Bldg { ring: number[]; area: number; h: number }   // ring = flat lon,lat,…; area ≈ bbox (for the cap)
@@ -74,7 +74,8 @@ async function fetchB(key: string, s: number, w: number, n: number, e: number): 
       else if (el.type === 'relation' && el.members) for (const r of assembleRings(el.members)) addRing(r.map(p => ({ lat: p.lat, lon: p.lon })), h);
     }
     cache.set(key, blds);
-  } catch { cache.set(key, null); }
+    console.info(`[buildings] ${blds.length} footprints`);
+  } catch (e) { cache.set(key, null); console.warn('[buildings] fetch failed', e); }
   ver++; notify();
 }
 
@@ -120,7 +121,7 @@ export function buildingLayers(k: number): any[] {
   const cLat = S.mapVS.latitude, cLon = S.mapVS.longitude, zoom = S.mapVS.zoom || 11;
   if (zoom < MINZOOM) return [];
   const mppx = 156543.03392 * Math.cos(cLat * Math.PI / 180) / 2 ** zoom;
-  const R = Math.max(1500, Math.min(14000, mppx * 650));
+  const R = Math.max(1200, Math.min(3500, mppx * 350));   // small fetch radius — dense cities blow up Overpass otherwise
   const all = getBuildings(cLat, cLon, R); if (!all) return [];
   // Cache the merged geometry — rebuild only when the fetched area / exaggeration changes
   // (or while terrain is still streaming in, so late-loading grounds get picked up).
@@ -149,6 +150,7 @@ export function buildingLayers(k: number): any[] {
     const poly: number[][] = []; for (let i = 0; i < np; i++) poly.push([ring[2 * i], ring[2 * i + 1], zt]);
     roofs.push({ poly });   // flat roof cap (deck triangulates concave footprints)
   }
+  console.info(`[buildings] built ${roofs.length}, skipped ${skipped} (no ground), zoom ${zoom.toFixed(1)}, R ${Math.round(R)}m`);
   if (!pos.length) return [];
   const geo: BuiltGeo = { pos: new Float32Array(pos), nrm: new Float32Array(nrm), idx: new Uint32Array(idx), roofs };
   if (!skipped) geoCache = { key, geo };   // only cache once every ground resolved (else keep refreshing as tiles stream)
