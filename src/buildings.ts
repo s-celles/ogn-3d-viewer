@@ -9,12 +9,15 @@ import { SimpleMeshLayer, PolygonLayer, COORDINATE_SYSTEM } from './deck';
 import { terrainElevAt } from './terrain';
 import type { RGB } from './types';
 
-// The main Overpass instance often refuses connections under load — try mirrors in turn.
+// The reference overpass-api.de often refuses connections under load — try the reliable
+// mirrors first, and if all fail, back off so we don't hammer them every frame.
 const MIRRORS = [
-  'https://overpass-api.de/api/interpreter',
   'https://overpass.kumi.systems/api/interpreter',
   'https://overpass.private.coffee/api/interpreter',
+  'https://overpass-api.de/api/interpreter',
 ];
+const COOLDOWN = 60000;   // ms: pause all building fetches after a full failure
+let cooldownUntil = 0;
 async function overpass(q: string): Promise<any> {
   let lastErr: unknown = new Error('no mirror');
   for (const url of MIRRORS) {
@@ -88,8 +91,9 @@ async function fetchB(key: string, s: number, w: number, n: number, e: number): 
       else if (el.type === 'relation' && el.members) for (const r of assembleRings(el.members)) addRing(r.map(p => ({ lat: p.lat, lon: p.lon })), h);
     }
     cache.set(key, blds);
-    console.info(`[buildings] ${blds.length} footprints`);
-  } catch (e) { cache.set(key, null); console.warn('[buildings] fetch failed', e); }
+  } catch (e) {   // don't cache the miss (retry after the cooldown), just pause fetching
+    cooldownUntil = Date.now() + COOLDOWN; console.warn('[buildings] Overpass unavailable, backing off 60 s', e);
+  }
   ver++; notify();
 }
 
@@ -101,6 +105,7 @@ const bboxKey = (cLat: number, cLon: number, R: number): string => `${cLat.toFix
 function getBuildings(cLat: number, cLon: number, R: number): Bldg[] | null {
   const key = bboxKey(cLat, cLon, R);
   if (cache.has(key)) return cache.get(key) ?? null;
+  if (Date.now() < cooldownUntil) return null;   // Overpass just failed — don't hammer every frame
   if (!inflight.has(key)) {
     inflight.add(key);
     const mLat = 111320, mLng = 111320 * Math.cos(cLat * Math.PI / 180), dLat = R / mLat, dLon = R / mLng;
@@ -164,7 +169,6 @@ export function buildingLayers(k: number): any[] {
     const poly: number[][] = []; for (let i = 0; i < np; i++) poly.push([ring[2 * i], ring[2 * i + 1], zt]);
     roofs.push({ poly });   // flat roof cap (deck triangulates concave footprints)
   }
-  console.info(`[buildings] built ${roofs.length}, skipped ${skipped} (no ground), zoom ${zoom.toFixed(1)}, R ${Math.round(R)}m`);
   if (!pos.length) return [];
   const geo: BuiltGeo = { pos: new Float32Array(pos), nrm: new Float32Array(nrm), idx: new Uint32Array(idx), roofs };
   if (!skipped) geoCache = { key, geo };   // only cache once every ground resolved (else keep refreshing as tiles stream)
