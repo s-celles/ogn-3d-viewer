@@ -258,6 +258,29 @@ body.collapsed #legend{display:none}
             background:var(--card);border:1px solid var(--line);border-radius:14px;
             box-shadow:0 12px 48px rgba(0,0,0,.55);padding:28px 34px 36px}
 #guideClose{position:absolute;top:12px;right:12px;padding:4px 9px;font-size:13px;font-weight:600;line-height:1}
+/* ---- teleport dialog (src/ui.ts) ---- */
+#tpModal{position:fixed;inset:0;z-index:320;display:none;background:rgba(6,10,14,.6);backdrop-filter:blur(4px)}
+#tpModal.open{display:flex;align-items:center;justify-content:center;padding:20px}
+.tp-card{position:relative;width:100%;max-width:380px;background:var(--card);border:1px solid var(--line);
+         border-radius:14px;box-shadow:0 12px 48px rgba(0,0,0,.55);padding:20px 20px 22px}
+.tp-card h2{font-size:17px;font-weight:650;margin:0 0 4px;padding-right:32px}
+.tp-note{font-size:11.5px;color:var(--mut);margin:0 0 12px;line-height:1.4}
+#tpClose{position:absolute;top:10px;right:10px;padding:3px 8px;font-size:13px;font-weight:600;line-height:1}
+.tp-field{position:relative;margin-bottom:10px}
+.tp-field>input{width:100%;box-sizing:border-box}
+.tp-sug{position:absolute;top:calc(100% + 3px);left:0;right:0;z-index:2;max-height:230px;overflow:auto;
+        background:var(--card);border:1px solid var(--line);border-radius:9px;box-shadow:0 8px 24px rgba(0,0,0,.5);display:none}
+.tp-sug.on{display:block}
+.tp-sug .it{display:flex;gap:8px;align-items:baseline;padding:6px 10px;cursor:pointer;font-size:13px}
+.tp-sug .it:hover,.tp-sug .it.sel{background:rgba(255,255,255,.08)}
+.tp-sug .it .ic{width:14px;text-align:center;opacity:.85;flex:0 0 auto}
+.tp-sug .it .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tp-sug .it .sub{color:var(--mut);font-size:11px;flex:0 0 auto}
+.tp-row{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:14px}
+.tp-lab{display:flex;flex-direction:column;gap:3px;font-size:11px;color:var(--mut)}
+.tp-lab input{width:6.5em}
+.tp-chk{display:flex;gap:4px;align-items:center;font-size:12px;padding-bottom:5px}
+.tp-go{width:100%;padding:8px;font-weight:600}
 /* Markdown typography (scoped to the guide body). */
 .md{color:var(--txt);font-size:14px;line-height:1.55}
 .md h1{font-size:22px;font-weight:650;margin:0 0 6px;padding-right:36px}

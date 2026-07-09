@@ -56,6 +56,27 @@ export function findSpot(q: string): { lon: number; lat: number; name: string } 
   const hit = all.find(sp => sp.code.toLowerCase() === s) || all.find(sp => sp.name.toLowerCase().includes(s));
   return hit ? { lon: hit.lon, lat: hit.lat, name: hit.name } : null;
 }
+/** The curated spot nearest to a point (great-circle-ish), with its distance in km. */
+export function closestSpot(lon: number, lat: number): { lon: number; lat: number; name: string; code: string; country: string; distKm: number } | null {
+  let best: Spot | null = null, bestD = Infinity;
+  const cos = Math.cos(lat * Math.PI / 180);
+  for (const sp of allSpots()) {
+    const dx = (sp.lon - lon) * cos, dy = sp.lat - lat, d = dx * dx + dy * dy;
+    if (d < bestD) { bestD = d; best = sp; }
+  }
+  return best ? { lon: best.lon, lat: best.lat, name: best.name, code: best.code, country: best.country, distKm: Math.sqrt(bestD) * 111.32 } : null;
+}
+/** Ranked curated-spot matches (code/name), prefix-first — for teleport autocomplete. */
+export function searchSpots(q: string, limit = 6): { lon: number; lat: number; name: string; code: string; country: string }[] {
+  const s = q.trim().toLowerCase(); if (s.length < 2) return [];
+  const pre: Spot[] = [], inc: Spot[] = [];
+  for (const sp of allSpots()) {
+    const c = sp.code.toLowerCase(), n = sp.name.toLowerCase();
+    if (c.startsWith(s) || n.startsWith(s)) pre.push(sp);
+    else if (c.includes(s) || n.includes(s)) inc.push(sp);
+  }
+  return [...pre, ...inc].slice(0, limit).map(sp => ({ lon: sp.lon, lat: sp.lat, name: sp.name, code: sp.code, country: sp.country }));
+}
 
 // Continent tab order + labels (kept local rather than bloating i18n.ts).
 const CONTS = ['Europe', 'North America', 'South America', 'Africa', 'Asia', 'Oceania'];

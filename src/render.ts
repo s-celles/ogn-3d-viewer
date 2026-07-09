@@ -863,12 +863,8 @@ export function initDeck(): void {
         S.mapVS = viewState; const it = interactionState || {};
         if (it.isDragging || it.isPanning || it.isRotating || it.isZooming) { S.mapTarget = { ...viewState }; S.focusLock = null; }   // panning resumes nearest-to-centre focus
       } else if (S.mode === 'fpv' && S.obs) {
-        S.obs.bearing = viewState.bearing; S.obs.pitch = viewState.pitch;   // free look from the teleport point
-        const pos = viewState.position;                                     // fold any translation into the anchor
-        if (pos && (pos[0] || pos[1] || pos[2])) {
-          const mLng = 111320 * Math.cos(S.obs.lat * Math.PI / 180) || 1;
-          S.obs.lon += pos[0] / mLng; S.obs.lat += pos[1] / 111320; S.obs.alt = Math.max(0, S.obs.alt + pos[2] / S.exo);
-        }
+        // Free look from the teleport point: rotate the view only, position stays fixed.
+        S.obs.bearing = viewState.bearing; S.obs.pitch = viewState.pitch;
       } else if (S.mode === 'fpv' && !S.fpvFollow) { S.freeCam = { bearing: viewState.bearing, pitch: viewState.pitch }; }
     },
     layers: [S.terrainInst, ...dynamicLayers()],

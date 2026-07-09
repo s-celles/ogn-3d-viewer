@@ -19,7 +19,7 @@
 - **Ground resolution** — adjustable satellite-imagery detail level (z13 to z18).
 - **Three views** — top-down overview, cockpit (first-person, the horizon banks in turns) and a chase camera following the glider.
 - **Cockpit camera** — lock-to-heading or free look.
-- **Teleport (🛰)** — drop a free observer camera anywhere: type a **`lat, lon`**, an **airfield code**, or a **summit/waypoint name**, set an **altitude** (or a **height above ground**) and an **initial heading**, and jump there to look around (drag to pan/tilt). The HUD shows the observer's position, AGL and the wind at that point. Works without any flight loaded (great for the weather sandbox); any view button returns you.
+- **Teleport (🛰)** — a dialog to drop a free observer camera anywhere: type a **`lat, lon`**, or start typing an **airfield code** or a **summit/waypoint name** and pick from the **autocomplete** (curated spots, loaded summits & waypoints, the current field), set an **altitude** (or a **height above ground**) and an **initial heading**, and jump there to look around (drag to pan/tilt). The HUD shows the observer's position, AGL and the wind at that point. Works without any flight loaded (great for the weather sandbox); any view button returns you.
 - **Head-up display (HUD)** — heading, altitude, a flight-level **wind barb**, vario — and, opt-in, **netto / super netto** — for the followed glider.
 - **Final-glide cone** — an optional reachability cone around the airfield (adjustable glide ratio, safety height and radius).
 - **Ground shadows** — cast straight down (position indicator) or along the sun direction.

@@ -75,15 +75,6 @@
   <div id="controls">
     <div class="sep"></div>
     <div class="row"><span class="clock" data-i18n-title="clockToggle" title="" style="cursor:pointer"><span id="clk">--:--</span><small id="tz">…</small></span><span id="liveBadge"><span class="livedot"></span><span data-i18n="liveLabel">EN DIRECT</span></span></div>
-    <div class="sep"></div>
-    <div class="row"><label class="lbl" style="margin:0" data-i18n="teleport" data-i18n-title="teleportHint" title="">🛰 Téléportation</label></div>
-    <div class="row"><input id="gotoPlace" type="text" style="flex:1;min-width:0" placeholder="lat, lon · code · nom"></div>
-    <div class="row" style="gap:6px;align-items:center;flex-wrap:wrap">
-      <input id="gotoAlt" type="number" value="1000" step="50" style="width:5em" data-i18n-title="gotoAltHint" title="">
-      <label class="lbl" style="margin:0;display:flex;gap:3px;align-items:center"><input id="gotoAgl" type="checkbox"><span data-i18n="agl">sol</span></label>
-      <input id="gotoHdg" type="number" value="0" min="0" max="359" step="10" style="width:4em" data-i18n-title="gotoHdgHint" title=""><span class="mut">°</span>
-      <button id="gotoBtn" style="margin-left:auto" data-i18n="gotoGo">Aller</button>
-    </div>
 
     <div class="row liveHide">
       <button id="rev" data-i18n-title="playBack" title="">◀</button>
@@ -108,6 +99,7 @@
       <label class="lbl" style="margin:0" data-i18n="subject">Planeur suivi</label>
       <select id="subject"></select>
     </div>
+    <div class="row"><button id="teleportBtn" data-i18n="teleport" data-i18n-title="teleportHint" style="flex:1">🛰 Téléportation…</button></div>
     <div class="row subjOnly spread">
       <label class="lbl" style="margin:0" data-i18n="sound">Son du vario</label>
       <button id="soundBtn" class="on">Activé</button>
@@ -383,6 +375,24 @@
   <div class="guide-card">
     <button id="guideClose" data-i18n-title="guideClose" title="">✕</button>
     <div id="guideBody" class="md"></div>
+  </div>
+</div>
+
+<div id="tpModal" role="dialog" aria-modal="true">
+  <div class="tp-card">
+    <button id="tpClose" title="">✕</button>
+    <h2 data-i18n="teleport">Téléportation</h2>
+    <div class="tp-note" data-i18n="teleportHint"></div>
+    <div class="tp-field">
+      <input id="gotoPlace" type="text" autocomplete="off" spellcheck="false" placeholder="lat, lon · code · nom">
+      <div id="tpSug" class="tp-sug"></div>
+    </div>
+    <div class="tp-row">
+      <label class="tp-lab"><span data-i18n="gotoAltHint">Altitude (m)</span><input id="gotoAlt" type="number" value="1000" step="50"></label>
+      <label class="tp-chk"><input id="gotoAgl" type="checkbox"><span data-i18n="agl">sol</span></label>
+      <label class="tp-lab"><span data-i18n="gotoHdgHint">Cap initial (°)</span><input id="gotoHdg" type="number" value="0" min="0" max="359" step="10"></label>
+    </div>
+    <button id="gotoBtn" class="tp-go" data-i18n="gotoGo">Aller</button>
   </div>
 </div>
 

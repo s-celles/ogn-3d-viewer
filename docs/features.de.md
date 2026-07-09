@@ -19,7 +19,7 @@
 - **Bodenauflösung** — einstellbarer Detailgrad der Satellitenbilder (z13 bis z18).
 - **Drei Ansichten** — Übersicht (von oben), Cockpit (Egoperspektive, der Horizont neigt sich in Kurven) und eine Verfolgerkamera.
 - **Cockpit-Kamera** — Kurs folgen oder freie Sicht.
-- **Teleport (🛰)** — setzt eine freie Beobachterkamera an einen beliebigen Ort: **`Lat, Lon`**, einen **Flugplatzcode** oder einen **Gipfel-/Wegpunktnamen** eingeben, eine **Höhe** (oder **über Grund**) und einen **Anfangskurs** festlegen und dorthin springen, um sich umzusehen (Ziehen zum Schwenken/Neigen). Das HUD zeigt Position, Höhe über Grund und den Wind dort. Funktioniert ohne geladenen Flug (ideal für die Wetter-Sandbox); eine Ansichts-Schaltfläche bringt zurück.
+- **Teleport (🛰)** — ein Dialog, der eine freie Beobachterkamera an einen beliebigen Ort setzt: **`Lat, Lon`** eingeben oder einen **Flugplatzcode** bzw. **Gipfel-/Wegpunktnamen** tippen und aus der **Autovervollständigung** wählen (kuratierte Spots, geladene Gipfel & Wegpunkte, aktueller Platz), eine **Höhe** (oder **über Grund**) und einen **Anfangskurs** festlegen und dorthin springen, um sich umzusehen (Ziehen zum Schwenken/Neigen). Das HUD zeigt Position, Höhe über Grund und den Wind dort. Funktioniert ohne geladenen Flug (ideal für die Wetter-Sandbox); eine Ansichts-Schaltfläche bringt zurück.
 - **Head-up-Display (HUD)** — Kurs, Höhe, eine **Windfahne** auf Flughöhe, Vario — und optional **Netto / Super-Netto** — des verfolgten Segelflugzeugs.
 - **Gleitkegel** — ein optionaler Erreichbarkeitskegel um den Flugplatz (Gleitzahl, Sicherheitshöhe und Radius einstellbar).
 - **Bodenschatten** — senkrecht nach unten (Positionsanzeige) oder in Sonnenrichtung geworfen.

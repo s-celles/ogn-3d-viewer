@@ -7,7 +7,7 @@ import {
   subjEl, viewsEl, cammodeEl, traceEl, trailFxEl, smoothBtn, compBtn, bankBtn, soundBtn, nettoBtn, polarBtn, polarReset, polarName, polarRow, plrInput, trafficModeEl, graphModeEl, graphClose, winEl, winval, playBtn, revBtn, segEl,
   exoEl, exval, groundEl, groundval, cacheEl, cacheval, acscaleEl, acscaleval, coneBtn, finesseEl, finval, safetyEl, safeval, coneRadEl, coneradval, labelsBtn, labelFieldsEl, shadowsEl, basemapEl, ignDemBtn, peaksBtn, peakDensityEl, colsBtn, minimapBtn, overviewHudBtn, activeOnlyBtn, anonBtn, airMassBtn, thermalBtn, liftComps, heatStoreEl, wxSimBtn, wxSimPanel, windModeEl, heightRefEl, clock12Btn, clearWpBtn, attribEl, curtainBtn, attrBtn, pitchEl, pitchval, scrub, scrubMin, scrubMax, clkEl, tzEl, lglist, rose, altsl, icaoEl, fblink, acEl,
   dateEl, loadBtn, langEl, discEl, infoBtn, copyBtn, shareBtn, exportBtn, exportFmtEl, collapseBtn, liveBtn, igcBtn, igcInput, mapDiv, prevAc, nextAc, resetSettingsBtn, afInfo,
-  gotoPlaceEl, gotoAltEl, gotoAglEl, gotoHdgEl, gotoBtn,
+  teleportBtn, tpModal, tpClose, tpSug, gotoPlaceEl, gotoAltEl, gotoAglEl, gotoHdgEl, gotoBtn,
 } from './dom';
 import { codeFlag, flag } from './flags';
 import { buildLiftMixer, syncLiftMixer } from './liftmixer';
@@ -22,7 +22,7 @@ import { render, updateHUD, exportImage } from './render';
 import { loadFlights, refreshLive, statusMsg, setStatus, rebuild, syncUrl, loadTrackFiles } from './data';
 import { importCup, clearWaypoints, getWaypoints, getPeaks } from './poi';
 import { terrainElevAt } from './terrain';
-import { findSpot } from './spots';
+import { findSpot, searchSpots, closestSpot } from './spots';
 import { TRACK_EXT } from './track-import';
 import { parsePlr, DEFAULT_POLAR } from './polar';
 import { varioAudio } from './vario-audio';
@@ -109,18 +109,28 @@ function resolvePlace(str: string): { lon: number; lat: number; ele: number | nu
 }
 // Teleport a free first-person observer to a place, at an altitude/AGL and initial heading.
 function doTeleport(): void {
-  const place = resolvePlace(gotoPlaceEl.value);
+  const place = tpSel || resolvePlace(gotoPlaceEl.value);
   if (!place) { setStatus(t('gotoNotFound')); return; }
-  const ground = terrainElevAt(place.lon, place.lat) ?? place.ele ?? (S.AF ? S.AF.elev : 0);
+  const ele = 'ele' in place ? place.ele ?? null : null;
+  const ground = terrainElevAt(place.lon, place.lat) ?? ele ?? (S.AF ? S.AF.elev : 0);
   const val = parseFloat(gotoAltEl.value); const h = Number.isFinite(val) ? val : 1000;
   const alt = gotoAglEl.checked ? ground + h : h;
   const hdg = ((parseFloat(gotoHdgEl.value) || 0) % 360 + 360) % 360;
+  closeTp();
   S.obs = { lon: place.lon, lat: place.lat, alt, bearing: hdg, pitch: 0 };
+  // Re-anchor the scene on the teleport point so the weather models + fetch follow it
+  // (and returning to the overview lands you here), and adopt the nearest known site.
+  S.mapVS = { ...S.mapVS, longitude: place.lon, latitude: place.lat };
+  S.mapTarget = { ...S.mapVS };
+  const near = closestSpot(place.lon, place.lat);
+  if (near && !S.ready) {   // terrain-only / sandbox: make the nearest site the reference (name + ground)
+    S.AF = { name: near.name, code: near.code, lon: place.lon, lat: place.lat, elev: Math.round(ground), tz_off: S.AF ? S.AF.tz_off : 0, country: near.country };
+  }
   S.mode = 'fpv'; S.fpvFollow = false;
   document.body.classList.toggle('fpv', true); document.body.classList.toggle('chase', false);
   [...viewsEl.children].forEach(c => asEl(c).classList.toggle('on', asEl(c).dataset.m === 'fpv'));
   applyFollowClass(); syncAcScale(); render(); syncUI();
-  setStatus(`🛰 ${place.name} · ${Math.round(alt)} m`);
+  setStatus(`🛰 ${place.name} · ${Math.round(alt)} m` + (near ? ` · ${t('nearestSite')}: ${near.name} (${Math.round(near.distKm)} km)` : ''));
 }
 // Drop any loaded flight so the scene is empty terrain — used when flying to a
 // hot spot that has no loadable airfield (a named OGN receiver).
@@ -991,9 +1001,57 @@ exportBtn.onclick = () => {
   const prev = exportBtn.textContent; exportBtn.textContent = '✓'; exportBtn.classList.add('on');
   setTimeout(() => { exportBtn.textContent = prev; exportBtn.classList.remove('on'); }, 1000);
 };
-// ---- teleport (free observer): go to a place at an altitude/AGL + initial heading ----
+// ---- teleport dialog (free observer) with place autocomplete ----
+interface Sug { lon: number; lat: number; name: string; ele: number | null; icon: string; sub: string }
+let tpItems: Sug[] = [], tpActive = -1;
+let tpSel: { lon: number; lat: number; name: string; ele?: number | null } | null = null;
+const esc = (s: string): string => s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c] as string));
+function buildSug(q: string): Sug[] {
+  const s = q.trim().toLowerCase(); if (s.length < 2) return [];
+  const out: Sug[] = [], seen = new Set<string>();
+  const add = (lon: number, lat: number, name: string, ele: number | null, icon: string, sub: string): void => {
+    const k = name + '|' + lon.toFixed(3); if (seen.has(k) || out.length >= 8) return; seen.add(k); out.push({ lon, lat, name, ele, icon, sub });
+  };
+  if (S.AF && (S.AF.code.toLowerCase().includes(s) || S.AF.name.toLowerCase().includes(s))) add(S.AF.lon, S.AF.lat, S.AF.name, S.AF.elev, '✈', S.AF.code);
+  for (const p of getPeaks()) if (p.name.toLowerCase().includes(s)) add(p.lon, p.lat, p.name, p.ele, '▲', Math.round(p.ele) + ' m');
+  for (const p of getWaypoints()) if (p.name.toLowerCase().includes(s)) add(p.lon, p.lat, p.name, p.ele ?? null, '◇', t('peakWaypoints'));
+  for (const sp of searchSpots(q, 6)) add(sp.lon, sp.lat, sp.name, null, '✈', sp.code + (sp.country ? ' · ' + sp.country : ''));
+  return out.slice(0, 8);
+}
+function renderSug(items: Sug[]): void {
+  tpItems = items; tpActive = -1;
+  if (!items.length) { tpSug.classList.remove('on'); tpSug.textContent = ''; return; }
+  tpSug.innerHTML = items.map((it, i) => `<div class="it" data-i="${i}"><span class="ic">${it.icon}</span><span class="nm">${esc(it.name)}</span><span class="sub">${esc(it.sub)}</span></div>`).join('');
+  tpSug.classList.add('on');
+}
+function pickSug(i: number): void {
+  const it = tpItems[i]; if (!it) return;
+  tpSel = { lon: it.lon, lat: it.lat, name: it.name, ele: it.ele };
+  gotoPlaceEl.value = it.name; renderSug([]); gotoHdgEl.focus();
+}
+function moveSug(d: number): void {
+  if (!tpItems.length) return;
+  tpActive = (tpActive + d + tpItems.length) % tpItems.length;
+  [...tpSug.children].forEach((c, i) => asEl(c).classList.toggle('sel', i === tpActive));
+}
+function openTp(): void { tpModal.classList.add('open'); gotoPlaceEl.value = ''; tpSel = null; renderSug([]); setTimeout(() => gotoPlaceEl.focus(), 0); }
+function closeTp(): void { tpModal.classList.remove('open'); renderSug([]); }
+teleportBtn.onclick = openTp;
+tpClose.onclick = closeTp;
+tpModal.addEventListener('click', e => { if (e.target === tpModal) closeTp(); });
+tpSug.addEventListener('mousedown', e => {   // mousedown fires before the input blur
+  const el = (e.target as HTMLElement).closest('.it') as HTMLElement | null; if (!el) return;
+  e.preventDefault(); pickSug(parseInt(el.dataset.i!, 10));
+});
+gotoPlaceEl.addEventListener('input', () => { tpSel = null; renderSug(buildSug(gotoPlaceEl.value)); });
+gotoPlaceEl.addEventListener('keydown', e => {
+  const k = (e as KeyboardEvent).key;
+  if (k === 'ArrowDown') { e.preventDefault(); moveSug(1); }
+  else if (k === 'ArrowUp') { e.preventDefault(); moveSug(-1); }
+  else if (k === 'Enter') { e.preventDefault(); if (tpActive >= 0) pickSug(tpActive); else doTeleport(); }
+  else if (k === 'Escape') { if (tpItems.length) renderSug([]); else closeTp(); }
+});
 gotoBtn.onclick = doTeleport;
-gotoPlaceEl.addEventListener('keydown', e => { if ((e as KeyboardEvent).key === 'Enter') doTeleport(); });
 gotoHdgEl.addEventListener('keydown', e => { if ((e as KeyboardEvent).key === 'Enter') doTeleport(); });
 shareBtn.onclick = async () => {
   try { await navigator.share({ title: 'OGN 3D Viewer', url: (S.ready && S.source !== 'file') ? shareUrl() : appUrl() }); }
