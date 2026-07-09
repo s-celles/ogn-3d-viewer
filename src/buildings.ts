@@ -29,7 +29,7 @@ async function overpass(q: string): Promise<any> {
   }
   throw lastErr;
 }
-const MINZOOM = 11;      // below this the view spans too much to fetch/extrude a whole region
+const MINZOOM = 9.5;     // below this the view is too wide for the (radius-capped) fetch to be useful
 const LEVEL_H = 3.2, ROOF_H = 1.5, DEF_H = 7;   // m per level, roof add, fallback height (~2 levels)
 const SKIRT = 3;         // m: sink the base below ground so walls meet the terrain on slopes
 const MAXB = 12000;      // cap rendered buildings (largest footprints first)
@@ -91,6 +91,7 @@ async function fetchB(key: string, s: number, w: number, n: number, e: number): 
       else if (el.type === 'relation' && el.members) for (const r of assembleRings(el.members)) addRing(r.map(p => ({ lat: p.lat, lon: p.lon })), h);
     }
     cache.set(key, blds);
+    console.info(`[buildings] ${blds.length} footprints fetched`);
   } catch (e) {   // don't cache the miss (retry after the cooldown), just pause fetching
     cooldownUntil = Date.now() + COOLDOWN; console.warn('[buildings] Overpass unavailable, backing off 60 s', e);
   }
@@ -135,13 +136,16 @@ function mkBuildingLayers(g: BuiltGeo): any[] {
   ];
 }
 
+let lastDbg = 0;
+const dbg = (m: string): void => { const n = Date.now(); if (n - lastDbg > 2000) { lastDbg = n; console.info('[buildings] ' + m); } };
+
 /** Extruded OSM buildings around the view (opt-in). Empty when zoomed out or still loading. */
 export function buildingLayers(k: number): any[] {
   const cLat = S.mapVS.latitude, cLon = S.mapVS.longitude, zoom = S.mapVS.zoom || 11;
-  if (zoom < MINZOOM) return [];
+  if (zoom < MINZOOM) { dbg(`zoom ${zoom.toFixed(1)} < ${MINZOOM} — zoom in to load buildings`); return []; }
   const mppx = 156543.03392 * Math.cos(cLat * Math.PI / 180) / 2 ** zoom;
   const R = Math.max(1200, Math.min(3500, mppx * 350));   // small fetch radius — dense cities blow up Overpass otherwise
-  const all = getBuildings(cLat, cLon, R); if (!all) return [];
+  const all = getBuildings(cLat, cLon, R); if (!all) { dbg(Date.now() < cooldownUntil ? 'Overpass backoff…' : 'loading…'); return []; }
   // Cache the merged geometry — rebuild only when the fetched area / exaggeration changes
   // (or while terrain is still streaming in, so late-loading grounds get picked up).
   const key = `${bboxKey(cLat, cLon, R)}|${k.toFixed(2)}|${ver}`;
