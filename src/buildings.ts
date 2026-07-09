@@ -9,7 +9,23 @@ import { SimpleMeshLayer, PolygonLayer, COORDINATE_SYSTEM } from './deck';
 import { terrainElevAt } from './terrain';
 import type { RGB } from './types';
 
-const OVERPASS = 'https://overpass-api.de/api/interpreter';
+// The main Overpass instance often refuses connections under load — try mirrors in turn.
+const MIRRORS = [
+  'https://overpass-api.de/api/interpreter',
+  'https://overpass.kumi.systems/api/interpreter',
+  'https://overpass.private.coffee/api/interpreter',
+];
+async function overpass(q: string): Promise<any> {
+  let lastErr: unknown = new Error('no mirror');
+  for (const url of MIRRORS) {
+    try {
+      const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: 'data=' + encodeURIComponent(q) });
+      if (!res.ok) { lastErr = new Error('http ' + res.status); continue; }
+      return await res.json();
+    } catch (e) { lastErr = e; }
+  }
+  throw lastErr;
+}
 const MINZOOM = 11;      // below this the view spans too much to fetch/extrude a whole region
 const LEVEL_H = 3.2, ROOF_H = 1.5, DEF_H = 7;   // m per level, roof add, fallback height (~2 levels)
 const SKIRT = 3;         // m: sink the base below ground so walls meet the terrain on slopes
@@ -58,9 +74,7 @@ async function fetchB(key: string, s: number, w: number, n: number, e: number): 
   const bb = `${s},${w},${n},${e}`;
   const q = `[out:json][timeout:40];(way["building"](${bb});relation["building"]["type"="multipolygon"](${bb}););out geom;`;
   try {
-    const res = await fetch(OVERPASS, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: 'data=' + encodeURIComponent(q) });
-    if (!res.ok) throw new Error('http ' + res.status);
-    const data = await res.json() as { elements?: Array<{ type: string; geometry?: Geo[]; members?: Array<{ type: string; role?: string; geometry?: Geo[] }>; tags?: Record<string, string> }> };
+    const data = await overpass(q) as { elements?: Array<{ type: string; geometry?: Geo[]; members?: Array<{ type: string; role?: string; geometry?: Geo[] }>; tags?: Record<string, string> }> };
     const blds: Bldg[] = [];
     const addRing = (geom: Geo[] | undefined, h: number): void => {
       if (!geom || geom.length < 3) return;
