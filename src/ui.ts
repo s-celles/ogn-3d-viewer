@@ -7,7 +7,7 @@ import {
   subjEl, viewsEl, cammodeEl, traceEl, trailFxEl, smoothBtn, compBtn, bankBtn, soundBtn, nettoBtn, polarBtn, polarReset, polarName, polarRow, plrInput, trafficModeEl, graphModeEl, graphClose, winEl, winval, playBtn, revBtn, segEl,
   exoEl, exval, groundEl, groundval, cacheEl, cacheval, acscaleEl, acscaleval, coneBtn, finesseEl, finval, safetyEl, safeval, coneRadEl, coneradval, labelsBtn, labelFieldsEl, shadowsEl, basemapEl, ignDemBtn, peaksBtn, peakDensityEl, colsBtn, minimapBtn, overviewHudBtn, activeOnlyBtn, anonBtn, airMassBtn, thermalBtn, liftComps, heatStoreEl, wxSimBtn, wxSimPanel, windModeEl, heightRefEl, clock12Btn, clearWpBtn, attribEl, curtainBtn, attrBtn, pitchEl, pitchval, scrub, scrubMin, scrubMax, clkEl, tzEl, lglist, rose, altsl, icaoEl, fblink, acEl,
   dateEl, loadBtn, langEl, discEl, infoBtn, copyBtn, shareBtn, exportBtn, exportFmtEl, collapseBtn, liveBtn, igcBtn, igcInput, mapDiv, prevAc, nextAc, resetSettingsBtn, afInfo,
-  teleportBtn, tpModal, tpClose, tpSug, gotoPlaceEl, gotoAltEl, gotoAglEl, gotoHdgEl, gotoBtn,
+  teleportBtn, tpModal, tpClose, tpSug, gotoPlaceEl, gotoAltEl, gotoAltLab, gotoAglEl, gotoHdgEl, gotoBtn,
 } from './dom';
 import { codeFlag, flag } from './flags';
 import { buildLiftMixer, syncLiftMixer } from './liftmixer';
@@ -109,13 +109,21 @@ function resolvePlace(str: string): { lon: number; lat: number; ele: number | nu
 }
 // Teleport a free first-person observer to a place, at an altitude/AGL and initial heading.
 function doTeleport(): void {
-  const place = tpSel || resolvePlace(gotoPlaceEl.value);
-  if (!place) { setStatus(t('gotoNotFound')); return; }
-  const ele = 'ele' in place ? place.ele ?? null : null;
-  const ground = terrainElevAt(place.lon, place.lat) ?? ele ?? (S.AF ? S.AF.elev : 0);
+  const raw = gotoPlaceEl.value.trim();
+  let place: { lon: number; lat: number; name: string; ele?: number | null } | null = tpSel || (raw ? resolvePlace(raw) : null);
+  if (!place) {
+    if (raw) { setStatus(t('gotoNotFound')); return; }   // typed but unresolved
+    // Empty field → stay where we are, change only the altitude/heading.
+    const lon = S.obs ? S.obs.lon : S.mapVS.longitude, lat = S.obs ? S.obs.lat : S.mapVS.latitude;
+    place = { lon, lat, name: `${lat.toFixed(4)}, ${lon.toFixed(4)}` };
+  }
+  const ele = place.ele ?? null;
+  const gKnown = terrainElevAt(place.lon, place.lat) ?? ele;   // the ground, only when we actually know it
+  const ground = gKnown ?? (S.AF ? S.AF.elev : 0);
   const val = parseFloat(gotoAltEl.value); const h = Number.isFinite(val) ? val : 1000;
   const alt = gotoAglEl.checked ? ground + h : h;
   const hdg = ((parseFloat(gotoHdgEl.value) || 0) % 360 + 360) % 360;
+  if (gKnown != null && alt < gKnown) { setStatus(t('gotoBelowGround')); return; }   // below terrain → warn, don't go
   closeTp();
   S.obs = { lon: place.lon, lat: place.lat, alt, bearing: hdg, pitch: 0 };
   // Re-anchor the scene on the teleport point so the weather models + fetch follow it
@@ -837,7 +845,7 @@ export function applyI18n(): void {
   ignDemBtn.textContent = S.ignDem ? t('on') : t('off'); ignDemBtn.classList.toggle('on', S.ignDem);
   peaksBtn.textContent = S.showPeaks ? t('on') : t('off'); peaksBtn.classList.toggle('on', S.showPeaks);
   colsBtn.textContent = S.cols ? t('on') : t('off'); colsBtn.classList.toggle('on', S.cols);
-  exportFmtEl.value = S.exportFmt; gotoPlaceEl.placeholder = t('gotoPlacePh');
+  exportFmtEl.value = S.exportFmt; gotoPlaceEl.placeholder = t('gotoPlacePh'); updateAltLabel();
   attrBtn.textContent = S.showAttribution ? t('on') : t('off'); attrBtn.classList.toggle('on', S.showAttribution);
   [...trafficModeEl.options].forEach(o => o.textContent = t(o.dataset.k!));
   document.body.classList.toggle('traffic', S.trafficMode !== 'off');
@@ -1034,10 +1042,12 @@ function moveSug(d: number): void {
   tpActive = (tpActive + d + tpItems.length) % tpItems.length;
   [...tpSug.children].forEach((c, i) => asEl(c).classList.toggle('sel', i === tpActive));
 }
-function openTp(): void { tpModal.classList.add('open'); gotoPlaceEl.value = ''; tpSel = null; renderSug([]); setTimeout(() => gotoPlaceEl.focus(), 0); }
+function updateAltLabel(): void { gotoAltLab.textContent = gotoAglEl.checked ? t('gotoAglLabel') : t('gotoAltHint'); }
+function openTp(): void { tpModal.classList.add('open'); gotoPlaceEl.value = ''; tpSel = null; renderSug([]); updateAltLabel(); setTimeout(() => gotoPlaceEl.focus(), 0); }
 function closeTp(): void { tpModal.classList.remove('open'); renderSug([]); }
 teleportBtn.onclick = openTp;
 tpClose.onclick = closeTp;
+gotoAglEl.addEventListener('change', updateAltLabel);
 tpModal.addEventListener('click', e => { if (e.target === tpModal) closeTp(); });
 tpSug.addEventListener('mousedown', e => {   // mousedown fires before the input blur
   const el = (e.target as HTMLElement).closest('.it') as HTMLElement | null; if (!el) return;

@@ -128,6 +128,7 @@ export const tpClose    = $<HTMLButtonElement>('tpClose');
 export const tpSug      = $('tpSug');
 export const gotoPlaceEl = $<HTMLInputElement>('gotoPlace');
 export const gotoAltEl   = $<HTMLInputElement>('gotoAlt');
+export const gotoAltLab  = $('gotoAltLab');
 export const gotoAglEl   = $<HTMLInputElement>('gotoAgl');
 export const gotoHdgEl   = $<HTMLInputElement>('gotoHdg');
 export const gotoBtn     = $<HTMLButtonElement>('gotoBtn');

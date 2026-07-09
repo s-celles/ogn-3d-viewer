@@ -796,8 +796,13 @@ function rollUp(F: Pos3, phi: number): Pos3 {
 // First-person view state pinned to the subject glider. In follow mode the
 // horizon banks with the estimated roll; free look stays level.
 function computeFPV() {
-  // Free observer (teleport): anchored at a fixed point/altitude, free look.
-  if (S.obs) return { longitude: S.obs.lon, latitude: S.obs.lat, position: [0, 0, S.obs.alt * S.exo], bearing: S.obs.bearing, pitch: S.obs.pitch };
+  // Free observer (teleport): anchored at a fixed point/altitude, free look. Never below
+  // ground — lift to just over the terrain once its elevation is known (streams in).
+  if (S.obs) {
+    const g = terrainElevAt(S.obs.lon, S.obs.lat);
+    if (g != null && S.obs.alt < g + 2) S.obs.alt = g + 2;
+    return { longitude: S.obs.lon, latitude: S.obs.lat, position: [0, 0, S.obs.alt * S.exo], bearing: S.obs.bearing, pitch: S.obs.pitch };
+  }
   const tr = subjectTrack(), time = clampCur(tr), p = posAt(tr, time);
   const base = { longitude: p[0], latitude: p[1], position: [0, 0, groundClamp(p) * S.exo + 3] };
   if (!S.fpvFollow) return { ...base, bearing: S.freeCam.bearing, pitch: S.freeCam.pitch };
