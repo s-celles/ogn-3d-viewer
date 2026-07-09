@@ -20,7 +20,6 @@ import { airMassLayers } from './airmass';
 import { waveMassLayers } from './wavemass';
 import { ridgeLayers, windAtAlt } from './ridge';
 import { colLayers } from './cols';
-import { buildingLayers, onBuildings } from './buildings';
 import { convergLayers } from './converg';
 import { waveLayers } from './wave';
 import { liftWeight } from './lift';
@@ -553,7 +552,6 @@ function dynamicLayers() {
     })() : []),
     ...(S.airMass ? [...airMassLayers(k), ...waveMassLayers(k)] : []),
     ...(S.windMode !== 'off' ? windLayers(k) : []),
-    ...(S.buildings ? buildingLayers(k) : []),
     ...poiPoleLayers(k),
     ...(S.cols ? colLayers(k) : []),
   ];
@@ -861,7 +859,6 @@ export function exportImage(fmt: 'png' | 'webp'): void {
 // Create the terrain layer and the deck.gl instance. Called once from main.ts.
 export function initDeck(): void {
   S.terrainInst = makeTerrain();
-  onBuildings(render);   // re-render when a building fetch completes
   deckgl = new Deck({
     parent: mapDiv,
     views: [new MapView({ id: 'main' })], viewState: { main: S.mapVS }, controller: { keyboard: false }, effects: [lighting],

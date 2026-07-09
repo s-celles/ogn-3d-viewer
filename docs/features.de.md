@@ -14,7 +14,6 @@
 ## Die Szene
 
 - **3D-Gelände** mit Satellitenbildern und einstellbarer vertikaler Überhöhung.
-- **3D-Gebäude (OSM)** *(optional)* — extrudiert OpenStreetMap-Gebäudegrundrisse um die Ansicht: Wände (beleuchtet für Tiefe) + flache Dächer, Höhe aus den Tags `height` / `building:levels` (sonst Standard). „Autogen"-Stadtkontext — saubere extrudierte Blöcke, keine Photogrammetrie. Nur bei nahem Zoom (Stadtebene), radiusbegrenzt und gedeckelt für die Leistung; am besten in gut kartierten Regionen (z. B. Schweiz). Grob & illustrativ.
 - **Grundkarte** — Wahl der über das Gelände gelegten Ebene: **Esri**-Satellit, **OpenTopoMap** oder **OpenStreetMap** (die Wahl wird gespeichert).
 - **Frankreich-Detail (IGN)** — *experimentell, standardmäßig aus*: über Frankreich ein viel feineres Gelände (IGN **RGE ALTI / LIDAR HD**) und **20-cm-BD-ORTHO**-Luftbilder (Géoplateforme, ohne Schlüssel), sonst globale Quellen. Zum Testen einschalten.
 - **Bodenauflösung** — einstellbarer Detailgrad der Satellitenbilder (z13 bis z18).

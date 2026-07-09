@@ -207,8 +207,6 @@ export interface AppState {
   peakDensity: number;   // 0..1 — how many summit labels to show
   // Mark the wind-workable mountain passes (saddles the wind blows through) around the view.
   cols: boolean;
-  // Extrude OSM building footprints in 3D around the view (opt-in).
-  buildings: boolean;
   // Inset 2D minimap (flat tiles + track + heading) shown in the immersive views.
   minimap: boolean;
   // Show the HUD (focused glider telemetry) in the overview too (opt-in).

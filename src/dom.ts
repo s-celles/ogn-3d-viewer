@@ -77,7 +77,6 @@ export const windDir    = $('windDir');
 export const clearWpBtn = $<HTMLButtonElement>('clearWpBtn');
 export const peakDensityEl = $<HTMLInputElement>('peakDensity');
 export const colsBtn    = $<HTMLButtonElement>('colsBtn');
-export const buildingsBtn = $<HTMLButtonElement>('buildingsBtn');
 export const heatStoreEl = $<HTMLInputElement>('heatStore');
 export const attribEl   = $('attribution');
 export const curtainBtn = $<HTMLButtonElement>('curtainBtn');
