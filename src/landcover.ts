@@ -36,6 +36,8 @@ function classify(t: Record<string, string>): LCClass | null {
 
 interface Poly { cls: LCClass; bb: [number, number, number, number]; ring: number[] }   // bb=[minLon,minLat,maxLon,maxLat], ring = flat lon,lat,…
 export interface LC { polys: Poly[] }
+/** True for the built-up (residential/industrial/…) class — used to place procedural buildings. */
+export function isUrbanClass(c: LCClass): boolean { return c === CLS.urban; }
 
 const cache = new Map<string, LC | null>();
 const inflight = new Set<string>();

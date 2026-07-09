@@ -14,6 +14,7 @@
 ## The scene
 
 - **3D terrain** with satellite imagery and adjustable vertical exaggeration.
+- **Procedural buildings** *(opt-in)* — a stylised city texture: inside each OSM **urban land-use area** we scatter plausible building blocks on a seeded grid and extrude them onto the terrain. **⚠ These buildings are fictional** — invented positions, shapes and heights, *not* real footprints — visual context only, never for navigation or analysis. Deterministic (a place looks the same each visit), offline once the land-cover is cached, and shown only when zoomed in.
 - **Base map** — choose the layer draped over the terrain: **Esri** satellite, **OpenTopoMap** or **OpenStreetMap** (the choice is saved).
 - **France detail (IGN)** — *experimental, off by default*: over France it swaps in a much finer terrain (IGN **RGE ALTI / LIDAR HD**) and **20 cm BD ORTHO** aerial imagery (keyless Géoplateforme), falling back to the global sources everywhere else. Toggle it on to try it.
 - **Ground resolution** — adjustable satellite-imagery detail level (z13 to z18).

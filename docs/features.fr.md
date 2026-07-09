@@ -14,6 +14,7 @@ Rejeu 3D des vols de planeurs de l'[Open Glider Network](http://wiki.glidernet.o
 ## La scène
 
 - **Relief 3D** avec imagerie satellite et exagération verticale réglable.
+- **Bâtiments procéduraux** *(optionnel)* — une texture urbaine stylisée : dans chaque **zone urbaine OSM** (land-use), on sème des blocs plausibles sur une grille à graine et on les extrude sur le relief. **⚠ Ces bâtiments sont fictifs** — positions, formes et hauteurs inventées, *pas* de vraies emprises — contexte visuel seulement, jamais pour la navigation ou l'analyse. Déterministe (un lieu est identique à chaque visite), hors-ligne une fois le land-cover en cache, et affiché seulement en zoom rapproché.
 - **Fond de carte** — choix de la couche drapée sur le relief : satellite **Esri**, **OpenTopoMap** ou **OpenStreetMap** (le choix est enregistré).
 - **Détail France (IGN)** — *expérimental, désactivé par défaut* : sur la France, remplace le relief par un MNT bien plus fin (IGN **RGE ALTI / LIDAR HD**) et l'imagerie par la **BD ORTHO 20 cm** (Géoplateforme, sans clé), avec repli sur les sources mondiales ailleurs. À activer pour tester.
 - **Résolution du sol** — niveau de détail de l'imagerie satellite réglable (z13 à z18).

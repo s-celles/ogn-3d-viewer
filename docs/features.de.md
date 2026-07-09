@@ -14,6 +14,7 @@
 ## Die Szene
 
 - **3D-Gelände** mit Satellitenbildern und einstellbarer vertikaler Überhöhung.
+- **Prozedurale Gebäude** *(optional)* — eine stilisierte Stadttextur: in jeder **OSM-Siedlungsfläche** (Landnutzung) werden plausible Blöcke auf einem Seed-Raster verstreut und aufs Gelände extrudiert. **⚠ Diese Gebäude sind fiktiv** — erfundene Positionen, Formen und Höhen, *keine* echten Grundrisse — nur visueller Kontext, nie für Navigation oder Analyse. Deterministisch (ein Ort sieht bei jedem Besuch gleich aus), offline sobald die Landbedeckung im Cache ist, und nur bei nahem Zoom.
 - **Grundkarte** — Wahl der über das Gelände gelegten Ebene: **Esri**-Satellit, **OpenTopoMap** oder **OpenStreetMap** (die Wahl wird gespeichert).
 - **Frankreich-Detail (IGN)** — *experimentell, standardmäßig aus*: über Frankreich ein viel feineres Gelände (IGN **RGE ALTI / LIDAR HD**) und **20-cm-BD-ORTHO**-Luftbilder (Géoplateforme, ohne Schlüssel), sonst globale Quellen. Zum Testen einschalten.
 - **Bodenauflösung** — einstellbarer Detailgrad der Satellitenbilder (z13 bis z18).
