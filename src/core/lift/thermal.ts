@@ -7,7 +7,7 @@
 // with the boundary-layer depth z_i from the weather. A coarse, illustrative diagnostic (no
 // advection, no cloud shading) — see the docs. But a value: no renderer, no app state, and
 // the land cover arrives as DATA, never fetched here.
-import { sampleNodes, type NodeGrid } from './grid';
+import { sampleNodes, medianElev, type NodeGrid } from './grid';
 import { M_PER_LAT, mPerLng } from '../geo';
 import { sunLightDir } from '../sky';
 import type { ElevSampler } from '../ports';
@@ -72,7 +72,6 @@ export interface ThermalParams {
   diff: number;                    // diffuse irradiance (W/m²)
   convTop: number;                 // AMSL thermal ceiling; NaN ⇒ use ziFallback
   ziFallback: number;              // boundary-layer depth when there is no sounding (m)
-  refElev: number;                 // the flat reference ground (m AMSL)
   cal: number;                     // day-scale calibration from the observed climbs
   heatStore: number;               // 0..1 user knob on the diurnal storage
   dM: number;                      // the storage anomaly now — see diurnalStore()
@@ -84,14 +83,21 @@ export interface ThermalParams {
 
 /** The thermal field. `vz` is per CELL (an (n−1)² grid of quads, 3×3-blurred), NaN where the
  *  ground is unknown or above the boundary layer; the node terrain comes along because the
- *  quads are draped on it. `wRef` is the updraught a FLAT patch of reference ground gets under
- *  this sun — the view-independent yardstick every cell is read against. */
+ *  quads are draped on it.
+ *
+ *  `wRef` is the updraught a FLAT patch of REFERENCE ground gets under this sun — the yardstick
+ *  every cell is read against — and `refElev` is the ground it stands on: the MEDIAN height of
+ *  the terrain in view. It used to be the height at the single point under the camera, which
+ *  made the whole map's colours depend on where you happened to centre it (measured: the warm
+ *  fraction swung from 3% to 41% across plausible centres over the same terrain), and jumped
+ *  outright when that one DEM pixel was not loaded. The median is a statement about the ground,
+ *  not about the camera. */
 export interface ThermalField {
   grid: NodeGrid; nw: number;
   lon: Float64Array; lat: Float64Array;
   h: Float32Array; ok: Uint8Array;
   vz: Float32Array;
-  wRef: number; scaleRef: number;
+  refElev: number; wRef: number; scaleRef: number;
   ready: number; total: number;
 }
 
@@ -107,8 +113,10 @@ export function thermalField(g: NodeGrid, elev: ElevSampler, p: ThermalParams): 
   const wStar = (H: number, zi: number): number => p.cal * 0.6 * Math.cbrt((G / THETA) * (H / RHOCP) * zi);
   const mStore = (iner: number): number => Math.max(0.3, Math.min(2, 1 + STORE_GAIN * p.heatStore * iner * p.dM));
 
-  // The view-independent yardstick: what flat reference ground makes under this sun.
-  const wRef = wStar((p.dni * su[2] + p.diff) * (1 - albedo) * beta * mStore(IREF), ziAt(p.refElev));
+  // The yardstick: what flat ground, at the TYPICAL height of the terrain in view, makes under
+  // this sun. Typical = the median of the loaded nodes — see the interface doc.
+  const refElev = medianElev(t) ?? 0;
+  const wRef = wStar((p.dni * su[2] + p.diff) * (1 - albedo) * beta * mStore(IREF), ziAt(refElev));
   const scaleRef = Math.max(0.15, wRef);
 
   // Cast shadows: march the DEM toward the sun; if relief rises above the sun line, the direct
@@ -186,7 +194,7 @@ export function thermalField(g: NodeGrid, elev: ElevSampler, p: ThermalParams): 
     }
     if (m) vz[j * nw + i] = s / m;
   }
-  return { grid: g, nw, lon, lat, h, ok, vz, wRef, scaleRef, ready: t.ready, total };
+  return { grid: g, nw, lon, lat, h, ok, vz, refElev, wRef, scaleRef, ready: t.ready, total };
 }
 
 /** A predicted cumulus: a cloud at the base over a strong thermal core, drifted downwind by

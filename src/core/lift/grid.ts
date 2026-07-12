@@ -68,6 +68,17 @@ export function sampleNodes(g: NodeGrid, elev: ElevSampler, baseline: number): T
   return { n, sp, lon, lat, h, gx, gy, ok, ready };
 }
 
+/** The typical ground of a lattice: the median height of the nodes whose terrain is known.
+ *  A MEDIAN, not the height at some chosen point — one point is a coin toss (a lake or the
+ *  peak beside it) and it is not even loaded half the time. Null when nothing is loaded. */
+export function medianElev(t: TerrainNodes): number | null {
+  const hs: number[] = [];
+  for (let i = 0; i < t.ok.length; i++) if (t.ok[i]) hs.push(t.h[i]);
+  if (!hs.length) return null;
+  hs.sort((a, b) => a - b);
+  return hs[hs.length >> 1];
+}
+
 /** Separable box blur (radius r) of an n×n field — edges shrink the window, they do not wrap. */
 export function boxBlur(src: Float32Array, n: number, r: number): Float32Array {
   const tmp = new Float32Array(n * n), out = new Float32Array(n * n);

@@ -73,15 +73,19 @@ export function thermalLayers(k: number, alpha = 1): any[] {
   const isCu = cloudbase != null && Number.isFinite(convTop) && convTop >= cloudbase + 80;
   const ziFallback = Number.isFinite(radn.blh) && radn.blh > 200 ? radn.blh : 1500;
 
+  // A ROUGH ground height, used only to pick which forecast level the street wind is read at
+  // and whether streets organise at all. The colour scale's reference is NOT this — the kernel
+  // takes the median of the terrain it actually loaded, because a single point under the camera
+  // made the whole map's colours depend on where the camera happened to be.
   const gRef = terrainElevAt(cLon, cLat);
-  const refElev = gRef != null ? gRef : (S.AF ? S.AF.elev : 0);
-  const ziRef = Math.max(0, Math.min(3500, Number.isFinite(convTop) ? convTop - refElev : ziFallback));
+  const roughElev = gRef != null ? gRef : (S.AF ? S.AF.elev : 0);
+  const ziRef = Math.max(0, Math.min(3500, Number.isFinite(convTop) ? convTop - roughElev : ziFallback));
 
   // Cloud streets: with enough boundary-layer wind and depth, thermals organise into rolls
   // aligned with the wind, spaced ~STREET_RATIO × z_i — lift on the street lines, subsidence
   // between. A redistribution of the heat flux across-wind, not extra energy.
   let street: Streets | null = null;
-  const stWind = wx && ziRef > STREET_ZI_MIN ? weatherWind(wx, hour, refElev + Math.max(400, ziRef * 0.5)) : null;
+  const stWind = wx && ziRef > STREET_ZI_MIN ? weatherWind(wx, hour, roughElev + Math.max(400, ziRef * 0.5)) : null;
   if (stWind) {
     const ws = Math.hypot(stWind[0], stWind[1]);
     if (ws > STREET_WIND_MIN) street = {
@@ -105,7 +109,7 @@ export function thermalLayers(k: number, alpha = 1): any[] {
     const grid = { cLon, cLat, R, n: GN };
     const cover: LandCover | null = lc ? sampleGrid(lc, cLat, cLon, R, GN) : null;
     const f = thermalField(grid, terrainElevAt, {
-      sun, dni, diff, convTop, ziFallback, refElev, cal,
+      sun, dni, diff, convTop, ziFallback, cal,
       heatStore: S.heatStore,
       dM: S.heatStore > 0 ? diurnalStore(ms, cLat, cLon) : 0,
       snowLine: snowLineM(ms, cLat),
@@ -119,7 +123,7 @@ export function thermalLayers(k: number, alpha = 1): any[] {
     const cu: Puff[] = isCu
       ? cumulusSpots(f, {
         cloudbase: cloudbase as number, wRef: f.wRef, scaleRef: f.scaleRef,
-        drift: wx ? weatherWind(wx, hour, (refElev + (cloudbase as number)) / 2) : null,
+        drift: wx ? weatherWind(wx, hour, (f.refElev + (cloudbase as number)) / 2) : null,
       }).map(s => ({ pos: [s.lon, s.lat, s.base * k] as [number, number, number], size: s.size }))
       : [];
     cache = { gk, k, bucket, wxr: !!wx, lcv, cal, wxe, hs: S.heatStore, meshes, cu };

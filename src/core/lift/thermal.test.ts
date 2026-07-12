@@ -30,7 +30,7 @@ const NOON: [number, number, number] = [0, -0.5, Math.sqrt(1 - 0.25)];
 const LOW_EAST: [number, number, number] = [Math.cos(10 * Math.PI / 180), 0, Math.sin(10 * Math.PI / 180)];
 
 const base = {
-  dni: 900, diff: 90, convTop: NaN, ziFallback: 1500, refElev: 1000,
+  dni: 900, diff: 90, convTop: NaN, ziFallback: 1500,
   cal: 1, heatStore: 0, dM: 0, snowLine: 9999, lc: null, street: null,
 };
 const P = (over: Partial<typeof base> & { sun: [number, number, number] }) => ({ ...base, ...over });
@@ -87,6 +87,32 @@ test('with the sun overhead nothing shades anything', () => {
   // Symmetric terrain, symmetric sun → the two flanks heat identically. Only to within the
   // grid's own asymmetry: the lattice has no node exactly on the summit.
   expect(at(f, -2500, 0)).toBeCloseTo(at(f, 2500, 0), 1);
+});
+
+// ---- the yardstick ----
+
+test('the reference is the TYPICAL ground in view, not the point under the camera', () => {
+  // A lone peak in a plain. Whether the camera happens to sit on the summit or beside it must
+  // not change what the map says about the terrain — so the reference is the MEDIAN height of
+  // the ground actually loaded, not a single sample. With a single sample this swung the warm
+  // fraction from 3% to 41% over the same real terrain, purely from where the view was centred.
+  const terrain = peak(1500, 900, 0);
+  const onThePeak = thermalField({ ...G, cLon: 6, cLat: 45 }, terrain, P({ sun: [0, 0, 1] }));
+  const beside = thermalField({ ...G, cLon: 6.02, cLat: 45 }, terrain, P({ sun: [0, 0, 1] }));
+  // The summit is 2500 m; the plain is 1000. A point sample would give one or the other.
+  expect(onThePeak.refElev).toBeLessThan(1200);
+  expect(beside.refElev).toBeLessThan(1200);
+  // And the yardstick barely moves, so the colours mean the same thing in both views.
+  expect(beside.wRef).toBeCloseTo(onThePeak.wRef, 2);
+});
+
+test('the reference follows the ground when the ground really changes', () => {
+  // Not blind to elevation — a high plateau IS a different reference from a valley floor.
+  const low = thermalField(G, () => 500, P({ sun: [0, 0, 1], convTop: 3000 }));
+  const high = thermalField(G, () => 2200, P({ sun: [0, 0, 1], convTop: 3000 }));
+  expect(low.refElev).toBe(500);
+  expect(high.refElev).toBe(2200);
+  expect(high.wRef).toBeLessThan(low.wRef);   // less depth to convect in up there
 });
 
 // ---- the ceiling ----
