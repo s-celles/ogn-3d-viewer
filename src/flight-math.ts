@@ -1,12 +1,46 @@
-// ============ track geometry & time helpers ============
+// ============ the app's view of a flight ============
+// The maths lives in core/flight.ts: where the glider was, how fast it climbed, how it was
+// banked, what the flight added up to. What is left here is everything that needs the app —
+// which track is the subject, which ones are shown, what the clock reads — plus the glider
+// glyphs, which are geometry for a renderer.
 import { S } from './state';
 import { GLIDER, ARROW, LIVE, clampv } from './config';
 import { isPowered } from './aircraft-mesh';
 import type { RenderTrack, Pos3, RelPoint, TrackPoint } from './types';
 import { M_PER_LAT, mPerLng } from './core/geo';
+import {
+  buildRel as buildRelCore, posAt as posAtCore, airborne as airborneCore, slice as sliceCore,
+  headingAt as headingAtCore, varioAt as varioAtCore, groundSpeedAt as groundSpeedAtCore,
+  compVarioAt as compVarioAtCore, flightStats, attitudeAt as attitudeAtCore,
+  brg, type Attitude, type TrackStats, type Dynamics,
+} from './core/flight';
 
-/** The registration to DISPLAY: the real one, or a neutral anonymised tag (G1, G2, …) in
- *  anonymous mode — for screenshots. Internal identity (subject, solo, URL) keeps the real reg. */
+export { brg };
+export type { Attitude, TrackStats };
+
+// The flight dynamics the attitude estimate needs — the physics half of GLIDER, without the
+// marker's on-screen size.
+const DYN: Dynamics = {
+  g: GLIDER.g, dt: GLIDER.dt,
+  maxBankDeg: GLIDER.maxBankDeg, maxPitchDeg: GLIDER.maxPitchDeg,
+  pitchLevelSpeed: GLIDER.pitchLevelSpeed, pitchGain: GLIDER.pitchGain,
+};
+
+/** Build a track's render-ready points, applying the day's geoid/datum correction. */
+export const buildRel = (path: TrackPoint[], G0: number, spline: boolean): RelPoint[] =>
+  buildRelCore(path, G0, spline, S.altOffset);
+
+export const posAt = (tr: RenderTrack, time: number): Pos3 => posAtCore(tr, time);
+export const airborne = (tr: RenderTrack, time: number): boolean => airborneCore(tr, time);
+export const slice = (tr: RenderTrack, t0: number, t1: number): Pos3[] => sliceCore(tr, t0, t1);
+export const headingAt = (tr: RenderTrack, time: number): number => headingAtCore(tr, time);
+export const varioAt = (tr: RenderTrack, time: number): number => varioAtCore(tr, time);
+export const groundSpeedAt = (tr: RenderTrack, time: number): number => groundSpeedAtCore(tr, time, GLIDER.dt);
+export const compVarioAt = (tr: RenderTrack, time: number): number => compVarioAtCore(tr, time, GLIDER.dt, GLIDER.g);
+export const statsFor = (tr: RenderTrack): TrackStats => flightStats(tr, tr.maxalt);
+export const attitudeAt = (tr: RenderTrack, time: number): Attitude =>
+  attitudeAtCore(tr, time, isPowered(tr.type), DYN);
+
 export function displayReg(tr: RenderTrack): string {
   if (!S.anon) return tr.reg;
   const i = S.TRACKS.indexOf(tr);
@@ -14,46 +48,6 @@ export function displayReg(tr: RenderTrack): string {
 }
 
 // Subdivisions inserted per beacon segment when spline smoothing is on.
-const SPLINE_SUBDIV = 8;
-
-// Catmull-Rom basis for one coordinate: smooth curve through p1→p2 using the
-// neighbouring control points p0 and p3.
-function catmull(p0: number, p1: number, p2: number, p3: number, t: number): number {
-  const t2 = t * t, t3 = t2 * t;
-  return 0.5 * ((2 * p1) + (-p0 + p2) * t + (2 * p0 - 5 * p1 + 4 * p2 - p3) * t2 + (-p0 + 3 * p1 - 3 * p2 + p3) * t3);
-}
-
-// Densify a polyline with a Catmull-Rom spline through its points, keeping time
-// monotonic (linearly interpolated within each segment). Returns the input
-// untouched when there are too few points to interpolate.
-function densify(base: RelPoint[]): RelPoint[] {
-  const n = base.length;
-  if (n < 3) return base;
-  const out: RelPoint[] = [];
-  for (let i = 0; i < n - 1; i++) {
-    const p0 = base[Math.max(0, i - 1)], p1 = base[i], p2 = base[i + 1], p3 = base[Math.min(n - 1, i + 2)];
-    for (let s = 0; s < SPLINE_SUBDIV; s++) {
-      const t = s / SPLINE_SUBDIV;
-      out.push([
-        catmull(p0[0], p1[0], p2[0], p3[0], t),
-        catmull(p0[1], p1[1], p2[1], p3[1], t),
-        catmull(p0[2], p1[2], p2[2], p3[2], t),
-        p1[3] + (p2[3] - p1[3]) * t,
-      ]);
-    }
-  }
-  out.push(base[n - 1]); // final endpoint
-  return out;
-}
-
-// Build a track's render-ready points from raw [lon,lat,alt,sod] beacons,
-// shifting time by G0 and optionally smoothing with a Catmull-Rom spline.
-export function buildRel(path: TrackPoint[], G0: number, spline: boolean): RelPoint[] {
-  const dz = S.altOffset;   // geoid/datum correction (ellipsoidal → orthometric)
-  const base = path.map(p => [p[0], p[1], p[2] - dz, p[3] - G0] as RelPoint);
-  return spline ? densify(base) : base;
-}
-
 /** The track currently followed in cockpit view. A glider may have several
  *  flights that day (same reg); follow the one airborne now, else its first. */
 export const subjectTrack = (): RenderTrack => {
@@ -92,22 +86,6 @@ export function nearestToCenter(): RenderTrack | null {
 /** Track path with the current vertical exaggeration applied. */
 export function scaled(tr: RenderTrack): Pos3[] { const k = S.exo; return tr.rel.map(p => [p[0], p[1], p[2] * k]); }
 
-/** Interpolated [lon,lat,alt] at a given relative time. */
-export function posAt(tr: RenderTrack, time: number): Pos3 {
-  const P = tr.rel;
-  if (time <= tr.rstart) return [P[0][0], P[0][1], P[0][2]];
-  if (time >= tr.rend) { const e = P[P.length - 1]; return [e[0], e[1], e[2]]; }
-  for (let i = 1; i < P.length; i++) {
-    if (P[i][3] >= time) {
-      const a = P[i - 1], b = P[i], f = (time - a[3]) / Math.max(1e-3, b[3] - a[3]);
-      return [a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f, a[2] + (b[2] - a[2]) * f];
-    }
-  }
-  const e = P[P.length - 1]; return [e[0], e[1], e[2]];
-}
-
-export const airborne = (tr: RenderTrack, time: number): boolean => time >= tr.rstart && time <= tr.rend;
-
 export interface Presence { time: number; offline: boolean; }
 
 /**
@@ -130,123 +108,8 @@ export function presence(tr: RenderTrack): Presence | null {
  *  in live). Drives the optional "active only" filter. */
 export const isActive = (tr: RenderTrack): boolean => presence(tr) != null;
 
-/** Path points between two relative times (clamped to the track span). */
-export function slice(tr: RenderTrack, t0: number, t1: number): Pos3[] {
-  t0 = Math.max(t0, tr.rstart); t1 = Math.min(t1, tr.rend); if (t1 <= t0) return [];
-  const out: Pos3[] = [posAt(tr, t0)];
-  for (const p of tr.rel) { if (p[3] > t0 && p[3] < t1) out.push([p[0], p[1], p[2]]); }
-  out.push(posAt(tr, t1)); return out;
-}
-
-/** Bearing (degrees) from point a to point b, or null if they coincide. */
-export function brg(a: Pos3, b: Pos3): number | null {
-  const lat = (a[1] + b[1]) / 2 * Math.PI / 180, e = (b[0] - a[0]) * Math.cos(lat), n = (b[1] - a[1]);
-  if (Math.abs(e) < 1e-9 && Math.abs(n) < 1e-9) return null;
-  return (Math.atan2(e, n) * 180 / Math.PI + 360) % 360;
-}
-
-export function headingAt(tr: RenderTrack, time: number): number {
-  return brg(posAt(tr, Math.max(tr.rstart, time - 3)), posAt(tr, Math.min(tr.rend, time + 3))) ?? 0;
-}
-
-// Raw (geometric) vario: rate of altitude change. Used for the flight-path angle.
-export function varioAt(tr: RenderTrack, time: number): number {
-  const t0 = Math.max(tr.rstart, time - 4), t1 = Math.min(tr.rend, time + 4), a = posAt(tr, t0), b = posAt(tr, t1), dt = t1 - t0;
-  return dt > 0 ? (b[2] - a[2]) / dt : 0;
-}
-
-// Horizontal ground speed (m/s) estimated over a ±dt window.
-export function groundSpeedAt(tr: RenderTrack, time: number): number {
-  const dt = GLIDER.dt;
-  const t0 = Math.max(tr.rstart, time - dt), t1 = Math.min(tr.rend, time + dt), span = (t1 - t0) || 1;
-  const a = posAt(tr, t0), b = posAt(tr, t1);
-  const latMid = (a[1] + b[1]) / 2 * Math.PI / 180;
-  const dE = (b[0] - a[0]) * M_PER_LAT * Math.cos(latMid), dN = (b[1] - a[1]) * M_PER_LAT;
-  return Math.hypot(dE, dN) / span;
-}
-
-// Total-energy (compensated) vario: raw vario plus the kinetic-energy term
-// (V/g)·dV/dt, so a pull-up that trades speed for height no longer reads as lift.
-//
-// Physically V must be the TRUE AIRSPEED (the glider's energy is relative to the
-// air mass), NOT ground speed. OGN/GPS gives us no airspeed and no wind, so we
-// substitute GPS ground speed. This is exact only in still air; a steady wind
-// biases the result (most on downwind/upwind transitions). It is a deliberate
-// GPS approximation, not a true TE vario — see groundSpeedAt, never call it
-// airspeed.
-export function compVarioAt(tr: RenderTrack, time: number): number {
-  const dt = GLIDER.dt;
-  const t0 = Math.max(tr.rstart, time - dt), t1 = Math.min(tr.rend, time + dt), span = (t1 - t0) || 1;
-  const dVdt = (groundSpeedAt(tr, t1) - groundSpeedAt(tr, t0)) / span;
-  return varioAt(tr, time) + groundSpeedAt(tr, time) * dVdt / GLIDER.g;
-}
 
 export const clampCur = (tr: RenderTrack): number => Math.max(tr.rstart, Math.min(tr.rend, S.cur));
-
-export interface TrackStats {
-  dur: number;       // flight duration (s)
-  maxAlt: number;    // max altitude (m)
-  gain: number;      // cumulative climb (m, sum of positive Δalt)
-  distKm: number;    // ground distance flown (km)
-  avgKmh: number;    // average ground speed (km/h)
-  maxKmh: number;    // 98th-percentile ground speed (km/h, glitch-robust)
-  maxClimb: number;  // 98th-percentile climb rate (m/s)
-}
-
-// Per-track summary stats from a single O(n) pass over the (spline) samples — no
-// posAt, so it stays cheap even for densified IGC tracks. Speed/climb maxima are
-// resampled into ~4 s windows then taken at the 98th percentile, so a single
-// glitch beacon can't blow up the figures.
-export function statsFor(tr: RenderTrack): TrackStats {
-  const P = tr.rel;
-  let gain = 0, dist = 0, wHoriz = 0, wDz = 0, wT = 0;
-  const speeds: number[] = [], climbs: number[] = [];
-  for (let i = 1; i < P.length; i++) {
-    const a = P[i - 1], b = P[i], dt = b[3] - a[3];
-    if (dt <= 0) continue;
-    const dz = b[2] - a[2], lat = (a[1] + b[1]) / 2 * Math.PI / 180;
-    const dE = (b[0] - a[0]) * M_PER_LAT * Math.cos(lat), dN = (b[1] - a[1]) * M_PER_LAT, seg = Math.hypot(dE, dN);
-    dist += seg; if (dz > 0) gain += dz;
-    wHoriz += seg; wDz += dz; wT += dt;
-    if (wT >= 4) { speeds.push(wHoriz / wT); climbs.push(wDz / wT); wHoriz = wDz = wT = 0; }
-  }
-  const dur = tr.rend - tr.rstart;
-  speeds.sort((x, y) => x - y); climbs.sort((x, y) => x - y);
-  const pct = (arr: number[], q: number) => arr.length ? arr[Math.min(arr.length - 1, Math.floor(q * arr.length))] : 0;
-  return {
-    dur, maxAlt: tr.maxalt, gain, distKm: dist / 1000,
-    avgKmh: dur > 0 ? dist / dur * 3.6 : 0,
-    maxKmh: pct(speeds, 0.98) * 3.6,
-    maxClimb: pct(climbs, 0.98),
-  };
-}
-
-export interface Attitude { heading: number; roll: number; pitch: number; speed: number; }
-
-// Estimate the aircraft's attitude at a time: ground speed and turn rate from a
-// ±dt window, bank from the coordinated-turn relation tan(roll)=V·ω/g. Roll>0 =
-// right bank, pitch>0 = nose up. Both angles are clamped to the configured
-// maxima. Angles in radians.
-//
-// Pitch depends on aircraft type. A GLIDER is always descending through the air,
-// so it never holds a nose-up attitude in normal flight: its body pitch is set
-// by airspeed (ground-speed proxy) — ~level near stall, increasingly nose-down
-// as it speeds up — independent of climb rate (thermals don't pitch the nose
-// up). A POWERED aircraft can climb under power, so it keeps the flight-path
-// angle (vario / speed) and pitches up when climbing.
-export function attitudeAt(tr: RenderTrack, time: number): Attitude {
-  const { dt, g } = GLIDER;
-  const maxBank = GLIDER.maxBankDeg * Math.PI / 180, maxPitch = GLIDER.maxPitchDeg * Math.PI / 180;
-  const t0 = Math.max(tr.rstart, time - dt), t1 = Math.min(tr.rend, time + dt), span = (t1 - t0) || 1;
-  const speed = groundSpeedAt(tr, time);                            // ground speed (m/s)
-  let dh = ((headingAt(tr, t1) - headingAt(tr, t0) + 540) % 360) - 180; // signed heading change (deg), right +
-  const omega = (dh * Math.PI / 180) / span;                        // turn rate (rad/s)
-  const roll = clampv(Math.atan(speed * omega / g), -maxBank, maxBank);
-  const pitch = isPowered(tr.type)
-    ? clampv(Math.atan2(varioAt(tr, time), Math.max(1, speed)), -maxPitch, maxPitch)
-    : clampv(-Math.max(0, speed - GLIDER.pitchLevelSpeed) * GLIDER.pitchGain, -maxPitch, 0);
-  return { heading: headingAt(tr, time), roll, pitch, speed };
-}
 
 // A glider attitude glyph at a time: a wing line + a fuselage line through the
 // position, tilted by roll/pitch. Endpoints are [lon, lat, realAlt] (the caller

@@ -2,12 +2,9 @@
 // The domain types (track samples, imported files) live in core/ — the app-free,
 // render-free soaring kernel — and are re-exported here so app modules keep a
 // single import site. Everything below is app/rendering state.
-export type { TrackPoint, ImportedTrack, ImportedFile } from './core/types';
-import type { TrackPoint } from './core/types';
+export type { TrackPoint, ImportedTrack, ImportedFile, RelPoint, Pos3 } from './core/types';
+import type { TrackPoint, RelPoint, Pos3 } from './core/types';
 
-/** Render sample with day-relative time: [lon, lat, alt, relTime]. */
-export type RelPoint = [number, number, number, number];
-export type Pos3 = [number, number, number];
 export type RGB = [number, number, number];
 
 export type Mode = 'over' | 'fpv' | 'chase';

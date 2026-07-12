@@ -5,6 +5,11 @@
 /** Raw IGC sample: [lon, lat, gpsAlt, secondsOfDay]. */
 export type TrackPoint = [number, number, number, number];
 
+/** A track sample on the day's clock: [lon, lat, alt (m), seconds since the day's origin]. */
+export type RelPoint = [number, number, number, number];
+/** A point in space: [lon, lat, alt (m)]. */
+export type Pos3 = [number, number, number];
+
 /** One track parsed from an imported file (IGC/GPX/KML), before render prep. */
 export interface ImportedTrack {
   name: string;          // human label (track/placemark name or glider type)
