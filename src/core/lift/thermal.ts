@@ -121,6 +121,11 @@ export function thermalField(g: NodeGrid, elev: ElevSampler, p: ThermalParams): 
   const sDists: number[] = [];
   if (shadows) for (let d = sp * 0.7; d < g.R * 0.7; d *= 1.45) sDists.push(d);
 
+  // Node positions in metres from a fixed earth origin (lon 0, lat 0) — what the cloud
+  // streets take their phase from, so a street stays put on the ground while the view moves.
+  const mLng = mPerLng(g.cLat);
+  const xAbs = Array.from(lon, (l) => l * mLng), yAbs = Array.from(lat, (l) => l * M_PER_LAT);
+
   const alb = p.lc?.alb ?? null, sens = p.lc?.sens ?? null, iners = p.lc?.iner ?? null;
   const vzN = new Float32Array(total).fill(NaN);
   for (let idx = 0; idx < total; idx++) {
@@ -153,9 +158,12 @@ export function thermalField(g: NodeGrid, elev: ElevSampler, p: ThermalParams): 
     // Snow above the seasonal snow line: blend to snow albedo → very little heating.
     const albC = alb ? alb[idx] : albedo, sf = Math.max(0, Math.min(1, (hC - p.snowLine) / SNOW_BAND));
     const albE = albC + (SNOW_ALB - albC) * sf;
-    // Cloud-street organisation: across-wind cosine banding of the heat flux.
+    // Cloud-street organisation: across-wind cosine banding of the heat flux. The phase is
+    // measured from a fixed point on the EARTH, not from the centre of the grid — the grid
+    // centre is the camera, and streets anchored to the camera slide across the terrain as
+    // you pan.
     const st = p.street
-      ? 1 + p.street.amp * Math.cos(p.street.k * ((-g.R + i0 * sp) * p.street.pE + (-g.R + j0 * sp) * p.street.pN))
+      ? 1 + p.street.amp * Math.cos(p.street.k * (xAbs[i0] * p.street.pE + yAbs[j0] * p.street.pN))
       : 1;
     const H = (p.dni * cosInc * shade + p.diff) * (1 - albE) * (sens ? sens[idx] : beta)
       * mStore(iners ? iners[idx] : IREF) * st;
