@@ -15,9 +15,26 @@ export interface BBox { west: number; east: number; north: number; south: number
 
 export const MERC = 20037508.342789244;   // half the EPSG:3857 world span (m)
 export const M_PER_LAT = 111320;          // metres per degree of latitude
+export const TILE_PX = 256;               // web-mercator tile edge (px)
+export const DEG = Math.PI / 180;         // radians per degree
+
+/** Degrees → radians. */
+export const rad = (deg: number): number => deg * DEG;
 
 /** Metres per degree of longitude at a latitude (they shrink toward the poles). */
-export const mPerLng = (lat: number): number => M_PER_LAT * Math.cos(lat * Math.PI / 180);
+export const mPerLng = (lat: number): number => M_PER_LAT * Math.cos(rad(lat));
+
+/** Ground resolution (m/px) of the web-mercator pyramid at a latitude and zoom: the
+ *  world (2 × MERC) across one 256-px tile at z=0, halving every level. */
+export const metresPerPixel = (lat: number, zoom: number): number =>
+  2 * MERC / TILE_PX * Math.cos(rad(lat)) / 2 ** zoom;
+
+/** Distance (m) between two nearby lon/lats, flat-earth: exact enough over a task area,
+ *  and the only thing the fields and the traffic ever need. */
+export function distM(aLon: number, aLat: number, bLon: number, bLat: number): number {
+  const mLng = mPerLng((aLat + bLat) / 2);
+  return Math.hypot((bLon - aLon) * mLng, (bLat - aLat) * M_PER_LAT);
+}
 
 /** Fractional tile coordinates of a lon/lat at a zoom: the integer parts are the tile
  *  index, the fractions the position inside it (x east, y south). */

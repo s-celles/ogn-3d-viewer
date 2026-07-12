@@ -6,7 +6,7 @@
 // import or a stray `document.` sneaks in — the boundary is checked, not trusted.
 import { test, expect } from 'bun:test';
 import { readdirSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 
 const CORE = join(import.meta.dir);
 
@@ -39,12 +39,14 @@ test('core imports no app-only or rendering package', () => {
 });
 
 test('core never reaches outside itself (except bundled data assets)', () => {
-  // A relative import that climbs out of src/core would drag app code back in.
-  // Bundled data files (../../data/**) are inert assets, so they are allowed.
+  // A relative import that climbs out of src/core would drag app code back in. Resolve
+  // it — core has subdirectories, so `../geo` from core/lift is *inside* the kernel while
+  // `../state` from core is not. Bundled data files (../../data/**) are inert assets.
   for (const { file, text } of sources)
     for (const spec of imports(text)) {
       if (!spec.startsWith('.')) continue;                       // bare package: covered above
-      const escapes = spec.startsWith('..');
+      const target = join(CORE, dirname(file), spec);            // absolute, normalised
+      const escapes = !target.startsWith(CORE + '/');
       const isDataAsset = /^\.\.\/\.\.\/data\//.test(spec);
       expect(`${file} → ${spec}`).toBe(escapes && !isDataAsset ? 'MUST NOT ESCAPE src/core' : `${file} → ${spec}`);
     }

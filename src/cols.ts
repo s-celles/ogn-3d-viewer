@@ -8,8 +8,9 @@
 import { S } from './state';
 import { PathLayer } from './deck';
 import { terrainElevAt } from './terrain';
-import { windBg } from './ridge';
+import { windBg } from './wind-source';
 import { wxEpoch } from './weather';
+import { M_PER_LAT, mPerLng, metresPerPixel } from './core/geo';
 
 const NG = 56;           // grid nodes per side
 const COL_OFF = 45;      // m: lift the marker off the col
@@ -28,7 +29,7 @@ function build(cols: Col[], k: number): any[] {
   const segs: { path: number[][]; c: [number, number, number] }[] = [];
   const LIFT: [number, number, number] = [80, 210, 120], MILD: [number, number, number] = [228, 190, 92], SINK: [number, number, number] = [90, 150, 235];
   for (const c of cols) {
-    const zc = (c.h + COL_OFF) * k, zlow = (c.h + COL_OFF - DROP) * k, mLng = 111320 * Math.cos(c.lat * Math.PI / 180), mLat = 111320;
+    const zc = (c.h + COL_OFF) * k, zlow = (c.h + COL_OFF - DROP) * k, mLng = mPerLng(c.lat), mLat = M_PER_LAT;
     const P = (ox: number, oy: number, z: number): number[] => [c.lon + ox / mLng, c.lat + oy / mLat, z];
     const rx = -c.ey, ry = c.ex;                                 // ridge unit (⟂ to the through-axis)
     segs.push({ path: [P(rx * RM, ry * RM, zc), P(-rx * RM, -ry * RM, zc)], c: [210, 215, 225] });   // the ridge line (grey)
@@ -54,16 +55,16 @@ export function colLayers(k: number): any[] {
   const cLat = S.mapVS.latitude, cLon = S.mapVS.longitude, zoom = S.mapVS.zoom || 11;
   const wind = windBg(cLat, cLon); if (!wind) return [];
   if (Math.hypot(wind[0], wind[1]) < 1) return [];   // calm → nothing blows through
-  const mppx = 156543.03392 * Math.cos(cLat * Math.PI / 180) / 2 ** zoom;
+  const mppx = metresPerPixel(cLat, zoom);
   const R = Math.max(4000, Math.min(24000, mppx * 750));
   const hour = S.wxSim.on ? Math.floor(S.wxSim.hour) : Math.floor((S.G0 + S.cur) / 3600);
   const wk = `${Math.round(wind[0])}|${Math.round(wind[1])}|${wxEpoch()}`;
   if (cache && cache.hour === hour && cache.wk === wk && Math.abs(Math.log(cache.R / R)) < 0.25) {
     const cosLat = Math.cos(cLat * Math.PI / 180);
-    const moved = Math.hypot((cache.cLon - cLon) * 111320 * cosLat, (cache.cLat - cLat) * 111320);
+    const moved = Math.hypot((cache.cLon - cLon) * M_PER_LAT * cosLat, (cache.cLat - cLat) * M_PER_LAT);
     if (moved < R * 0.33) return build(cache.cols, k);
   }
-  const mLng = 111320 * Math.cos(cLat * Math.PI / 180), mLat = 111320, sp = (2 * R) / (NG - 1);
+  const mLng = mPerLng(cLat), mLat = M_PER_LAT, sp = (2 * R) / (NG - 1);
   const nlon = (i: number) => cLon + (-R + i * sp) / mLng, nlat = (j: number) => cLat + (-R + j * sp) / mLat;
   const H = new Float32Array(NG * NG), ok = new Uint8Array(NG * NG);
   let ready = 0;

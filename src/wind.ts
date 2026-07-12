@@ -8,9 +8,10 @@ import { S } from './state';
 import { t } from './i18n';
 import { LineLayer, SimpleMeshLayer, COORDINATE_SYSTEM } from './deck';
 import { terrainElevAt } from './terrain';
-import { windBg, windAtAlt } from './ridge';
+import { windBg, windAtAlt } from './wind-source';
 import { windArrow, windSpd, windDir } from './dom';
 import type { Pos3 } from './types';
+import { M_PER_LAT, mPerLng, metresPerPixel } from './core/geo';
 
 const GN = 56;           // wind-grid nodes per side (finer → smoother contours)
 const N = 1100;          // particle count
@@ -53,7 +54,7 @@ const rnd = () => Math.random();
 function buildGrid(cLat: number, cLon: number, R: number): Grid | null {
   const bg = windBg(cLat, cLon); if (!bg) return null;
   const s0 = Math.hypot(bg[0], bg[1]); if (s0 < 1.5) return null;
-  const mLng = 111320 * Math.cos(cLat * Math.PI / 180), mLat = 111320, sp = (2 * R) / (GN - 1);
+  const mLng = mPerLng(cLat), mLat = M_PER_LAT, sp = (2 * R) / (GN - 1);
   const upE = -bg[0] / s0, upN = -bg[1] / s0;
   const nodes: Node[] = new Array(GN * GN);
   let ready = 0;
@@ -177,7 +178,7 @@ const streakParams = { depthCompare: 'less-equal', depthWriteEnabled: false, ble
  *  altitude bands (the wind profile). Rebuilds and reseeds as the view moves. */
 export function windLayers(k: number): any[] {
   const cLat = S.mapVS.latitude, cLon = S.mapVS.longitude, zoom = S.mapVS.zoom || 11;
-  const R = Math.max(4000, Math.min(20000, 156543.03392 * Math.cos(cLat * Math.PI / 180) / 2 ** zoom * 700));
+  const R = Math.max(4000, Math.min(20000, metresPerPixel(cLat, zoom) * 700));
   const hour = S.wxSim.on ? Math.floor(S.wxSim.hour) : Math.floor((S.G0 + S.cur) / 3600);
   const bg = windBg(cLat, cLon); if (!bg) return [];
   updateDial(bg);
@@ -344,7 +345,7 @@ const colLine = (id: string, data: ColSeg[], w: number): any => new LineLayer<Co
 // 3D: animated arrows at altitude bands, each following the wind at its altitude —
 // colour keyed to altitude so shear is visible.
 function profileArrows(cLat: number, cLon: number, R: number, hour: number, k: number): any[] {
-  const mLng = 111320 * Math.cos(cLat * Math.PI / 180), mLat = 111320;
+  const mLng = mPerLng(cLat), mLat = M_PER_LAT;
   bands = computeBands(cLat, cLon);
   const stale = !field || field.hour !== hour || Math.abs(Math.log(field.R / R)) > 0.25
     || Math.hypot((field.cLon - cLon) * field.mLng, (field.cLat - cLat) * field.mLat) > R * 0.33;
@@ -366,7 +367,7 @@ function profileArrows(cLat: number, cLon: number, R: number, hour: number, k: n
 
 // 3D: a ring of arrows per altitude band, stacked into towers over a coarse grid.
 function ringsMode(cLat: number, cLon: number, R: number, k: number): any[] {
-  const mLng = 111320 * Math.cos(cLat * Math.PI / 180), mLat = 111320;
+  const mLng = mPerLng(cLat), mLat = M_PER_LAT;
   const bands = computeBands(cLat, cLon), rr = Math.max(400, Math.min(1400, R * 0.06));
   const segs: ColSeg[] = [], NSEG = 22;
   for (const p of anchors(cLat, cLon, R * 0.92, mLng, mLat, 4)) {
@@ -391,7 +392,7 @@ function ringsMode(cLat: number, cLon: number, R: number, k: number): any[] {
 // 3D: a hodograph spiral per grid point — each band's wind vector tip, elevated to
 // its altitude and connected, so the curve spirals when the wind veers with height.
 function hodographMode(cLat: number, cLon: number, R: number, k: number): any[] {
-  const mLng = 111320 * Math.cos(cLat * Math.PI / 180), mLat = 111320;
+  const mLng = mPerLng(cLat), mLat = M_PER_LAT;
   const bands = computeBands(cLat, cLon), scale = 45;   // metres per m/s
   const segs: ColSeg[] = [];
   for (const p of anchors(cLat, cLon, R * 0.9, mLng, mLat, 5)) {

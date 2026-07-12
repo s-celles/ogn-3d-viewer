@@ -1,6 +1,6 @@
 import { test, expect } from 'bun:test';
 import {
-  lonLatToTile, tileBBox, tile3857, mPerLng, M_PER_LAT,
+  lonLatToTile, tileBBox, tile3857, mPerLng, M_PER_LAT, MERC, DEG, rad, metresPerPixel, distM,
   decodeTerrarium, sampleTerrarium, sampleTerrainBilinear, encodeTerrarium,
   elevAtFromTiles, type ElevTile,
 } from './geo';
@@ -51,6 +51,28 @@ test('metres per degree: latitude is constant, longitude shrinks toward the pole
   expect(mPerLng(0)).toBeCloseTo(111320, 0);
   expect(mPerLng(60)).toBeCloseTo(111320 / 2, 0);
   expect(mPerLng(90)).toBeCloseTo(0, 3);
+});
+
+test('degrees to radians', () => {
+  expect(rad(180)).toBeCloseTo(Math.PI, 12);
+  expect(rad(-90)).toBeCloseTo(-Math.PI / 2, 12);
+  expect(DEG).toBeCloseTo(Math.PI / 180, 15);
+});
+
+test('metres per pixel: halves with every zoom level, shrinks with the cosine of latitude', () => {
+  // The web-mercator ground resolution of a 256-px tile: the whole world across one
+  // tile at z=0 → 40 075 km / 256 px at the equator.
+  expect(metresPerPixel(0, 0)).toBeCloseTo(2 * MERC / 256, 3);
+  expect(metresPerPixel(0, 10)).toBeCloseTo(metresPerPixel(0, 9) / 2, 9);
+  expect(metresPerPixel(60, 11)).toBeCloseTo(metresPerPixel(0, 11) / 2, 6);
+});
+
+test('distM: flat-earth distance between two nearby points, east and north', () => {
+  // One degree of latitude, and one of longitude at 60°N (half as long on the ground).
+  expect(distM(6, 45, 6, 46)).toBeCloseTo(M_PER_LAT, 0);
+  expect(distM(6, 60, 7, 60)).toBeCloseTo(mPerLng(60), 0);
+  expect(distM(6, 45, 6, 45)).toBe(0);
+  expect(distM(6, 45, 7, 46)).toBeCloseTo(distM(7, 46, 6, 45), 9);   // symmetric
 });
 
 test('Terrarium codec: encode → decode round-trips an elevation grid (incl. below sea level)', () => {

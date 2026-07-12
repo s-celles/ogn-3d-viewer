@@ -9,11 +9,12 @@
 import { S } from './state';
 import { SimpleMeshLayer, COORDINATE_SYSTEM } from './deck';
 import { terrainElevAt } from './terrain';
-import { windBg } from './ridge';
+import { windBg } from './wind-source';
 import { sunLightDir, sceneMs } from './sky';
 import { getLC, sampleGrid, lcVersion } from './landcover';
 import { wxEpoch } from './weather';
 import { LIFT_COLORS, SINK_COLORS } from './core/liftviz';
+import { M_PER_LAT, mPerLng, metresPerPixel } from './core/geo';
 
 const NG = 64;           // grid nodes per side
 const GB = 110;          // terrain-gradient baseline (m)
@@ -69,7 +70,7 @@ export function convergLayers(k: number, alpha = 1): any[] {
   const cLat = S.mapVS.latitude, cLon = S.mapVS.longitude, zoom = S.mapVS.zoom || 11;
   const wind = windBg(cLat, cLon); if (!wind) return [];
   const spd = Math.hypot(wind[0], wind[1]);
-  const mppx = 156543.03392 * Math.cos(cLat * Math.PI / 180) / 2 ** zoom;
+  const mppx = metresPerPixel(cLat, zoom);
   const R = Math.max(4000, Math.min(20000, mppx * 700));
   // Lake-breeze source: the sun's heating contrast + a water mask (only fetched by day).
   const ld = sunLightDir(sceneMs(), cLat, cLon);
@@ -80,10 +81,10 @@ export function convergLayers(k: number, alpha = 1): any[] {
   const wk = `${Math.round(wind[0])}|${Math.round(wind[1])}|${wxEpoch()}|${lc ? lcVersion() : -1}`;
   if (cache && cache.hour === hour && cache.wk === wk && Math.abs(Math.log(cache.R / R)) < 0.25) {
     const cosLat = Math.cos(cLat * Math.PI / 180);
-    const moved = Math.hypot((cache.cLon - cLon) * 111320 * cosLat, (cache.cLat - cLat) * 111320);
+    const moved = Math.hypot((cache.cLon - cLon) * M_PER_LAT * cosLat, (cache.cLat - cLat) * M_PER_LAT);
     if (moved < R * 0.33) return mkLayers(cache.meshes, alpha);
   }
-  const mLng = 111320 * Math.cos(cLat * Math.PI / 180), mLat = 111320, sp = (2 * R) / (NG - 1), half = sp * 0.62;
+  const mLng = mPerLng(cLat), mLat = M_PER_LAT, sp = (2 * R) / (NG - 1), half = sp * 0.62;
   const nlon = (i: number) => cLon + (-R + i * sp) / mLng, nlat = (j: number) => cLat + (-R + j * sp) / mLat;
   // Pass 1: deflect the wind around the terrain (remove its into-slope component) — a
   // planar slope just turns the flow, but where slopes *converge* the flow decelerates.

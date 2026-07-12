@@ -13,10 +13,11 @@ import { S } from './state';
 import { SimpleMeshLayer, IconLayer, COORDINATE_SYSTEM, MapView } from './deck';
 import { mapDiv } from './dom';
 import { terrainElevAt } from './terrain';
-import { windBg } from './ridge';
+import { windBg } from './wind-source';
 import { cloudSprite } from './airmass';
 import { getWeather, weatherStability, wxEpoch } from './weather';
 import { LIFT_COLORS, SINK_COLORS } from './core/liftviz';
+import { M_PER_LAT, mPerLng, metresPerPixel } from './core/geo';
 
 let NG = 80;             // grid nodes per side (set per call from the domain size, ~640 m spacing)
 const RMIN = 7000, RMAX = 32000;   // m: wave-domain half-width bounds
@@ -81,7 +82,7 @@ let cache: { cLon: number; cLat: number; R: number; hour: number; wk: string; me
 // looking past the horizon). Returns a square (max span) — flat cells self-skip, so the
 // overhang onto ridgeless ground/sea costs nothing visible.
 function waveDomain(cLat: number, cLon: number, zoom: number): { cLon: number; cLat: number; R: number } {
-  const mppx = 156543.03392 * Math.cos(cLat * Math.PI / 180) / 2 ** zoom;
+  const mppx = metresPerPixel(cLat, zoom);
   const fallback = { cLon, cLat, R: Math.max(RMIN, Math.min(RMAX, mppx * 1100)) };
   if (S.mode !== 'over') return fallback;
   const width = mapDiv.clientWidth, height = mapDiv.clientHeight;
@@ -97,14 +98,14 @@ function waveDomain(cLat: number, cLon: number, zoom: number): { cLon: number; c
     let g: number[] | null = null;
     try { g = vp.unproject([px, py]); } catch { g = null; }
     if (!g || !Number.isFinite(g[0]) || !Number.isFinite(g[1])) continue;
-    const dx = (g[0] - cLon) * 111320 * cos, dy = (g[1] - cLat) * 111320;
+    const dx = (g[0] - cLon) * M_PER_LAT * cos, dy = (g[1] - cLat) * M_PER_LAT;
     if (Math.hypot(dx, dy) > RMAX) continue;                          // drop the far, near-horizon samples
     if (g[0] < minLon) minLon = g[0]; if (g[0] > maxLon) maxLon = g[0];
     if (g[1] < minLat) minLat = g[1]; if (g[1] > maxLat) maxLat = g[1];
     hits++;
   }
   if (hits < 4) return fallback;
-  const Rx = (maxLon - minLon) / 2 * 111320 * cos, Ry = (maxLat - minLat) / 2 * 111320;
+  const Rx = (maxLon - minLon) / 2 * M_PER_LAT * cos, Ry = (maxLat - minLat) / 2 * M_PER_LAT;
   return { cLon: (minLon + maxLon) / 2, cLat: (minLat + maxLat) / 2, R: Math.max(RMIN, Math.min(RMAX, Math.max(Rx, Ry))) };
 }
 
@@ -126,10 +127,10 @@ export function waveLayers(k: number, alpha = 1): any[] {
   const wk = `${Math.round(wind[0])}|${Math.round(wind[1])}|${wxEpoch()}`;
   if (cache && cache.hour === hour && cache.wk === wk && Math.abs(Math.log(cache.R / R)) < 0.2) {
     const cosLat = Math.cos(gLat * Math.PI / 180);
-    const moved = Math.hypot((cache.cLon - gLon) * 111320 * cosLat, (cache.cLat - gLat) * 111320);
+    const moved = Math.hypot((cache.cLon - gLon) * M_PER_LAT * cosLat, (cache.cLat - gLat) * M_PER_LAT);
     if (moved < R * 0.25) return mkLayers(cache.meshes, cache.rotor, alpha);
   }
-  const mLng = 111320 * Math.cos(gLat * Math.PI / 180), mLat = 111320, sp = (2 * R) / (NG - 1);
+  const mLng = mPerLng(gLat), mLat = M_PER_LAT, sp = (2 * R) / (NG - 1);
   const nlon = (i: number) => gLon + (-R + i * sp) / mLng, nlat = (j: number) => gLat + (-R + j * sp) / mLat;
   // Pass 1: terrain forcing along the wind, w₀ = wind·∇terrain (m/s), per node; and the
   // highest ridge, so the elevated curtains sit above the terrain.

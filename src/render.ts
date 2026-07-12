@@ -18,7 +18,8 @@ import { getPeaks, getWaypoints, loadPeaks, type Poi } from './poi';
 import { updateMinimap } from './minimap';
 import { airMassLayers } from './airmass';
 import { waveMassLayers } from './wavemass';
-import { ridgeLayers, windAtAlt } from './ridge';
+import { ridgeLayers } from './layers/ridge';
+import { windAtAlt } from './wind-source';
 import { colLayers } from './cols';
 import { buildingLayers } from './buildings';
 import { convergLayers } from './converg';
@@ -30,6 +31,7 @@ import { poiLabelsDiv } from './dom';
 import { CHASE, FAR_PLANE } from './config';
 import { saveSettings } from './settings';
 import type { RGB, Pos3, RenderTrack } from './types';
+import { M_PER_LAT, mPerLng, metresPerPixel } from './core/geo';
 
 // First-person/chase far plane — the dev-mode override when active, else the
 // device-tiered default.
@@ -90,7 +92,7 @@ const shadowMeshParams = {
 function rayShadow(lon: number, lat: number, alt: number, dir: number[], k: number): Pos3 | null {
   if (dir[2] >= -0.03) return null;                                  // sun at/below horizon
   const gBelow = terrainElevAt(lon, lat); if (gBelow == null) return null;
-  const cosLat = Math.cos(lat * Math.PI / 180), mLng = 111320 * cosLat, mLat = 111320, z0 = alt * k;
+  const cosLat = Math.cos(lat * Math.PI / 180), mLng = M_PER_LAT * cosLat, mLat = M_PER_LAT, z0 = alt * k;
   const at = (t: number): Pos3 => [lon + t * dir[0] / mLng, lat + t * dir[1] / mLat, 0];
   const maxT = Math.min(60000, (z0 - gBelow * k + 1500) / Math.abs(dir[2])), step = 30;
   let prevT = 0;
@@ -116,7 +118,7 @@ function shadowGround(lon: number, lat: number, alt: number, useSun: boolean, di
     const r = rayShadow(lon, lat, alt, dir, k); if (r) return r;
     const gBelow = terrainElevAt(lon, lat); if (gBelow == null) return null;   // fallback: flat-ground offset
     const agl = Math.max(0, alt - gBelow), t = Math.min(agl / Math.abs(dir[2]), agl * 6), cosLat = Math.cos(lat * Math.PI / 180);
-    const slon = lon + t * dir[0] / (111320 * cosLat), slat = lat + t * dir[1] / 111320, sg = terrainElevAt(slon, slat);
+    const slon = lon + t * dir[0] / (M_PER_LAT * cosLat), slat = lat + t * dir[1] / M_PER_LAT, sg = terrainElevAt(slon, slat);
     return sg == null ? null : [slon, slat, sg * k];
   }
   const g = terrainElevAt(lon, lat);
@@ -147,7 +149,7 @@ const CONE_ANCHOR = [{}];
 function glideFloor(lon: number, lat: number): number {
   const af = S.AF!;
   const cosLat = Math.cos(af.lat * Math.PI / 180);
-  const dE = (lon - af.lon) * 111320 * cosLat, dN = (lat - af.lat) * 111320;
+  const dE = (lon - af.lon) * M_PER_LAT * cosLat, dN = (lat - af.lat) * M_PER_LAT;
   return af.elev + S.safetyHeight + Math.hypot(dE, dN) / S.glideRatio;
 }
 function reachable(tr: RenderTrack): boolean {
@@ -165,7 +167,7 @@ function glideConeLayers(k: number): any[] {
   const R = S.coneRadiusKm * 1000;                 // horizontal radius (m) the cone is drawn to
   const top = base + R / S.glideRatio;             // altitude at the rim (slope 1/finesse)
   if (R <= 0) return [];
-  const N = 72, cosLat = Math.cos(af.lat * Math.PI / 180), mLng = 111320 * cosLat, mLat = 111320;
+  const N = 72, cosLat = Math.cos(af.lat * Math.PI / 180), mLng = M_PER_LAT * cosLat, mLat = M_PER_LAT;
   const ring = (i: number): Pos3 => { const a = i / N * 2 * Math.PI; return [af.lon + R * Math.cos(a) / mLng, af.lat + R * Math.sin(a) / mLat, top * k]; };
   const apex: Pos3 = [af.lon, af.lat, base * k];
   const pos: number[] = [], nrm: number[] = [], idx: number[] = [];
@@ -531,11 +533,11 @@ function dynamicLayers() {
       // Dashed halo around the focus glider. A pixel-radius circle isn't possible
       // with PathLayer, so build a geographic ring whose radius tracks the zoom's
       // metres-per-pixel — keeping it ~constant on screen.
-      const p = posAt(focusTr, fp.time), z = groundClamp(p) * k, lat = p[1] * Math.PI / 180;
-      const R = 18 * 156543.03392 * Math.cos(lat) / Math.pow(2, S.mapVS.zoom);
-      const mPerLng = 111320 * Math.cos(lat), mPerLat = 111320;
+      const p = posAt(focusTr, fp.time), z = groundClamp(p) * k;
+      const R = 18 * metresPerPixel(p[1], S.mapVS.zoom);
+      const mLng = mPerLng(p[1]), mLat = M_PER_LAT;
       const ring: Pos3[] = [];
-      for (let i = 0; i <= 48; i++) { const a = i / 48 * 2 * Math.PI; ring.push([p[0] + R * Math.cos(a) / mPerLng, p[1] + R * Math.sin(a) / mPerLat, z]); }
+      for (let i = 0; i <= 48; i++) { const a = i / 48 * 2 * Math.PI; ring.push([p[0] + R * Math.cos(a) / mLng, p[1] + R * Math.sin(a) / mLat, z]); }
       return [new PathLayer({
         id: 'focus-ring', data: [ring], getPath: (d: any) => d, getColor: [...focusTr!.color, 150] as any,
         getWidth: 2, widthUnits: 'pixels', getDashArray: [5, 4], dashJustified: true, extensions: [dashExt],
@@ -725,7 +727,7 @@ function updateCelestial(): void {
   const ridgeTan = (dirE: number, dirN: number, mLng: number): number => {
     let maxTan = -Infinity;
     for (let s = 150; s <= 16000; s += Math.max(70, s * 0.08)) {
-      const terr = terrainElevAt(eye!.lon + s * dirE / mLng, eye!.lat + s * dirN / 111320);
+      const terr = terrainElevAt(eye!.lon + s * dirE / mLng, eye!.lat + s * dirN / M_PER_LAT);
       if (terr != null) { const tan = (terr - eye!.alt) * S.exo / s; if (tan > maxTan) maxTan = tan; }
     }
     return maxTan;
@@ -736,7 +738,7 @@ function updateCelestial(): void {
   const clipDisc = (toward: [number, number, number], px: number, py: number, r: number): string | null => {
     if (!eye) return '';
     const horiz = Math.hypot(toward[0], toward[1]); if (horiz < 1e-3) return '';
-    const azE = toward[0] / horiz, azN = toward[1] / horiz, mLng = 111320 * Math.cos(eye.lat * Math.PI / 180);
+    const azE = toward[0] / horiz, azN = toward[1] / horiz, mLng = mPerLng(eye.lat);
     // Sample the ridge across a spread of azimuths spanning the disc's width.
     const pts: [number, number][] = [];                                    // local (x,y) on the disc box, left→right
     for (let i = -6; i <= 6; i++) {
