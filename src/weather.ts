@@ -18,9 +18,19 @@ export {
 
 const daysAgo = (date: string): number => (Date.parse(new Date().toISOString().slice(0, 10)) - Date.parse(date)) / 86400000;
 
+// Past days come from the HISTORICAL-FORECAST archive (the archived model runs), NOT from the
+// ERA5 reanalysis archive. ERA5 would be the better surface truth, but it serves NO pressure
+// levels at all — every geopotential_height/wind/temperature at 925, 850 and 700 hPa comes back
+// null, whatever the date. Without them the wind profile collapses to a single point (the 10 m
+// surface wind), the temperature sounding collapses with it, the stability N becomes NaN — and
+// since waveResonance needs N > N_MIN, the WAVE FIELD CAN NEVER APPEAR on a replayed day. Which
+// is nearly every day this viewer is used for. The historical-forecast API carries the profile
+// back to 2021, so that is what a replay reads.
 async function fetchWx(lat: number, lon: number, date: string): Promise<Wx | null> {
-  const recent = daysAgo(date) <= 5;   // ERA5 archive lags; use the forecast API for recent days
-  const host = recent ? 'https://api.open-meteo.com/v1/forecast' : 'https://archive-api.open-meteo.com/v1/archive';
+  const recent = daysAgo(date) <= 5;   // the live forecast window
+  const host = recent
+    ? 'https://api.open-meteo.com/v1/forecast'
+    : 'https://historical-forecast-api.open-meteo.com/v1/forecast';
   const surf = 'temperature_2m,relative_humidity_2m,wind_speed_10m,wind_direction_10m,shortwave_radiation,diffuse_radiation,boundary_layer_height';
   const lvl = LEVELS.flatMap(p => [`wind_speed_${p}hPa`, `wind_direction_${p}hPa`, `geopotential_height_${p}hPa`, `temperature_${p}hPa`]).join(',');
   const url = `${host}?latitude=${lat.toFixed(3)}&longitude=${lon.toFixed(3)}&start_date=${date}&end_date=${date}`

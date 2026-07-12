@@ -112,6 +112,36 @@ test('syntheticWx: a sandbox atmosphere obeys its knobs (wind, shear, stability)
   expect(weatherCloudbase(s, 13)).toBeGreaterThan(500);
 });
 
+test('a payload with no pressure levels leaves an atmosphere that cannot make wave', () => {
+  // This is not hypothetical. Open-Meteo's ERA5 *archive* endpoint returns null for EVERY
+  // pressure level, at every date — and the viewer used to read past days from it. The result:
+  // a wind profile of ONE point (the 10 m surface wind, so no shear at any altitude), a
+  // temperature sounding of one point, and a stability of NaN. waveResonance needs N > N_MIN,
+  // and NaN never is — so the wave field could never appear on a replayed day, silently.
+  // Past days now come from the historical-forecast API, which does carry the levels.
+  const j = {
+    elevation: 300,
+    hourly: {
+      time: ['2026-06-21T12:00'],
+      temperature_2m: [25], relative_humidity_2m: [50],
+      wind_speed_10m: [5], wind_direction_10m: [270],
+      shortwave_radiation: [800], diffuse_radiation: [120], boundary_layer_height: [1400],
+      ...Object.fromEntries(LEVELS.flatMap(p => [
+        [`wind_speed_${p}hPa`, [null]], [`wind_direction_${p}hPa`, [null]],
+        [`geopotential_height_${p}hPa`, [null]], [`temperature_${p}hPa`, [null]],
+      ])),
+    },
+  };
+  const w = parseOpenMeteo(j, 0)!;
+  const h = w.hours[0];
+  expect(h.prof.length).toBe(1);                        // the surface wind, and nothing above it
+  expect(h.tprof.length).toBe(1);
+  // ...so the wind is the same at every altitude: no shear anywhere.
+  expect(weatherWind(w, 0, 500)).toEqual(weatherWind(w, 0, 3000));
+  // ...and there is no stability to speak of, hence no wave.
+  expect(Number.isNaN(weatherStability(w, 0))).toBe(true);
+});
+
 test('parseOpenMeteo: builds the hours from the API payload, sorted by altitude', () => {
   const j = {
     elevation: 300,
