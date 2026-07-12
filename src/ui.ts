@@ -23,8 +23,8 @@ import { loadFlights, refreshLive, statusMsg, setStatus, rebuild, syncUrl, loadT
 import { importCup, clearWaypoints, getWaypoints, getPeaks } from './poi';
 import { terrainElevAt } from './terrain';
 import { findSpot, searchSpots, closestSpot } from './spots';
-import { TRACK_EXT } from './track-import';
-import { parsePlr, DEFAULT_POLAR } from './polar';
+import { TRACK_EXT } from './core/track-import';
+import { parsePlr, DEFAULT_POLAR } from './core/polar';
 import { varioAudio } from './vario-audio';
 import { refreshGraphTabs } from './graphs';
 import { syncGuide, openGuide } from './guide';

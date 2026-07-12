@@ -2,8 +2,8 @@
 import UPNG from 'upng-js';
 import { S } from './state';
 import { API_BASE, PALETTE, TERRAIN, GAP_MIN, GAP_FACTOR, MINZ, MAXZ, clampv, OVERVIEW_MINZOOM } from './config';
-import { parseTz, parseIGC, pool } from './igc';
-import { parseTrackFile, TRACK_EXT } from './track-import';
+import { parseTz, parseIGC, pool } from './core/igc';
+import { parseTrackFile, TRACK_EXT } from './core/track-import';
 import { t } from './i18n';
 import { statusEl, loadBtn, subjEl, viewsEl, playBtn, icaoEl } from './dom';
 import { render } from './render';

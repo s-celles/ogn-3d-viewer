@@ -14,7 +14,7 @@ import { getWeather, weatherRad, weatherConvTop, weatherCloudbase, weatherWind, 
 import { cloudSprite } from './airmass';
 import { getLC, sampleGrid, lcVersion } from './landcover';
 import { liftCalibration } from './calib';
-import { LIFT_COLORS as VZ_COLORS, SINK_COLORS } from './liftviz';
+import { LIFT_COLORS as VZ_COLORS, SINK_COLORS } from './core/liftviz';
 
 const GN = 80;           // grid nodes per side (map resolution)
 const GRAD = 80;         // slope-gradient baseline (m) — short, for the true local slope

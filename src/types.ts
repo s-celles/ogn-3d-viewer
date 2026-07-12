@@ -1,7 +1,10 @@
-// ============ shared types ============
+// ============ shared app types ============
+// The domain types (track samples, imported files) live in core/ — the app-free,
+// render-free soaring kernel — and are re-exported here so app modules keep a
+// single import site. Everything below is app/rendering state.
+export type { TrackPoint, ImportedTrack, ImportedFile } from './core/types';
+import type { TrackPoint } from './core/types';
 
-/** Raw IGC sample: [lon, lat, gpsAlt, secondsOfDay]. */
-export type TrackPoint = [number, number, number, number];
 /** Render sample with day-relative time: [lon, lat, alt, relTime]. */
 export type RelPoint = [number, number, number, number];
 export type Pos3 = [number, number, number];
@@ -30,16 +33,6 @@ export interface DevOpts {
   farKm: number;        // first-person/chase far plane (km)
   deckCache: number;    // deck decoded-tile LRU size
 }
-
-/** One track parsed from an imported file (IGC/GPX/KML), before render prep. */
-export interface ImportedTrack {
-  name: string;          // human label (track/placemark name or glider type)
-  reg: string | null;    // registration / competition id, if the format carries one
-  type: number | null;   // OGN aircraft_type code if known, else null (→ glider)
-  pts: TrackPoint[];
-}
-/** Result of parsing one imported file: its tracks + the take-off date if known. */
-export interface ImportedFile { tracks: ImportedTrack[]; date: string | null; }
 
 /** A flight track as parsed from the API (before render prep). */
 export interface Track {
@@ -242,7 +235,7 @@ export interface AppState {
   // any loaded flights.
   wxSim: { on: boolean; wind: number; dir: number; shear: number; nStab: number; tsurf: number; rh: number; date: string; hour: number };
   // Active glider polar (for the netto vario); imported from an XCSoar/LK8000 .plr.
-  polar: import('./polar').Polar;
+  polar: import('./core/polar').Polar;
   // Netto vario readout in the HUD: 'off' (default), 'netto' (air-mass Vz), or 'super'
   // (also the super/relative netto — the climb achievable by circling in this air).
   nettoMode: 'off' | 'netto' | 'super';

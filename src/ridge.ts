@@ -12,7 +12,7 @@ import { terrainElevAt } from './terrain';
 import { getWeather, weatherWind, wxEpoch } from './weather';
 import { sunLightDir, sceneMs } from './sky';
 import { getThermals } from './airmass';
-import { LIFT_COLORS, SINK_COLORS } from './liftviz';
+import { LIFT_COLORS, SINK_COLORS } from './core/liftviz';
 
 const OFF = 10;          // patch lift off the surface, to avoid z-fighting (m)
 const LU = 900;          // upwind probe distance for terrain sheltering (m)

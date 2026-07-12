@@ -9,7 +9,7 @@
 // airspeed, so we substitute GPS ground speed (biased by wind/turns) — see the docs.
 // The reference glider (ASK 21) ships as a bundled `.plr` under data/polars/, parsed here
 // through the very same path a user import takes.
-import ask21Plr from '../data/polars/ASK 21.plr' with { type: 'text' };
+import ask21Plr from '../../data/polars/ASK 21.plr' with { type: 'text' };
 
 export interface Polar { name: string; A: number; B: number; vMin: number; vMax: number }
 

@@ -7,7 +7,7 @@
 import { S } from './state';
 import { t } from './i18n';
 import { LIFT_COMPS } from './lift';
-import { LIFT_COLORS, SINK_COLORS } from './liftviz';
+import { LIFT_COLORS, SINK_COLORS } from './core/liftviz';
 
 const NS = 'http://www.w3.org/2000/svg';
 const rgb = (c: [number, number, number]): string => `rgb(${c[0]},${c[1]},${c[2]})`;

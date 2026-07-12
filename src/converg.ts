@@ -13,7 +13,7 @@ import { windBg } from './ridge';
 import { sunLightDir, sceneMs } from './sky';
 import { getLC, sampleGrid, lcVersion } from './landcover';
 import { wxEpoch } from './weather';
-import { LIFT_COLORS, SINK_COLORS } from './liftviz';
+import { LIFT_COLORS, SINK_COLORS } from './core/liftviz';
 
 const NG = 64;           // grid nodes per side
 const GB = 110;          // terrain-gradient baseline (m)

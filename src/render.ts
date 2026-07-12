@@ -12,7 +12,7 @@ import { drawTraffic } from './traffic';
 import { varioAudio } from './vario-audio';
 import { updateSky, getSun, getMoon, nightPolygon, sceneMs } from './sky';
 import { subjectTrack, shown, scaled, posAt, presence, airborne, isActive, headingAt, varioAt, compVarioAt, groundSpeedAt, clampCur, attitudeAt, nearestToCenter, displayReg } from './flight-math';
-import { nettoAt, minSink } from './polar';
+import { nettoAt, minSink } from './core/polar';
 import { GLIDER_MESH, PLANE_MESH, PROP_MESH, GLIDER_FLAT, PLANE_FLAT, isPowered } from './aircraft-mesh';
 import { getPeaks, getWaypoints, loadPeaks, type Poi } from './poi';
 import { updateMinimap } from './minimap';

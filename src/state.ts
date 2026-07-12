@@ -5,7 +5,7 @@
 import type { AppState, Lang } from './types';
 import { MODEL_SCALE, GROUND_ZOOM_DEFAULT, TERRAIN_N, FAR_PLANE, DECK_CACHE, OVERVIEW_MINZOOM, DEFAULT_BASEMAP } from './config';
 import { pickSettings, applyStored } from './settings';
-import { DEFAULT_POLAR } from './polar';
+import { DEFAULT_POLAR } from './core/polar';
 
 const INIT = { longitude: 2.4, latitude: 46.6, zoom: 6, pitch: 0, bearing: 0, minZoom: OVERVIEW_MINZOOM, maxPitch: 85 };
 

@@ -16,7 +16,7 @@ import { terrainElevAt } from './terrain';
 import { windBg } from './ridge';
 import { cloudSprite } from './airmass';
 import { getWeather, weatherStability, wxEpoch } from './weather';
-import { LIFT_COLORS, SINK_COLORS } from './liftviz';
+import { LIFT_COLORS, SINK_COLORS } from './core/liftviz';
 
 let NG = 80;             // grid nodes per side (set per call from the domain size, ~640 m spacing)
 const RMIN = 7000, RMAX = 32000;   // m: wave-domain half-width bounds
