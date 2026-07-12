@@ -7,6 +7,7 @@ import { S } from './state';
 import { terrainElevAt } from './terrain';
 import { getWeather, weatherWind } from './weather';
 import { getThermals } from './airmass';
+import type { WindProfile } from './core/ports';
 import { M_PER_LAT, mPerLng } from './core/geo';
 
 // Mean thermal drift (m/s) — the last-resort wind when there is no weather.
@@ -34,6 +35,11 @@ export function windAtAlt(cLat: number, cLon: number, alt: number): [number, num
   }
   return driftWind();
 }
+
+/** The wind as a vertical PROFILE at a place: what the lift fields want, so each cell can be
+ *  given the wind at its own height instead of the whole scene sharing the camera's. */
+export const windProfile = (cLat: number, cLon: number): WindProfile =>
+  (alt: number) => windAtAlt(cLat, cLon, alt);
 
 /** Background low-level wind: the profile ~mid-ridge above the local surface. */
 export function windBg(cLat: number, cLon: number): [number, number] | null {

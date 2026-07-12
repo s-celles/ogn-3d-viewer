@@ -15,3 +15,14 @@ export interface Probe {
   rend: number;
   at: (t: number) => readonly [number, number, number];  // lon, lat, altitude (m)
 }
+
+/** The wind, as a vertical PROFILE at one place: (altitude AMSL) => [east, north] m/s, null
+ *  where it is unknown.
+ *
+ *  Deliberately not (lon, lat, alt). The forecast is bucketed to ~0.1° — about 8 km — so a
+ *  horizontal wind field would be piecewise constant with 8 km steps, and convergence takes the
+ *  DIVERGENCE of it, where a step is a singularity: it would paint convergence lines along the
+ *  forecast's own grid. Vertical structure, on the other hand, is real, already fetched, and
+ *  free: on a windy day the wind at a 1600 m crest is twice what it is over the valley floor,
+ *  and it can veer 60° in between. That is the structure worth having. */
+export type WindProfile = (alt: number) => [number, number] | null;

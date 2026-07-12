@@ -79,6 +79,14 @@ export function medianElev(t: TerrainNodes): number | null {
   return hs[hs.length >> 1];
 }
 
+/** The typical ground of a disc: the median height of the cells that loaded. Same reason as
+ *  medianElev — one point is a coin toss, a median is a statement about the ground. */
+export function medianCellElev(cells: readonly TerrainCell[]): number | null {
+  if (!cells.length) return null;
+  const hs = cells.map(c => c.elev).sort((a, b) => a - b);
+  return hs[hs.length >> 1];
+}
+
 /** Separable box blur (radius r) of an n×n field — edges shrink the window, they do not wrap. */
 export function boxBlur(src: Float32Array, n: number, r: number): Float32Array {
   const tmp = new Float32Array(n * n), out = new Float32Array(n * n);

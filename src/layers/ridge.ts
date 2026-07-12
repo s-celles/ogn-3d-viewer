@@ -8,7 +8,7 @@ import { S } from '../state';
 import { SimpleMeshLayer, COORDINATE_SYSTEM } from '../deck';
 import { terrainElevAt } from '../terrain';
 import { wxEpoch } from '../weather';
-import { windBg } from '../wind-source';
+import { windBg, windProfile } from '../wind-source';
 import { sceneMs } from '../sky';
 import { sunLightDir } from '../core/sky';
 import { BIN_COLORS, liftBin } from '../core/liftviz';
@@ -55,6 +55,9 @@ export function ridgeLayers(k: number, alpha = 1): any[] {
   // Centre the grid on the view and size it to what's visible, so the bands follow the
   // viewpoint instead of staying pinned to the airfield.
   const cLat = S.mapVS.latitude, cLon = S.mapVS.longitude, zoom = S.mapVS.zoom || 11;
+  // A rough wind, from the ground under the camera: enough to answer "is there a field at all"
+  // and to key the cache, before any terrain is sampled. The FIELD does not use it — it takes
+  // the profile and gives every cell the wind at its own height.
   const wind = windBg(cLat, cLon); if (!wind) return [];
   const ld = sunLightDir(sceneMs(), cLat, cLon);
   const sun: [number, number, number] = [-ld[0], -ld[1], -ld[2]];   // towards the sun
@@ -70,7 +73,7 @@ export function ridgeLayers(k: number, alpha = 1): any[] {
     if (moved < R * 0.33) return mkLayers(cache.meshes, alpha);
   }
 
-  const field = ridgeField({ cLon, cLat, R, step }, terrainElevAt, wind, { sun });
+  const field = ridgeField({ cLon, cLat, R, step }, terrainElevAt, windProfile(cLat, cLon), { sun });
   if (field.sampled < MIN_CELLS) return [];   // terrain not loaded here yet — retry next frame, don't cache
 
   const mLng = mPerLng(cLat), mLat = M_PER_LAT, half = step * 0.62;   // >step/2 → patches overlap into continuous bands
