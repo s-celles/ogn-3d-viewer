@@ -3,29 +3,20 @@
 // sounding, the surface parcel's dry adiabat (whose crossing sets the thermal
 // ceiling), the cloudbase (LCL) and the ceiling — plus a one-line summary (convective
 // depth, cumulus vs blue). Helps read WHY the thermal field looks the way it does.
+// The atmosphere it draws (sounding interpolation, parcel adiabat, the day's summary)
+// is domain code from core/weather.ts; this module only turns it into an SVG.
 import { S } from './state';
 import { t } from './i18n';
-import { getWeather, weatherSounding, type Sounding } from './weather';
+import { getWeather, weatherSounding, envT, parcelT, daySummary } from './weather';
 
 const W = 214, H = 150;                 // svg box
 const PL = 8, PR = 8, PT = 10, PB = 10; // plot margins
-const DRY = 0.0098, EXCESS = 1.5;       // dry-adiabatic lapse (K/m) + parcel excess (matches weatherConvTop)
 const NS = 'http://www.w3.org/2000/svg';
 const el = (n: string, a: Record<string, string | number>): SVGElement => {
   const e = document.createElementNS(NS, n);
   for (const k in a) e.setAttribute(k, String(a[k]));
   return e;
 };
-
-// Environmental temperature at an AMSL altitude, linearly interpolated from the sounding.
-function envT(s: Sounding, alt: number): number {
-  const p = s.tprof;
-  if (alt <= p[0].alt) return p[0].T;
-  for (let i = 1; i < p.length; i++) if (alt <= p[i].alt) {
-    const a = p[i - 1], b = p[i]; return a.T + (b.T - a.T) * (alt - a.alt) / Math.max(1, b.alt - a.alt);
-  }
-  return p[p.length - 1].T;
-}
 
 let sig = '';
 /** Draw / refresh the panel into `host` for the current view, hour and weather. Clears
@@ -47,10 +38,10 @@ export function updateDayStruct(host: HTMLElement): void {
   const top = Math.max(ceil, base ?? 0, ground + 800) + 300;
   const topClamped = Math.min(top, s.tprof[s.tprof.length - 1].alt);   // don't extrapolate the env line
   // temperature range over what we draw (env + parcel)
-  const parcelT = (alt: number): number => s.t2m + EXCESS - DRY * (alt - ground);
+  const parcel = (alt: number): number => parcelT(s, alt);
   let tMin = Infinity, tMax = -Infinity;
   for (let a = ground; a <= topClamped + 1; a += (topClamped - ground) / 10) {
-    tMin = Math.min(tMin, envT(s, a), parcelT(a)); tMax = Math.max(tMax, envT(s, a), parcelT(a));
+    tMin = Math.min(tMin, envT(s, a), parcel(a)); tMax = Math.max(tMax, envT(s, a), parcel(a));
   }
   tMin -= 1; tMax += 1;
   const x = (T: number): number => PL + (T - tMin) / Math.max(1, tMax - tMin) * (W - PL - PR);
@@ -66,7 +57,7 @@ export function updateDayStruct(host: HTMLElement): void {
   const envPts: [number, number][] = [];
   for (let a = ground; a <= topClamped + 1; a += (topClamped - ground) / 24) envPts.push([x(envT(s, a)), y(a)]);
   poly(envPts, 'rgba(235,150,70,0.95)', 1.6);
-  poly([[x(parcelT(ground)), y(ground)], [x(parcelT(Math.min(ceil, topClamped))), y(Math.min(ceil, topClamped))]], 'rgba(240,220,120,0.95)', 1.6, '3 2');
+  poly([[x(parcel(ground)), y(ground)], [x(parcel(Math.min(ceil, topClamped))), y(Math.min(ceil, topClamped))]], 'rgba(240,220,120,0.95)', 1.6, '3 2');
   // altitude scale: ground and top ticks (left)
   const alt = (a: number, yy: number, anchor: string): void => {
     const tx = el('text', { x: PL, y: yy, 'text-anchor': anchor, fill: 'rgba(255,255,255,0.45)', 'font-size': 9 });
@@ -85,9 +76,7 @@ export function updateDayStruct(host: HTMLElement): void {
   hline(ceil, 'rgba(220,220,220,0.85)', t('dayCeiling'));
 
   // one-line summary (≥ when the parcel is still buoyant at the top of the sounding)
-  const openTop = ceil >= s.tprof[s.tprof.length - 1].alt - 1;
-  const depth = Math.max(0, Math.round(ceil - ground));
-  const isCu = base != null && ceil >= base + 80;
+  const { depth, isCu, openTop } = daySummary(s);
   const sum = document.createElement('div');
   sum.style.cssText = 'font-size:11px;opacity:0.85;margin-top:2px';
   sum.textContent = `${t('dayDepth')} ${openTop ? '≥' : ''}${depth} m · ${isCu ? t('dayCu') : t('dayBlue')}`;

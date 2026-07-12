@@ -61,6 +61,12 @@ src/x.ts        computeX(…) → SimpleMeshLayer             ← this app's ren
 - `track-import.ts` — IGC / GPX / KML → a common `ImportedFile`.
 - `polar.ts` — the two-term polar `w(V) = A·V³ + B/V`, `.plr` import, netto,
   minimum sink, super-netto.
+- `weather.ts` — the atmosphere as a *value*: wind profile, temperature sounding,
+  cloudbase (LCL), thermal ceiling, stability N, plus a synthetic sandbox
+  atmosphere. It neither fetches nor caches: `src/weather.ts` does the network,
+  the per-location cache and the sandbox knobs, and hands the kernel a payload to
+  parse. A flight computer can feed the very same functions from a pre-flight
+  data pack — that is the whole point of the split.
 - `liftviz.ts` — the shared colour language for vertical air motion.
 
 ## Moving a module into `core/`
