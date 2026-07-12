@@ -41,8 +41,12 @@ function makeThermal(run: Samp[]): Thermal | null {
   if (Math.abs(netTurn(run)) < MIN_TURN) return null;      // not really circling (e.g. ridge beats)
   let base = Infinity, top = -Infinity;
   for (const s of run) { base = Math.min(base, s.alt); top = Math.max(top, s.alt); }
-  const gain = top - base;
-  if (gain < MIN_GAIN) return null;
+  // The strength is the NET height the glider gained, not the altitude RANGE it covered. A
+  // spiral DESCENT sweeps just as much range as a climb, and a range called it a thermal of
+  // exactly its own sink rate — the strongest of the day, at the top of the list, driving the
+  // calibration. Circling in a thermal that has died under you is entirely ordinary.
+  const gain = run[run.length - 1].alt - run[0].alt;
+  if (gain < MIN_GAIN) return null;                        // rejects every descent: gain ≤ 0
   const strength = gain / dur;
   if (strength < MIN_STRENGTH) return null;
   const k = Math.max(1, Math.floor(run.length / 3));

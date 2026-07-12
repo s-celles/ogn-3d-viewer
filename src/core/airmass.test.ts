@@ -67,15 +67,21 @@ test('circling level is not a thermal', () => {
   expect(detectClimbs(circling(300, 0))).toEqual([]);       // just turning: a wait, or a hold
 });
 
-test('BUG (pinned): a spiral DESCENT is reported as a thermal of the same strength', () => {
-  // `strength` is (max − min) / duration — the altitude RANGE, not the net gain. A glider
-  // spiralling DOWN at 3 m/s therefore reads as a 3 m/s thermal: the strongest of the day, so
-  // it sorts to the top of the list AND drives liftCalibration. Circling in sink, in a thermal
-  // that died under you, is one of the most ordinary things a glider does.
-  // Preserved exactly here because this commit changes no behaviour. Fixed in a later commit.
-  const sinking = detectClimbs(circling(300, -3));
-  expect(sinking.length).toBe(1);
-  expect(sinking[0].strength).toBeCloseTo(3, 1);            // a 3 m/s DESCENT, called a 3 m/s climb
+test('a spiral DESCENT is not a thermal — a thermal goes UP', () => {
+  expect(detectClimbs(circling(300, -3))).toEqual([]);
+  expect(detectClimbs(circling(300, -1))).toEqual([]);
+});
+
+test('a climb that gives half of itself back is worth what it netted', () => {
+  // Up 300 m, then down 150 m, all while circling: the run gained 150 m, not 300. The range
+  // would say 300. Strength is the NET gain, which is what the pilot actually got.
+  const upThenDown = probe(0, 300, t => [
+    90 * Math.cos(2 * Math.PI * t / 25), 90 * Math.sin(2 * Math.PI * t / 25),
+    1000 + (t < 200 ? 1.5 * t : 300 - 1.5 * (t - 200)),
+  ]);
+  const th = detectClimbs(upThenDown);
+  expect(th.length).toBe(1);
+  expect(th[0].strength).toBeCloseTo(150 / 300, 1);   // 0.5 m/s net, not 1.0
 });
 
 test('a climb too short, too weak or too small to matter is dropped', () => {
