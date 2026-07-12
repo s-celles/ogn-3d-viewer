@@ -25,3 +25,6 @@
 # Re-ignore generated and vendored trees (these override the allows above).
 node_modules/
 dist/
+
+# Assistant instructions: local to the working copy, never part of the project.
+/CLAUDE.md
