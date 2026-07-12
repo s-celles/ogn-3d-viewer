@@ -12,7 +12,7 @@ import { getWeather, weatherRad, weatherConvTop, weatherCloudbase, weatherWind, 
 import { cloudSprite } from '../airmass';
 import { getLC, sampleGrid, lcVersion } from '../landcover';
 import { liftCalibration } from '../calib';
-import { THERMAL_COLORS, thermalBin, W_FULL } from '../core/liftviz';
+import { THERMAL_COLORS, thermalBin } from '../core/liftviz';
 import {
   thermalField, cumulusSpots, snowLineM, diurnalStore, SUN_MIN,
   type ThermalField, type LandCover, type Streets,
@@ -118,7 +118,7 @@ export function thermalLayers(k: number, alpha = 1): any[] {
     // (ceiling below the LCL) gets none.
     const cu: Puff[] = isCu
       ? cumulusSpots(f, {
-        cloudbase: cloudbase as number, wFull: W_FULL,
+        cloudbase: cloudbase as number, wRef: f.wRef, scaleRef: f.scaleRef,
         drift: wx ? weatherWind(wx, hour, (refElev + (cloudbase as number)) / 2) : null,
       }).map(s => ({ pos: [s.lon, s.lat, s.base * k] as [number, number, number], size: s.size }))
       : [];

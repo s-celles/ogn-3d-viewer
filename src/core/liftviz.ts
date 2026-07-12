@@ -44,32 +44,42 @@ export function sheetBand(w: number, lo = W_LO, hi = W_HI): number {
   return w >= hi ? 0 : w >= lo ? 1 : w > -lo ? 2 : w > -hi ? 3 : 4;
 }
 
-// The thermal field is read against a yardstick, not a fixed scale: warm tracks the ABSOLUTE
-// updraught (a strong midday thermal is red wherever it is strong), while blue tracks how far
-// a cell falls BELOW what flat reference ground would make — the shaded, poorly-exposed faces,
-// and the compensating subsidence that must balance them. Both are view-independent, so a
-// slope keeps its colour as the camera moves.
+// The thermal map shows an ANOMALY: how far each patch of ground beats, or falls short of, the
+// flat reference ground under the same sun. Warm above, blue below, one continuous scale
+// through zero.
+//
+// It used to try to be two things at once — warm keyed on the ABSOLUTE updraught (against a
+// fixed W_FULL of 1.5 m/s) but *selected* by a relative test (vz >= wRef). Those fight:
+//   - On a good day the reference itself lands at 0.95 · W_FULL, so every cell that beats it is
+//     instantly full red. The four intermediate warm shades became unreachable, and the map
+//     came out red-or-nothing. Any small ripple in the field — a cloud street's ±15% — flipped
+//     cells across that cliff, so flat ground was painted in stripes.
+//   - Worse, liftCalibration multiplies the whole field by up to 3.5 to match the day's real
+//     climbs. An absolute scale cannot survive its own calibration: calibrate a good day and
+//     everything goes past W_FULL. The anomaly is INVARIANT under it — cal scales vz and wRef
+//     alike — which is what settles the argument.
+// The cost is honest: the legend can no longer read absolute m/s.
 export const THERMAL_COLORS: [number, number, number, number][] = [...LIFT_COLORS, ...SINK_COLORS];
-export const W_FULL = 1.5;       // Vz (m/s) that maps to full red
-const WARM_MIN = 0.30;           // draw warm above this fraction of W_FULL (≈ Vz 0.45 m/s)
-const WARM_FRAC = [0.45, 0.6, 0.75, 0.9];   // f = Vz/W_FULL sub-levels (5 warm colours, red ≥ last)
-const SINK_MIN = 0.12;           // draw blue below this fraction of the reference (a deficit)
-const SINK_FRAC = [0.24, 0.42];  // deficit sub-levels (3 SINK_COLORS)
 
-/** Colour index (0-4 warm by strength, 5-7 blue by deficit) of an updraught, against the flat
- *  reference `wRef`. Null when the cell is neither strong enough nor weak enough to be worth
- *  drawing — most of the map, on most days. */
+// Thresholds on the fractional anomaly (vz − wRef) / scaleRef, set from the distribution the
+// model actually produces over real terrain: the excess tops out near +30%, so red means
+// "exceptional ground", not "an ordinary sunny slope".
+const WARM_MIN = 0.04;                      // below this a cell is unremarkable — leave the ground clean
+const WARM_FRAC = [0.08, 0.13, 0.19, 0.26]; // 5 warm shades, red ≥ the last
+const SINK_MIN = 0.20;                      // a real deficit: shaded and poorly-exposed faces
+const SINK_FRAC = [0.30, 0.42];             // 3 blue shades
+
+/** Colour index (0-4 warm by excess, 5-7 blue by deficit) of an updraught against the flat
+ *  reference `wRef`. Null in the middle — the unremarkable ground, which is most of a map. */
 export function thermalBin(vz: number, wRef: number, scaleRef: number): number | null {
-  if (vz >= wRef) {
-    const f = vz / W_FULL;
-    if (f < WARM_MIN) return null;
+  const a = (vz - wRef) / scaleRef;
+  if (a >= WARM_MIN) {
     let bin = 0;
-    while (bin < WARM_FRAC.length && f >= WARM_FRAC[bin]) bin++;
+    while (bin < WARM_FRAC.length && a >= WARM_FRAC[bin]) bin++;
     return bin;
   }
-  const s = (wRef - vz) / scaleRef;
-  if (s < SINK_MIN) return null;
+  if (-a < SINK_MIN) return null;
   let bin = LIFT_COLORS.length;
-  while (bin - LIFT_COLORS.length < SINK_FRAC.length && s >= SINK_FRAC[bin - LIFT_COLORS.length]) bin++;
+  while (bin - LIFT_COLORS.length < SINK_FRAC.length && -a >= SINK_FRAC[bin - LIFT_COLORS.length]) bin++;
   return bin;
 }

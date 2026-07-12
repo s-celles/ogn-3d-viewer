@@ -5,7 +5,7 @@
 // valley behind it, snow must kill the heating. No app state, no DEM tiles, no renderer.
 import { test, expect } from 'bun:test';
 import { thermalField, cumulusSpots, snowLineM, diurnalStore, SNOW_MID, SNOW_AMP } from './thermal';
-import { thermalBin, W_FULL } from '../liftviz';
+import { thermalBin } from '../liftviz';
 import type { NodeGrid } from './grid';
 import { M_PER_LAT, mPerLng } from '../geo';
 import type { ElevSampler } from '../ports';
@@ -160,32 +160,47 @@ test('heat storage boosts the afternoon and damps the morning', () => {
 
 // ---- reading the field ----
 
-test('the colour scale: warm by absolute strength, blue by the deficit below flat ground', () => {
+test('the colour scale reads the ANOMALY: warm above flat ground, blue below, nothing between', () => {
   const wRef = 1.0, scaleRef = 1.0;
-  expect(thermalBin(0.95, wRef, scaleRef)).toBeNull();         // barely below flat — not worth a colour
-  expect(thermalBin(1.5 * W_FULL, wRef, scaleRef)).toBe(4);    // full red
-  expect(thermalBin(0.8, wRef, scaleRef)).toBe(5);             // a fifth below flat → first blue
-  expect(thermalBin(0.5, wRef, scaleRef)).toBe(7);             // half below flat → darkest blue
+  expect(thermalBin(1.02, wRef, scaleRef)).toBeNull();   // 2% better than flat — unremarkable
+  expect(thermalBin(0.90, wRef, scaleRef)).toBeNull();   // 10% worse — still unremarkable
+  expect(thermalBin(1.05, wRef, scaleRef)).toBe(0);      // +5% → the faintest warm
+  expect(thermalBin(1.30, wRef, scaleRef)).toBe(4);      // +30% → full red: exceptional ground
+  expect(thermalBin(0.78, wRef, scaleRef)).toBe(5);      // −22% → first blue
+  expect(thermalBin(0.50, wRef, scaleRef)).toBe(7);      // −50% → darkest blue
+});
+
+test('the colour scale survives calibration — that is the whole reason it is an anomaly', () => {
+  // liftCalibration multiplies the field by up to 3.5 to match the day's real climbs. An
+  // ABSOLUTE scale cannot survive that: calibrate a good day and every cell shoots past full
+  // red. The anomaly is invariant, because cal scales vz and wRef alike.
+  for (const cal of [1, 2, 3.5]) {
+    expect(thermalBin(1.30 * cal, 1.0 * cal, 1.0 * cal)).toBe(4);
+    expect(thermalBin(1.02 * cal, 1.0 * cal, 1.0 * cal)).toBeNull();
+    expect(thermalBin(0.50 * cal, 1.0 * cal, 1.0 * cal)).toBe(7);
+  }
 });
 
 // ---- cumulus ----
 
 test('cumulus mark the strong cores, drift downwind, and never sit below the ground', () => {
-  const f = thermalField(G, peak(600, 900, 0), P({ sun: [0, 0, 1] }));
-  const still = cumulusSpots(f, { cloudbase: 2200, drift: null, wFull: W_FULL });
+  const f = thermalField(G, peak(600, 900, 0), P({ sun: [0.4, 0, 0.9] }));
+  const ref = { wRef: f.wRef, scaleRef: f.scaleRef };
+  const still = cumulusSpots(f, { cloudbase: 2200, drift: null, ...ref });
   expect(still.length).toBeGreaterThan(0);
-  const blown = cumulusSpots(f, { cloudbase: 2200, drift: [10, 0], wFull: W_FULL });
+  const blown = cumulusSpots(f, { cloudbase: 2200, drift: [10, 0], ...ref });
   // The same cores, but carried east while the parcel climbs to the base.
   expect(blown.length).toBe(still.length);
   expect(east(blown[0].lon)).toBeGreaterThan(east(still[0].lon));
   // A cloudbase under the summit puts no cloud on the summit.
-  expect(cumulusSpots(f, { cloudbase: 1200, drift: null, wFull: W_FULL })
-    .every(s => s.base >= 1200)).toBe(true);
+  expect(cumulusSpots(f, { cloudbase: 1200, drift: null, ...ref }).every(s => s.base >= 1200)).toBe(true);
 });
 
-test('a blue day has no cumulus to mark', () => {
-  const f = thermalField(G, flat, P({ sun: [0, 0, 1], dni: 10, diff: 5 }));   // barely any heating
-  expect(cumulusSpots(f, { cloudbase: 2200, drift: null, wFull: W_FULL })).toEqual([]);
+test('featureless ground grows no cumulus — a cloud marks a core, not a day', () => {
+  // Flat ground IS the reference, so its anomaly is zero everywhere: no core stands out, and no
+  // cloud is drawn. However hot the day.
+  const f = thermalField(G, flat, P({ sun: [0, 0, 1], dni: 1000 }));
+  expect(cumulusSpots(f, { cloudbase: 2200, drift: null, wRef: f.wRef, scaleRef: f.scaleRef })).toEqual([]);
 });
 
 // ---- the field must say "I could not look", not "there is nothing here" ----

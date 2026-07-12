@@ -196,24 +196,30 @@ export interface CumulusSpot { lon: number; lat: number; base: number; size: num
 export interface CumulusParams {
   cloudbase: number;                       // m AMSL
   drift: readonly [number, number] | null; // layer wind (m/s) carrying the climbing parcel
-  wFull: number;                           // the Vz that counts as a strong core
-  climb?: number; driftCap?: number; thin?: number; max?: number;
+  wRef: number; scaleRef: number;          // the flat-ground reference the cores are judged against
+  climb?: number; driftCap?: number; thin?: number; max?: number; minAnom?: number;
 }
 
 export const DRIFT_CLIMB = 2.5;   // m/s: nominal in-thermal climb, for the parcel's time to reach cloudbase
 export const DRIFT_CAP = 6000;    // m: cap the downwind drift so clouds stay in the domain
 export const CU_THIN = 6, CU_MAX = 60;
-export const CU_STRONG = 0.72;    // fraction of wFull above which a core is marked with a cloud
+// A cumulus marks a core that clearly beats the ground around it. Judged on the ANOMALY, like
+// the colours — against an absolute threshold the clouds would either cover a good day
+// completely or vanish from a weak one, and liftCalibration would move them for no reason.
+export const CU_ANOM = 0.13;      // fractional excess over the flat reference: the "orange and up" ground
+export const CU_ANOM_FULL = 0.30; // excess at which a cumulus reaches full size
 
 export function cumulusSpots(f: ThermalField, p: CumulusParams): CumulusSpot[] {
   const climb = p.climb ?? DRIFT_CLIMB, cap = p.driftCap ?? DRIFT_CAP;
-  const thin = p.thin ?? CU_THIN, max = p.max ?? CU_MAX;
+  const thin = p.thin ?? CU_THIN, max = p.max ?? CU_MAX, minAnom = p.minAnom ?? CU_ANOM;
   const { nw, grid } = f, n = grid.n;
   const out: CumulusSpot[] = [], occ = new Set<string>();
   for (let j = 0; j < nw; j++) for (let i = 0; i < nw; i++) {
     if (out.length >= max) return out;
     const w = f.vz[j * nw + i];
-    if (Number.isNaN(w) || w < CU_STRONG * p.wFull) continue;
+    if (Number.isNaN(w)) continue;
+    const anom = (w - p.wRef) / p.scaleRef;
+    if (anom < minAnom) continue;
     const bk = `${(i / thin) | 0},${(j / thin) | 0}`; if (occ.has(bk)) continue;
     const idx = j * n + i;
     if (!f.ok[idx] || p.cloudbase < f.h[idx] + 60) continue;   // the base is below the ground here
@@ -230,7 +236,7 @@ export function cumulusSpots(f: ThermalField, p: CumulusParams): CumulusSpot[] {
     }
     out.push({
       lon: f.lon[i] + dlon, lat: f.lat[j] + dlat, base: p.cloudbase,
-      size: 260 + Math.min(1, w / p.wFull) * 420,
+      size: 260 + Math.min(1, anom / CU_ANOM_FULL) * 420,
     });
   }
   return out;
