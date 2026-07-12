@@ -309,8 +309,17 @@ The port is deliberately `(alt) => wind`, **not** `(lon, lat, alt)`. The forecas
 bucketed to ~0.1° — about 8 km — so a horizontal wind field would be piecewise constant
 with 8 km steps, and **convergence takes the divergence of the wind**, where a step is a
 singularity: it would paint convergence lines along the forecast's own grid. So
-convergence and wave still take a single uniform wind — the wave's linear resonance
-*assumes* a uniform basic state, and a varying wind would stop it being a resonance.
+convergence and wave take a **single uniform wind** — convergence takes the *divergence* of
+the deflected flow, and a wind that varied with terrain height would inject a divergence of
+its own (an artefact of terrain-following sampling, not a fact about the air); and the
+wave's linear resonance *assumes* a uniform basic state.
+
+But that one wind is now read over the **median height of the terrain in view**, not at the
+pixel under the camera. Reading it there swung it by a factor of 3 on real ground — enough
+to put it on either side of the wave's `WIND_MIN = 7 m/s`, so **the wave layer appeared and
+vanished as the view was panned**, and convergence's gate flipped in four of five sampled
+views. Worse, when the DEM tile under the camera has not loaded, the fallback is the
+*airfield's* elevation: a valley wind used to judge a ridge.
 
 ## Colour language (`soaring-core/liftviz`)
 

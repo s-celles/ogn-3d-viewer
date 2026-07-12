@@ -9,11 +9,11 @@ import { S } from '../state';
 import { SimpleMeshLayer, IconLayer, COORDINATE_SYSTEM, MapView } from '../deck';
 import { mapDiv } from '../dom';
 import { terrainElevAt } from '../terrain';
-import { windBg } from '../wind-source';
+import { windBg, windProfile } from '../wind-source';
 import { cloudSprite } from '../airmass';
 import { getWeather, weatherStability, wxEpoch } from '../weather';
 import { SHEET_COLORS, sheetBand } from 'soaring-core/liftviz';
-import { waveField, waveResonance, rotorSpots, type WaveField, type RotorSpot } from 'soaring-core/lift/wave';
+import { waveField, rotorSpots, type WaveField, type RotorSpot } from 'soaring-core/lift/wave';
 import { M_PER_LAT, mPerLng, metresPerPixel, rad } from 'soaring-core/geo';
 
 const RMIN = 7000, RMAX = 32000;   // m: wave-domain half-width bounds
@@ -102,11 +102,15 @@ export function waveLayers(k: number, alpha = 1): any[] {
   if (alpha <= 0) return [];
   const cLat = S.mapVS.latitude, cLon = S.mapVS.longitude, zoom = S.mapVS.zoom || 11;
   if (!S.wxSim.on && (S.source === 'file' || !S.date)) return [];
+  // A ROUGH wind (the ground under the camera) and a rough resonance, only to avoid sampling a
+  // whole DEM for nothing and to key the cache. The FIELD reads the wind over the median terrain
+  // it loaded and decides the resonance itself — under the camera it came out 3x wrong on real
+  // ground, which put it on the wrong side of WIND_MIN and made the wave blink as the view panned.
   const wind = windBg(cLat, cLon); if (!wind) return [];
   const hour = S.wxSim.on ? Math.floor(S.wxSim.hour) : Math.floor((S.G0 + S.cur) / 3600);
   const wx = getWeather(Math.round(cLat / 0.1) * 0.1, Math.round(cLon / 0.1) * 0.1, S.date);
-  const res = waveResonance(wind, wx ? weatherStability(wx, hour) : NaN);
-  if (!res) return [];   // no wind, no stability, or an implausible wavelength — no wave
+  const N = wx ? weatherStability(wx, hour) : NaN;
+  if (!Number.isFinite(N)) return [];   // no sounding → no stability → no wave
 
   const dom = waveDomain(cLat, cLon, zoom);
   const gLon = dom.cLon, gLat = dom.cLat, R = dom.R;
@@ -117,7 +121,8 @@ export function waveLayers(k: number, alpha = 1): any[] {
     if (moved < R * 0.25) return mkLayers(cache.meshes, cache.rotor, alpha);
   }
 
-  const f = waveField({ cLon: gLon, cLat: gLat, R, n }, terrainElevAt, wind, { res });
+  const f = waveField({ cLon: gLon, cLat: gLat, R, n }, terrainElevAt, windProfile(cLat, cLon), { N });
+  if (!f.res) return [];                            // no wind, too neutral, or an implausible λ
   if (f.ready < f.total * READY_FRAC) return [];   // terrain not loaded here yet — retry next frame
 
   // Build the stacked undulating sheets: each quad coloured by its vertical velocity, its

@@ -7,7 +7,7 @@
 import { S } from '../state';
 import { SimpleMeshLayer, COORDINATE_SYSTEM } from '../deck';
 import { terrainElevAt } from '../terrain';
-import { windBg } from '../wind-source';
+import { windBg, windProfile } from '../wind-source';
 import { sceneMs } from '../sky';
 import { sunLightDir } from 'soaring-core/sky';
 import { getLC, sampleGrid, lcVersion } from '../landcover';
@@ -50,6 +50,9 @@ let cache: { cLon: number; cLat: number; R: number; hour: number; wk: string; me
 export function convergLayers(k: number, alpha = 1): any[] {
   if (alpha <= 0) return [];
   const cLat = S.mapVS.latitude, cLon = S.mapVS.longitude, zoom = S.mapVS.zoom || 11;
+  // A ROUGH wind, from the ground under the camera: enough to answer "is there a field at all"
+  // and to key the cache, before any terrain is sampled. The FIELD does not use it — it takes
+  // the profile and reads the wind over the median terrain it actually loaded.
   const wind = windBg(cLat, cLon); if (!wind) return [];
   const R = Math.max(4000, Math.min(20000, metresPerPixel(cLat, zoom) * 700));
   // Lake-breeze source: the sun's heating contrast + a water mask (only fetched by day).
@@ -66,7 +69,7 @@ export function convergLayers(k: number, alpha = 1): any[] {
 
   const grid = { cLon, cLat, R, n: NG };
   const water = lc ? sampleGrid(lc, cLat, cLon, R, NG).sens : null;
-  const field = convergField(grid, terrainElevAt, wind, { insol, water });
+  const field = convergField(grid, terrainElevAt, windProfile(cLat, cLon), { insol, water });
   if (field.ready < field.total * READY_FRAC) return [];   // terrain not loaded here yet — retry next frame, don't cache
 
   const mLng = mPerLng(cLat), mLat = M_PER_LAT, half = nodeStep(grid) * 0.62;
