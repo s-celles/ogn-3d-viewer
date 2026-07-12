@@ -9,6 +9,7 @@ import { SimpleMeshLayer, COORDINATE_SYSTEM } from './deck';
 import { posAt } from './flight-math';
 import { terrainElevAt } from './terrain';
 import type { RenderTrack } from './types';
+import { M_PER_LAT, mPerLng, distM } from './core/geo';
 
 interface WaveClimb { t0: number; t1: number; base: number; top: number; strength: number; c: [number, number]; hdg: number }
 
@@ -31,10 +32,6 @@ interface Samp { t: number; lon: number; lat: number; alt: number; hdg: number }
 const bearing = (aLon: number, aLat: number, bLon: number, bLat: number): number => {
   const lat = (aLat + bLat) / 2 * Math.PI / 180;
   return (Math.atan2((bLon - aLon) * Math.cos(lat), bLat - aLat) * 180 / Math.PI + 360) % 360;
-};
-const metres = (aLon: number, aLat: number, bLon: number, bLat: number): number => {
-  const lat = (aLat + bLat) / 2 * Math.PI / 180;
-  return Math.hypot((bLon - aLon) * 111320 * Math.cos(lat), (bLat - aLat) * 111320);
 };
 
 function makeWave(run: Samp[]): WaveClimb | null {
@@ -88,7 +85,7 @@ const overlap = (a: WaveClimb, b: WaveClimb): boolean => a.t0 <= b.t1 + 60 && b.
 function merge(list: WaveClimb[]): WaveClimb[] {
   const merged: WaveClimb[] = [];
   for (const w of list.slice().sort((a, b) => a.t0 - b.t0)) {
-    const m = merged.find(x => overlap(x, w) && metres(x.c[0], x.c[1], w.c[0], w.c[1]) < MERGE_M);
+    const m = merged.find(x => overlap(x, w) && distM(x.c[0], x.c[1], w.c[0], w.c[1]) < MERGE_M);
     if (!m) { merged.push({ ...w }); continue; }
     m.t0 = Math.min(m.t0, w.t0); m.t1 = Math.max(m.t1, w.t1);
     m.base = Math.min(m.base, w.base); m.top = Math.max(m.top, w.top);
@@ -136,7 +133,7 @@ export function waveMassLayers(k: number): any[] {
   const L = 500;   // half-length of the ribbon along the heading (m)
   const pos: number[] = [], nrm: number[] = [], idx: number[] = [];
   for (const { w } of active) {
-    const [lon, lat] = w.c, mLng = 111320 * Math.cos(lat * Math.PI / 180), mLat = 111320;
+    const [lon, lat] = w.c, mLng = mPerLng(lat), mLat = M_PER_LAT;
     const dx = Math.sin(w.hdg * Math.PI / 180) * L, dy = Math.cos(w.hdg * Math.PI / 180) * L;   // along the beat direction
     const aLon = lon - dx / mLng, aLat = lat - dy / mLat, bLon = lon + dx / mLng, bLat = lat + dy / mLat;
     const st = pos.length / 3, zb = w.base * k, zt = w.top * k;

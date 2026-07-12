@@ -9,6 +9,7 @@ import { SimpleMeshLayer, IconLayer, COORDINATE_SYSTEM } from './deck';
 import { posAt } from './flight-math';
 import { getWeather, weatherCloudbase, weatherWind } from './weather';
 import type { RenderTrack, Pos3 } from './types';
+import { M_PER_LAT, mPerLng, distM } from './core/geo';
 
 export interface Thermal {
   t0: number; t1: number;         // active window (relative seconds)
@@ -45,10 +46,6 @@ const hdgAt = (tr: RenderTrack, t: number): number => {
 const meanPos = (ss: Samp[]): [number, number] => {
   let x = 0, y = 0; for (const s of ss) { x += s.lon; y += s.lat; }
   return [x / ss.length, y / ss.length];
-};
-const metres = (aLon: number, aLat: number, bLon: number, bLat: number): number => {
-  const lat = (aLat + bLat) / 2 * Math.PI / 180;
-  return Math.hypot((bLon - aLon) * 111320 * Math.cos(lat), (bLat - aLat) * 111320);
 };
 
 function makeThermal(run: Samp[]): Thermal | null {
@@ -107,7 +104,7 @@ const overlap = (a: Thermal, b: Thermal): boolean => a.t0 <= b.t1 + 60 && b.t0 <
 function merge(list: Thermal[]): Thermal[] {
   const merged: Thermal[] = [];
   for (const th of list.slice().sort((a, b) => a.t0 - b.t0)) {
-    const m = merged.find(x => overlap(x, th) && metres(mid(x)[0], mid(x)[1], mid(th)[0], mid(th)[1]) < MERGE_M);
+    const m = merged.find(x => overlap(x, th) && distM(mid(x)[0], mid(x)[1], mid(th)[0], mid(th)[1]) < MERGE_M);
     if (!m) { merged.push({ ...th }); continue; }
     m.t0 = Math.min(m.t0, th.t0); m.t1 = Math.max(m.t1, th.t1);
     m.base = Math.min(m.base, th.base); m.top = Math.max(m.top, th.top);
@@ -148,7 +145,7 @@ function centreAt(th: Thermal, t: number): [number, number] {
 // A slim, wind-leaned plume (a soft chimney feeding the cloud) added to a shared
 // mesh. lonB/latB is the base centre, lonT/latT the top centre (offset downwind).
 function addColumn(pos: number[], nrm: number[], idx: number[], lonB: number, latB: number, lonT: number, latT: number, base: number, top: number, R: number, k: number): void {
-  const mLng = 111320 * Math.cos(latB * Math.PI / 180), mLat = 111320;
+  const mLng = mPerLng(latB), mLat = M_PER_LAT;
   const zb = base * k, zt = top * k, rb = R * 0.6, rt = R * 0.85, N = 12, start = pos.length / 3;
   for (let i = 0; i < N; i++) {
     const a = i / N * 2 * Math.PI, ca = Math.cos(a), sa = Math.sin(a);
@@ -166,7 +163,7 @@ function addColumn(pos: number[], nrm: number[], idx: number[], lonB: number, la
 function leanBy(lonB: number, latB: number, base: number, topAlt: number, strength: number, dLonS: number, dLatS: number): [number, number] {
   const rise = (topAlt - base) / Math.max(MIN_STRENGTH, strength);
   let dLon = dLonS * rise, dLat = dLatS * rise;
-  const mLat = 111320, mLng = 111320 * Math.cos(latB * Math.PI / 180);
+  const mLat = M_PER_LAT, mLng = mPerLng(latB);
   const off = Math.hypot(dLon * mLng, dLat * mLat), cap = Math.max(1, topAlt - base);
   if (off > cap) { const s = cap / off; dLon *= s; dLat *= s; }
   return [lonB + dLon, latB + dLat];
@@ -223,14 +220,14 @@ export function airMassLayers(k: number): any[] {
     // Wind for the lean: the weather profile at mid-height, else the circle drift.
     const dur = Math.max(1, th.t1 - th.t0);
     const wind = wx ? weatherWind(wx, hour, (th.base + colTop) / 2) : null;
-    const mLngC = 111320 * Math.cos(lat * Math.PI / 180);
+    const mLngC = mPerLng(lat);
     const dLonS = wind ? wind[0] / mLngC : (th.c1[0] - th.c0[0]) / dur;
-    const dLatS = wind ? wind[1] / 111320 : (th.c1[1] - th.c0[1]) / dur;
+    const dLatS = wind ? wind[1] / M_PER_LAT : (th.c1[1] - th.c0[1]) / dur;
     const [lonT, latT] = leanBy(lon, lat, th.base, colTop, th.strength, dLonS, dLatS);
     addColumn(pos, nrm, idx, lon, lat, lonT, latT, th.base, colTop, R, k);
     if (th.top < cloudbase - 150) continue;                          // dry thermal → no cumulus
     const [clon, clat] = leanBy(lon, lat, th.base, cloudbase, th.strength, dLonS, dLatS);
-    const z = cloudbase * k, mLng = 111320 * Math.cos(clat * Math.PI / 180), mLat = 111320, sz = R * 3.5;
+    const z = cloudbase * k, mLng = mPerLng(clat), mLat = M_PER_LAT, sz = R * 3.5;
     // A little cluster (main + satellites) so the cloud is lumpy, not a single blob.
     const lobes: [number, number, number][] = [[0, 0, 1], [0.75, 0.15, 0.6], [-0.65, -0.1, 0.62], [0.15, -0.6, 0.5]];
     lobes.forEach(([dx, dy, sc], j) => {

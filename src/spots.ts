@@ -18,6 +18,7 @@ import { scanWaveSites, ensureRelief, isWaveSite, siteRelief, siteTerrain, type 
 import { nearbyAerodromes } from './poi';
 import spotsCsv from '../data/spots/spots.csv' with { type: 'text' };
 import type { Lang } from './types';
+import { MERC } from './core/geo';
 
 interface Spot { code: string; name: string; country: string; continent: string; lat: number; lon: number; checked: string; blurb: string; user?: boolean; }
 
@@ -96,7 +97,6 @@ const flag = (iso: string): string => isoFlag(iso) || '📍';
 // Esri MapServer "export" endpoint: a single sharp image of any bbox, so a
 // continent view isn't the z0 world tile stretched (pixelated). Cached by the SW.
 const ESRI_EXPORT = TEXTURE.replace(/\/tile\/.*$/, '/export');
-const MERC_E = 20037508.342789244;   // half web-mercator extent (metres)
 const merX = (lon: number): number => (lon + 180) / 360;
 const merY = (lat: number): number => {
   const s = Math.sin(Math.max(-85, Math.min(85, lat)) * Math.PI / 180);
@@ -156,7 +156,7 @@ const clampView = (v: { x0: number; y0: number; d: number }) => {
 // of the visible mercator rect).
 function updateMapBg(): void {
   if (!bgEl) return;
-  const mx = (f: number) => ((f * 2 - 1) * MERC_E).toFixed(0), my = (f: number) => ((1 - f * 2) * MERC_E).toFixed(0);
+  const mx = (f: number) => ((f * 2 - 1) * MERC).toFixed(0), my = (f: number) => ((1 - f * 2) * MERC).toFixed(0);
   const bbox = `${mx(view.x0)},${my(view.y0 + view.d)},${mx(view.x0 + view.d)},${my(view.y0)}`;
   bgEl.style.backgroundImage = `url("${ESRI_EXPORT}?bbox=${bbox}&bboxSR=3857&imageSR=3857&size=512,512&format=jpg&f=image")`;
 }

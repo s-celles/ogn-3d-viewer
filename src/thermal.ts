@@ -15,6 +15,7 @@ import { cloudSprite } from './airmass';
 import { getLC, sampleGrid, lcVersion } from './landcover';
 import { liftCalibration } from './calib';
 import { LIFT_COLORS as VZ_COLORS, SINK_COLORS } from './core/liftviz';
+import { M_PER_LAT, mPerLng, metresPerPixel } from './core/geo';
 
 const GN = 80;           // grid nodes per side (map resolution)
 const GRAD = 80;         // slope-gradient baseline (m) — short, for the true local slope
@@ -68,7 +69,7 @@ interface TGrid { cLon: number; cLat: number; R: number; mLng: number; mLat: num
 // expensive bit and does not change with time.
 let terr: TGrid | null = null;
 function ensureTerr(cLat: number, cLon: number, R: number): TGrid | null {
-  const mLng = 111320 * Math.cos(cLat * Math.PI / 180), mLat = 111320, sp = (2 * R) / (GN - 1);
+  const mLng = mPerLng(cLat), mLat = M_PER_LAT, sp = (2 * R) / (GN - 1);
   if (terr && Math.abs(Math.log(terr.R / R)) < 0.25
     && Math.hypot((terr.cLon - cLon) * terr.mLng, (terr.cLat - cLat) * terr.mLat) < R * 0.33) return terr;
   const nodes: TNode[] = new Array(GN * GN);
@@ -129,7 +130,7 @@ export function thermalLayers(k: number, alpha = 1): any[] {
   if (alpha <= 0 || !Number.isFinite(nowMs())) return [];
   if (!S.wxSim.on && !S.date) return [];
   const cLat = S.mapVS.latitude, cLon = S.mapVS.longitude, zoom = S.mapVS.zoom || 11;
-  const R = Math.max(4000, Math.min(20000, 156543.03392 * Math.cos(cLat * Math.PI / 180) / 2 ** zoom * 700));
+  const R = Math.max(4000, Math.min(20000, metresPerPixel(cLat, zoom) * 700));
   const g = ensureTerr(cLat, cLon, R); if (!g) return [];
   // Sun: unit vector toward the sun (ENU); light-travel dir is its negation.
   const ld = sunLightDir(nowMs(), cLat, cLon), su: [number, number, number] = [-ld[0], -ld[1], -ld[2]];

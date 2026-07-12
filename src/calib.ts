@@ -10,6 +10,7 @@ import { getThermals } from './airmass';
 import { terrainElevAt } from './terrain';
 import { sunLightDir } from './sky';
 import { getWeather, weatherRad, weatherConvTop } from './weather';
+import { M_PER_LAT, mPerLng } from './core/geo';
 
 const G = 9.81, THETA = 290, RHOCP = 1200;   // gravity, ref pot. temp (K), ρ·cp (J/m³K)
 const ALBEDO = 0.2, BETA = 0.35, GRAD = 80;  // uniform surface (calibration is a magnitude match)
@@ -19,7 +20,7 @@ const ALBEDO = 0.2, BETA = 0.35, GRAD = 80;  // uniform surface (calibration is 
 // the terrain/sun is unavailable or the sun is down / above the boundary layer.
 function predictVz(lon: number, lat: number, ms: number, hour: number): number | null {
   const h = terrainElevAt(lon, lat); if (h == null) return null;
-  const mLng = 111320 * Math.cos(lat * Math.PI / 180), mLat = 111320;
+  const mLng = mPerLng(lat), mLat = M_PER_LAT;
   const hE = terrainElevAt(lon + GRAD / mLng, lat), hW = terrainElevAt(lon - GRAD / mLng, lat);
   const hN = terrainElevAt(lon, lat + GRAD / mLat), hS = terrainElevAt(lon, lat - GRAD / mLat);
   if (hE == null || hW == null || hN == null || hS == null) return null;

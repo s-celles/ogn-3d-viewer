@@ -11,6 +11,7 @@ import { subjectTrack, posAt, presence, headingAt } from './flight-math';
 import { TRAFFIC } from './config';
 import { LED_STEP, LED_OFFSET, litLeds } from './traffic-led';
 import { t } from './i18n';
+import { M_PER_LAT, mPerLng } from './core/geo';
 
 interface Tgt { dist: number; dAlt: number; rel: number; lvl: number; }
 const ALERT = '#ff4d4d', WARN = '#ffb02e', OTHER = '#cfe0ee', DIM = 'rgba(190,205,225,0.38)';
@@ -21,7 +22,7 @@ function compute(): { hdg: number; list: Tgt[] } | null {
   const sub = subjectTrack(); if (!sub) return null;
   const sp = presence(sub); if (!sp) return null;
   const s = posAt(sub, sp.time), hdg = headingAt(sub, sp.time) * Math.PI / 180;
-  const mLat = 111320, mLng = 111320 * Math.cos(s[1] * Math.PI / 180), list: Tgt[] = [];
+  const mLat = M_PER_LAT, mLng = mPerLng(s[1]), list: Tgt[] = [];
   for (const tr of S.TRACKS) {
     if (tr.reg === sub.reg) continue;
     const pr = presence(tr); if (!pr) continue;

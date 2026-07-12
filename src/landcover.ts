@@ -5,6 +5,7 @@
 // fraction per class. Ways + relation multipolygons (outer rings; inner holes ignored).
 // Rough and illustrative — see the docs.
 import { overpass, overpassDown } from './overpass';
+import { M_PER_LAT, mPerLng } from './core/geo';
 
 // alb = albedo, sens = sensible-heat fraction, iner = thermal inertia/admittance (0..1:
 // high = stores heat then releases it late, e.g. rock/urban; low = heats & cools fast,
@@ -104,7 +105,7 @@ export function getLC(cLat: number, cLon: number, R: number): LC | null {
   if (cache.has(key)) return cache.get(key) ?? null;
   if (!inflight.has(key) && !overpassDown()) {
     inflight.add(key);
-    const mLat = 111320, mLng = 111320 * Math.cos(cLat * Math.PI / 180), dLat = R / mLat, dLon = R / mLng;
+    const mLat = M_PER_LAT, mLng = mPerLng(cLat), dLat = R / mLat, dLon = R / mLng;
     fetchLC(key, cLat - dLat, cLon - dLon, cLat + dLat, cLon + dLon).finally(() => inflight.delete(key));
   }
   return null;
@@ -123,7 +124,7 @@ function inRing(ring: number[], lon: number, lat: number): boolean {
 /** Rasterise the land-cover onto a GN×GN grid → per-node albedo + sensible fraction
  *  (defaults where no polygon covers a node; highest-priority class wins overlaps). */
 export function sampleGrid(lc: LC, cLat: number, cLon: number, R: number, GN: number): { alb: Float32Array; sens: Float32Array; iner: Float32Array } {
-  const mLat = 111320, mLng = 111320 * Math.cos(cLat * Math.PI / 180), sp = (2 * R) / (GN - 1);
+  const mLat = M_PER_LAT, mLng = mPerLng(cLat), sp = (2 * R) / (GN - 1);
   const alb = new Float32Array(GN * GN).fill(LC_DEFAULT.alb), sens = new Float32Array(GN * GN).fill(LC_DEFAULT.sens);
   const iner = new Float32Array(GN * GN).fill(LC_DEFAULT.iner), pri = new Int8Array(GN * GN);
   const nlon = (i: number) => cLon + (-R + i * sp) / mLng, nlat = (j: number) => cLat + (-R + j * sp) / mLat;

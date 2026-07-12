@@ -10,6 +10,7 @@ import { render } from './render';
 import { buildLegend, syncUI, applyFollowClass, setCollapsed } from './ui';
 import { buildRel, displayReg } from './flight-math';
 import type { FBLogbook, FBDevice, FetchResult, FBAirfield, Track, TrackPoint, RGB, ViewStateLike } from './types';
+import { M_PER_LAT } from './core/geo';
 
 interface Task { dev: FBDevice; t0: number; t1: number; maxalt: number; stop: number; }
 
@@ -195,7 +196,7 @@ function geoidOffset(tracks: Track[], af: { lat: number; lon: number; elev: numb
   if (!ref) return 0;                                         // no reliable reference
   const cosLat = Math.cos(af.lat * Math.PI / 180), ground: number[] = [];
   for (const tr of tracks) for (const p of [tr.path[0], tr.path[tr.path.length - 1]]) {
-    const dN = (p[1] - af.lat) * 111320, dE = (p[0] - af.lon) * 111320 * cosLat;
+    const dN = (p[1] - af.lat) * M_PER_LAT, dE = (p[0] - af.lon) * M_PER_LAT * cosLat;
     if (dN * dN + dE * dE < 3000 * 3000) ground.push(p[2]);   // take-off/landing at the home field
   }
   if (ground.length < 6) return 0;

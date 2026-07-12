@@ -3,6 +3,7 @@ import { S } from './state';
 import { GLIDER, ARROW, LIVE, clampv } from './config';
 import { isPowered } from './aircraft-mesh';
 import type { RenderTrack, Pos3, RelPoint, TrackPoint } from './types';
+import { M_PER_LAT, mPerLng } from './core/geo';
 
 /** The registration to DISPLAY: the real one, or a neutral anonymised tag (G1, G2, …) in
  *  anonymous mode — for screenshots. Internal identity (subject, solo, URL) keeps the real reg. */
@@ -160,7 +161,7 @@ export function groundSpeedAt(tr: RenderTrack, time: number): number {
   const t0 = Math.max(tr.rstart, time - dt), t1 = Math.min(tr.rend, time + dt), span = (t1 - t0) || 1;
   const a = posAt(tr, t0), b = posAt(tr, t1);
   const latMid = (a[1] + b[1]) / 2 * Math.PI / 180;
-  const dE = (b[0] - a[0]) * 111320 * Math.cos(latMid), dN = (b[1] - a[1]) * 111320;
+  const dE = (b[0] - a[0]) * M_PER_LAT * Math.cos(latMid), dN = (b[1] - a[1]) * M_PER_LAT;
   return Math.hypot(dE, dN) / span;
 }
 
@@ -204,7 +205,7 @@ export function statsFor(tr: RenderTrack): TrackStats {
     const a = P[i - 1], b = P[i], dt = b[3] - a[3];
     if (dt <= 0) continue;
     const dz = b[2] - a[2], lat = (a[1] + b[1]) / 2 * Math.PI / 180;
-    const dE = (b[0] - a[0]) * 111320 * Math.cos(lat), dN = (b[1] - a[1]) * 111320, seg = Math.hypot(dE, dN);
+    const dE = (b[0] - a[0]) * M_PER_LAT * Math.cos(lat), dN = (b[1] - a[1]) * M_PER_LAT, seg = Math.hypot(dE, dN);
     dist += seg; if (dz > 0) gain += dz;
     wHoriz += seg; wDz += dz; wT += dt;
     if (wT >= 4) { speeds.push(wHoriz / wT); climbs.push(wDz / wT); wHoriz = wDz = wT = 0; }
@@ -255,11 +256,11 @@ export function gliderShape(tr: RenderTrack, time: number): { wing: [Pos3, Pos3]
   const c = posAt(tr, time);
   const { heading, roll, pitch } = attitudeAt(tr, time);
   const h = heading * Math.PI / 180;
-  const mPerLng = 111320 * Math.cos(c[1] * Math.PI / 180), mPerLat = 111320;
+  const mLng = mPerLng(c[1]), mLat = M_PER_LAT;
   const fE = Math.sin(h), fN = Math.cos(h);   // forward (heading) unit, east/north
   const rE = Math.cos(h), rN = -Math.sin(h);  // right wing unit, east/north
   const { halfSpan: HS, halfLen: HL, wingPos } = GLIDER;
-  const pt = (eOff: number, nOff: number, altOff: number): Pos3 => [c[0] + eOff / mPerLng, c[1] + nOff / mPerLat, c[2] + altOff];
+  const pt = (eOff: number, nOff: number, altOff: number): Pos3 => [c[0] + eOff / mLng, c[1] + nOff / mLat, c[2] + altOff];
   // Wings cross the fuselage `wingPos·halfLen` ahead of the position; the crossing
   // sits on the pitched fuselage, so its altitude follows the pitch at that point.
   const fwd = wingPos * HL, wingAlt = fwd * Math.sin(pitch);
@@ -279,13 +280,13 @@ export function gliderArrow(tr: RenderTrack, time: number): [Pos3, Pos3, Pos3] {
   const c = posAt(tr, time);
   const { heading, roll, pitch } = attitudeAt(tr, time);
   const h = heading * Math.PI / 180;
-  const mPerLng = 111320 * Math.cos(c[1] * Math.PI / 180), mPerLat = 111320;
+  const mLng = mPerLng(c[1]), mLat = M_PER_LAT;
   const fE = Math.sin(h), fN = Math.cos(h);   // forward (heading) unit
   const rE = Math.cos(h), rN = -Math.sin(h);  // right unit
   const { len: L, back: B, halfW: W } = ARROW;
   const sp = Math.sin(pitch), sr = Math.sin(roll);
   const pt = (fwd: number, rgt: number): Pos3 =>
-    [c[0] + (fE * fwd + rE * rgt) / mPerLng, c[1] + (fN * fwd + rN * rgt) / mPerLat, c[2] + fwd * sp - rgt * sr];
+    [c[0] + (fE * fwd + rE * rgt) / mLng, c[1] + (fN * fwd + rN * rgt) / mLat, c[2] + fwd * sp - rgt * sr];
   return [pt(L, 0), pt(-B, -W), pt(-B, W)];
 }
 

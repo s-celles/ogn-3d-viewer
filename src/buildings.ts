@@ -9,6 +9,7 @@ import { SimpleMeshLayer, PolygonLayer, COORDINATE_SYSTEM } from './deck';
 import { terrainElevAt } from './terrain';
 import { getLC, isUrbanClass, lcVersion } from './landcover';
 import type { RGB } from './types';
+import { M_PER_LAT, mPerLng, metresPerPixel } from './core/geo';
 
 const MINZOOM = 12.5;    // procedural boxes only read well fairly close in
 const SP = 26;           // m: grid spacing between buildings inside an urban area
@@ -37,7 +38,7 @@ function genBoxes(ring: number[], out: Box[]): void {
   let cLon = 0, cLat = 0, minLon = 180, minLat = 90, maxLon = -180, maxLat = -90;
   for (let i = 0; i < np; i++) { const lo = ring[2 * i], la = ring[2 * i + 1]; cLon += lo; cLat += la; if (lo < minLon) minLon = lo; if (lo > maxLon) maxLon = lo; if (la < minLat) minLat = la; if (la > maxLat) maxLat = la; }
   cLon /= np; cLat /= np;
-  const mLng = 111320 * Math.cos(cLat * Math.PI / 180), mLat = 111320;
+  const mLng = mPerLng(cLat), mLat = M_PER_LAT;
   const seed = Math.floor((cLon + 200) * 8000) ^ Math.floor((cLat + 100) * 8000);
   const rnd = rng(seed >>> 0);
   const th = rnd() * Math.PI, ct = Math.cos(th), st = Math.sin(th);   // per-area grid orientation
@@ -81,7 +82,7 @@ function mk(g: Geo): any[] {
 export function buildingLayers(k: number): any[] {
   const cLat = S.mapVS.latitude, cLon = S.mapVS.longitude, zoom = S.mapVS.zoom || 11;
   if (zoom < MINZOOM || S.source === 'file') return [];
-  const mppx = 156543.03392 * Math.cos(cLat * Math.PI / 180) / 2 ** zoom;
+  const mppx = metresPerPixel(cLat, zoom);
   const R = Math.max(1500, Math.min(6000, mppx * 500));
   const lc = getLC(cLat, cLon, R); if (!lc) return [];   // shares the land-cover fetch (light; may still be loading)
   const key = `${cLat.toFixed(2)}|${cLon.toFixed(2)}|${Math.round(R / 1000)}|${k.toFixed(2)}|${lcVersion()}`;
@@ -93,7 +94,7 @@ export function buildingLayers(k: number): any[] {
   for (const b of boxes) {
     const c = b.corners; let gx = 0, gy = 0; for (const p of c) { gx += p[0]; gy += p[1]; } gx /= 4; gy /= 4;
     const g = terrainElevAt(gx, gy); if (g == null) { skipped++; continue; }
-    const mLng = 111320 * Math.cos(gy * Math.PI / 180), mLat = 111320, zb = (g - SKIRT) * k, zt = (g + b.h) * k;
+    const mLng = mPerLng(gy), mLat = M_PER_LAT, zb = (g - SKIRT) * k, zt = (g + b.h) * k;
     for (let i = 0; i < 4; i++) {
       const ax = c[i][0], ay = c[i][1], bx = c[(i + 1) % 4][0], by = c[(i + 1) % 4][1];
       const ex = (bx - ax) * mLng, ey = (by - ay) * mLat, el = Math.hypot(ex, ey) || 1, nx = ey / el, ny = -ex / el;
