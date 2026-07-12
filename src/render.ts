@@ -27,7 +27,7 @@ import { convergLayers } from './layers/converg';
 import { waveLayers } from './layers/wave';
 import { liftWeight } from './lift';
 import { windLayers } from './wind';
-import { thermalLayers } from './thermal';
+import { thermalLayers } from './layers/thermal';
 import { poiLabelsDiv } from './dom';
 import { CHASE, FAR_PLANE } from './config';
 import { saveSettings } from './settings';
