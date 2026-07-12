@@ -61,6 +61,11 @@ src/x.ts        computeX(…) → SimpleMeshLayer             ← this app's ren
 - `track-import.ts` — IGC / GPX / KML → a common `ImportedFile`.
 - `polar.ts` — the two-term polar `w(V) = A·V³ + B/V`, `.plr` import, netto,
   minimum sink, super-netto.
+- `geo.ts` — the ground as numbers: web-mercator tile pyramid (`lonLatToTile`,
+  `tileBBox`, `tile3857`), the Terrarium elevation codec (encode/decode/bilinear)
+  and `elevAtFromTiles`, an elevation sampler that takes a *tile lookup function*
+  rather than a cache — so it serves streamed CDN tiles and an offline data pack
+  alike. `src/terrain.ts` and `src/dem.ts` keep only the fetching and caching.
 - `weather.ts` — the atmosphere as a *value*: wind profile, temperature sounding,
   cloudbase (LCL), thermal ceiling, stability N, plus a synthetic sandbox
   atmosphere. It neither fetches nor caches: `src/weather.ts` does the network,

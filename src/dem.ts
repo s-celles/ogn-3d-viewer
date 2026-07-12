@@ -3,11 +3,13 @@
 // (AWS CDN, no API rate limit), decoded in pure JS with UPNG. Tiles are cached, so a
 // cluster of nearby sample points costs one fetch. Used by the wave scan to measure a
 // site's relief without hammering a metered elevation API.
+// The tile maths and the Terrarium codec live in core/geo.ts; this only fetches.
 import UPNG from 'upng-js';
 import { TERRAIN } from './config';
+import { lonLatToTile, elevAtFromTiles, type ElevTile } from './core/geo';
 
 const Z = 11;                       // zoom (~20 km tile, ~76 m pixel) — fine enough for relief
-type Tile = { rgba: Uint8Array; w: number } | null;
+type Tile = ElevTile | null;
 const tiles = new Map<string, Tile>();
 const inflight = new Map<string, Promise<Tile>>();
 
@@ -19,20 +21,20 @@ function fetchTile(x: number, y: number): Promise<Tile> {
   const p = fetch(url).then(async r => {
     if (!r.ok) return null;
     const img = UPNG.decode(await r.arrayBuffer());
-    return { rgba: new Uint8Array(UPNG.toRGBA8(img)[0]), w: img.width } as Tile;
+    return { rgba: new Uint8Array(UPNG.toRGBA8(img)[0]), w: img.width, h: img.height } as Tile;
   }).catch(() => null).then(t => { tiles.set(key, t); inflight.delete(key); return t; });
   inflight.set(key, p); return p;
 }
 
 /** Ground elevation (m) at lon/lat from the Terrarium DEM, or null if the tile fails. */
 export async function demElev(lon: number, lat: number): Promise<number | null> {
-  const n = 2 ** Z, la = lat * Math.PI / 180;
-  const xf = (lon + 180) / 360 * n;
-  const yf = (1 - Math.log(Math.tan(la) + 1 / Math.cos(la)) / Math.PI) / 2 * n;
+  const n = 2 ** Z, { xf, yf } = lonLatToTile(lon, lat, Z);
   const x = ((Math.floor(xf) % n) + n) % n, y = Math.max(0, Math.min(n - 1, Math.floor(yf)));
-  const t = await fetchTile(x, y); if (!t) return null;
-  const px = Math.max(0, Math.min(t.w - 1, Math.floor((xf - Math.floor(xf)) * t.w)));
-  const py = Math.max(0, Math.min(t.w - 1, Math.floor((yf - Math.floor(yf)) * t.w)));
-  const i = (py * t.w + px) * 4;
-  return t.rgba[i] * 256 + t.rgba[i + 1] + t.rgba[i + 2] / 256 - 32768;
+  await fetchTile(x, y);   // ensure the covering tile is in the store, then sample it
+  // Wrap/clamp in the lookup too, so a point on the anti-meridian finds its tile.
+  const get = (_z: number, tx: number, ty: number): Tile => {
+    const wx = ((tx % n) + n) % n, cy = Math.max(0, Math.min(n - 1, ty));
+    return tiles.get(`${wx}/${cy}`) ?? null;
+  };
+  return elevAtFromTiles(lon, lat, get, Z, Z);
 }

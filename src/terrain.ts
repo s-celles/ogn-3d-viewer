@@ -8,17 +8,13 @@ import { S } from './state';
 import { TERRAIN, BASEMAPS, TERRAIN_N, DECK_CACHE, ELEV_CACHE, DEM_MAXZOOM, ramCacheFactor,
   IGN_DEM_WMS, IGN_DEM_PX, IGN_DEM_MINZOOM, IGN_DEM_MAXZOOM, IGN_COVER, IGN_ORTHO } from './config';
 import { TileLayer, SimpleMeshLayer, PathLayer, TextLayer, COORDINATE_SYSTEM } from './deck';
+import { tileBBox, tile3857, sampleTerrarium, sampleTerrainBilinear, encodeTerrarium, elevAtFromTiles,
+  M_PER_LAT, mPerLng, type ElevTile } from './core/geo';
 import type { DecodedTile } from './types';
 
-interface BBox { west: number; east: number; north: number; south: number; }
-
-/** Geographic bounding box of a web-mercator tile. */
-export function tileBBox(x: number, y: number, z: number): BBox {
-  const n = 2 ** z;
-  const lng = (xx: number) => xx / n * 360 - 180;
-  const lat = (yy: number) => { const m = Math.PI * (1 - 2 * yy / n); return 180 / Math.PI * Math.atan(Math.sinh(m)); };
-  return { west: lng(x), east: lng(x + 1), north: lat(y), south: lat(y + 1) };
-}
+// The tile pyramid, the Terrarium codec and the elevation sampler are domain code
+// (core/geo.ts) — storage-agnostic, so the same maths serves a data pack offline.
+export { tileBBox } from './core/geo';
 
 /** Build a textured, lit mesh (positions/normals/texCoords) from a decoded tile.
  * (su0, sv0, sf) select the sub-window of the DEM this mesh covers: su0/sv0 are
@@ -29,24 +25,13 @@ export function tileBBox(x: number, y: number, z: number): BBox {
 export function buildTerrainMesh(t: DecodedTile, west: number, south: number, east: number, north: number,
                                  su0 = 0, sv0 = 0, sf = 1, skirtM = 30, zShift = 0) {
   const N = S.dev.on ? S.dev.gridN : TERRAIN_N;
-  const { rgba, w, h } = t, cols = N, rows = N, k = S.exo;
+  const { w, h } = t, cols = N, rows = N, k = S.exo;
   const positions: number[] = [], normals: number[] = [], texCoords: number[] = [], indices: number[] = [];
   const heights = new Float32Array(cols * rows);
-  const mPerLat = 111320, mPerLng = 111320 * Math.cos((south + north) / 2 * Math.PI / 180);
-  const elevAt = (px: number, py: number) => { const i = (py * w + px) * 4; return rgba[i] * 256 + rgba[i + 1] + rgba[i + 2] / 256 - 32768; };
-  // Bilinear DEM sample: nearest-neighbour beats against the mesh grid and shows
-  // as corrugations on a sharp DEM (IGN), so interpolate the 4 neighbours.
-  const elevBil = (fx: number, fy: number) => {
-    fx = Math.max(0, Math.min(w - 1, fx)); fy = Math.max(0, Math.min(h - 1, fy));
-    const x0 = Math.floor(fx), y0 = Math.floor(fy), x1 = Math.min(w - 1, x0 + 1), y1 = Math.min(h - 1, y0 + 1);
-    const tx = fx - x0, ty = fy - y0;
-    const a = elevAt(x0, y0) * (1 - tx) + elevAt(x1, y0) * tx;
-    const b = elevAt(x0, y1) * (1 - tx) + elevAt(x1, y1) * tx;
-    return a * (1 - ty) + b * ty;
-  };
+  const mLng = mPerLng((south + north) / 2);
   for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++)
-    heights[r * cols + c] = elevBil((su0 + (c / (cols - 1)) * sf) * (w - 1), (sv0 + (1 - r / (rows - 1)) * sf) * (h - 1));
-  const dx = (east - west) * mPerLng / (cols - 1), dy = (north - south) * mPerLat / (rows - 1);
+    heights[r * cols + c] = sampleTerrainBilinear(t, (su0 + (c / (cols - 1)) * sf) * (w - 1), (sv0 + (1 - r / (rows - 1)) * sf) * (h - 1));
+  const dx = (east - west) * mLng / (cols - 1), dy = (north - south) * M_PER_LAT / (rows - 1);
   // Slope-adaptive smoothing: blend each vertex toward its neighbours' mean in
   // proportion to the local steepness — nothing on gentle ground (keeps detail),
   // up to ~0.6 on steep faces, where the fine RGE ALTI relief otherwise bands.
@@ -114,13 +99,12 @@ export function buildTerrainMesh(t: DecodedTile, west: number, south: number, ea
 // imagery. Same DEM sub-window mapping as buildTerrainMesh.
 export function buildTerrainWire(t: DecodedTile, west: number, south: number, east: number, north: number,
                                  su0 = 0, sv0 = 0, sf = 1, N = 48): number[][][] {
-  const { rgba, w, h } = t, k = S.exo, H = new Float32Array(N * N);
-  const elevAt = (px: number, py: number) => { const i = (py * w + px) * 4; return rgba[i] * 256 + rgba[i + 1] + rgba[i + 2] / 256 - 32768; };
+  const { w, h } = t, k = S.exo, H = new Float32Array(N * N);
   for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
     const u = c / (N - 1), v = r / (N - 1);
     const px = Math.min(w - 1, Math.max(0, Math.round((su0 + u * sf) * (w - 1))));
     const py = Math.min(h - 1, Math.max(0, Math.round((sv0 + (1 - v) * sf) * (h - 1))));
-    H[r * N + c] = elevAt(px, py);
+    H[r * N + c] = sampleTerrarium(t, px, py);
   }
   const P = (c: number, r: number): number[] => [west + (east - west) * (c / (N - 1)), south + (north - south) * (r / (N - 1)), H[r * N + c] * k];
   const paths: number[][][] = [];
@@ -133,7 +117,7 @@ export function buildTerrainWire(t: DecodedTile, west: number, south: number, ea
 // Lets us look up the ground elevation under any lng/lat that is currently
 // loaded — without any extra network — to keep aircraft from rendering below
 // the (coarse) terrain in steep mountains. FIFO-bounded.
-interface CachedTile { rgba: Uint8Array; w: number; h: number; }
+type CachedTile = ElevTile;
 const TILE_CACHE = new Map<string, CachedTile>();
 function cacheTile(z: number, x: number, y: number, t: CachedTile): void {
   TILE_CACHE.set(z + '/' + x + '/' + y, t);
@@ -161,12 +145,6 @@ async function fetchImage(url: string, signal: AbortSignal): Promise<ImageBitmap
 /** Drop the decoded-DEM cache (e.g. when the IGN-DEM toggle changes). */
 export function clearDemCache(): void { TILE_CACHE.clear(); }
 
-// A tile's extent in EPSG:3857 metres (matches how our web-mercator tiles map).
-const MERC = 20037508.342789244;
-function tile3857(z: number, x: number, y: number): [number, number, number, number] {
-  const size = (MERC * 2) / 2 ** z, minx = -MERC + x * size, maxy = MERC - y * size;
-  return [minx, maxy - size, minx + size, maxy];   // minx, miny, maxx, maxy
-}
 // Does this tile intersect IGN (RGE ALTI / BD ORTHO) coverage (metropole + DROM)?
 function inIgnCover(z: number, x: number, y: number): boolean {
   const bb = tileBBox(x, y, z);
@@ -229,28 +207,6 @@ async function fetchIgnDem(z: number, x: number, y: number, signal: AbortSignal)
     return null;
   } finally { ignRelease(); }
 }
-// Encode an elevation grid into a Terrarium RGBA buffer (so the mesh/elevAt paths
-// are source-agnostic). Nodata pixels take the Terrarium fallback value.
-function encodeDem(elev: Float32Array, fallback: CachedTile | null): CachedTile {
-  const N = IGN_DEM_PX, rgba = new Uint8Array(N * N * 4);
-  const fw = fallback ? fallback.w : 0, fh = fallback ? fallback.h : 0;   // Terrarium tile may be a different size
-  for (let py = 0; py < N; py++) for (let px = 0; px < N; px++) {
-    const i = py * N + px;
-    let e = elev[i];
-    if (!(e > -9000)) {                                                   // nodata (-99999) → Terrarium (scaled sample)
-      if (fallback) {
-        const fx = Math.min(fw - 1, Math.floor(px / N * fw)), fy = Math.min(fh - 1, Math.floor(py / N * fh)), j = (fy * fw + fx) * 4;
-        e = fallback.rgba[j] * 256 + fallback.rgba[j + 1] + fallback.rgba[j + 2] / 256 - 32768;
-      } else e = 0;
-    }
-    const v = e + 32768, R = Math.max(0, Math.min(255, Math.floor(v / 256)));
-    const rem = v - R * 256, G = Math.max(0, Math.min(255, Math.floor(rem)));
-    const B = Math.max(0, Math.min(255, Math.floor((rem - G) * 256)));
-    const o = i * 4; rgba[o] = R; rgba[o + 1] = G; rgba[o + 2] = B; rgba[o + 3] = 255;
-  }
-  return { rgba, w: N, h: N };
-}
-
 // One decoded DEM tile, cached (many overzoomed imagery tiles share the same
 // ancestor DEM). Uses the finer IGN RGE ALTI over France (falling back to
 // Terrarium per pixel on nodata / on failure), Terrarium everywhere else.
@@ -268,8 +224,8 @@ async function fetchDEM(z: number, x: number, y: number, signal: AbortSignal, al
       for (let i = 0; i < ign.length; i++) if (!(ign[i] > -9000)) { nodata = true; break; }
       // Only fill gaps if we actually have Terrarium — otherwise skip the merge so
       // nodata pixels never collapse to 0 m (a pit/hole punched in the massif).
-      if (!nodata) dec = encodeDem(ign, null);
-      else if (terr) dec = encodeDem(ign, terr);
+      if (!nodata) dec = encodeTerrarium(ign, IGN_DEM_PX, null);
+      else if (terr) dec = encodeTerrarium(ign, IGN_DEM_PX, terr);
     }
   }
   if (dec) cacheTile(z, x, y, dec);
@@ -277,19 +233,10 @@ async function fetchDEM(z: number, x: number, y: number, signal: AbortSignal, al
 }
 
 // Ground elevation (m, orthometric) at a lng/lat from the highest-resolution
-// loaded tile covering it, or null if no covering tile is currently cached.
+// loaded tile covering it, or null if no covering tile is currently cached. The
+// sampler is core/geo's; this only supplies the app's tile store to it.
 export function terrainElevAt(lon: number, lat: number): number | null {
-  for (let z = DEM_MAXZOOM; z >= 7; z--) {
-    const n = 2 ** z, xf = (lon + 180) / 360 * n, latR = lat * Math.PI / 180;
-    const yf = (1 - Math.log(Math.tan(latR) + 1 / Math.cos(latR)) / Math.PI) / 2 * n;
-    const x = Math.floor(xf), y = Math.floor(yf), tile = TILE_CACHE.get(z + '/' + x + '/' + y);
-    if (!tile) continue;
-    const px = Math.min(tile.w - 1, Math.max(0, Math.floor((xf - x) * tile.w)));
-    const py = Math.min(tile.h - 1, Math.max(0, Math.floor((yf - y) * tile.h)));
-    const i = (py * tile.w + px) * 4;
-    return tile.rgba[i] * 256 + tile.rgba[i + 1] + tile.rgba[i + 2] / 256 - 32768;
-  }
-  return null;
+  return elevAtFromTiles(lon, lat, (z, x, y) => TILE_CACHE.get(z + '/' + x + '/' + y) ?? null, DEM_MAXZOOM, 7);
 }
 
 const TERRAIN_ANCHOR = [{}];
