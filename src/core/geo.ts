@@ -29,6 +29,12 @@ export const mPerLng = (lat: number): number => M_PER_LAT * Math.cos(rad(lat));
 export const metresPerPixel = (lat: number, zoom: number): number =>
   2 * MERC / TILE_PX * Math.cos(rad(lat)) / 2 ** zoom;
 
+/** Bearing (deg from true north, clockwise) from one lon/lat to another. */
+export function bearingDeg(aLon: number, aLat: number, bLon: number, bLat: number): number {
+  const lat = rad((aLat + bLat) / 2);
+  return (Math.atan2((bLon - aLon) * Math.cos(lat), bLat - aLat) * 180 / Math.PI + 360) % 360;
+}
+
 /** Distance (m) between two nearby lon/lats, flat-earth: exact enough over a task area,
  *  and the only thing the fields and the traffic ever need. */
 export function distM(aLon: number, aLat: number, bLon: number, bLat: number): number {

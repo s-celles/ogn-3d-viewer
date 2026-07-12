@@ -1,107 +1,25 @@
-// ============ observed wave: straight sustained climbs reconstructed from tracks =====
-// A thermal climb circles; a WAVE climb is smooth and nearly straight (the glider beats
-// into wind, well above the ridges). Our thermal detector needs ≥1 full turn, so it
-// rejects wave — this module catches the opposite: sustained climbs with a LOW turn rate
-// and a good height above the terrain. Each becomes a vertical violet ribbon (a wave
-// bar) at the climb, so the invisible lee-wave lift becomes geometry. Rough — see docs.
+// ============ drawing the wave the gliders found ============
+// The detection lives in core/wavemass.ts: a wave climb is straight, sustained, and high
+// above the ground — the mirror image of a thermal, and what the thermal detector throws
+// away. This file is the viewer's half: probes in, violet wave bars out.
 import { S } from './state';
 import { SimpleMeshLayer, COORDINATE_SYSTEM } from './deck';
 import { posAt } from './flight-math';
 import { terrainElevAt } from './terrain';
 import type { RenderTrack } from './types';
-import { M_PER_LAT, mPerLng, distM } from './core/geo';
+import { M_PER_LAT, mPerLng } from './core/geo';
+import { detectWave, type WaveClimb } from './core/wavemass';
+import type { Probe } from './core/ports';
 
-interface WaveClimb { t0: number; t1: number; base: number; top: number; strength: number; c: [number, number]; hdg: number }
+export type { WaveClimb };
 
-// ---- detection tunables ----
-const STEP = 4;          // resample step (s)
-const HW = 10;           // s: heading baseline half-window
-const TURN_MAX = 3.2;    // deg/s: below this the flight is "straight" (not circling)
-const CLIMB_MIN = 0.25;  // m/s: minimum sustained climb over the window
-const GAP = 30;          // s: bridge brief interruptions
-const MIN_RUN = 90;      // s: shortest wave climb kept (waves are long)
-const MIN_GAIN = 200;    // m: shortest climb kept
-const MIN_STRENGTH = 0.4;// m/s: weakest climb kept
-const MAX_NET = 300;     // deg: net heading swept must stay below (else it's circling)
-const AGL_MIN = 250;     // m: the top must clear the terrain by this (excludes ridge beats)
-const MERGE_M = 900;     // m: merge nearby climbs (same wave, several beats/gliders)
-const MAX_WAVE = 40;     // cap rendered, strongest first
-
-interface Samp { t: number; lon: number; lat: number; alt: number; hdg: number }
-
-const bearing = (aLon: number, aLat: number, bLon: number, bLat: number): number => {
-  const lat = (aLat + bLat) / 2 * Math.PI / 180;
-  return (Math.atan2((bLon - aLon) * Math.cos(lat), bLat - aLat) * 180 / Math.PI + 360) % 360;
-};
-
-function makeWave(run: Samp[]): WaveClimb | null {
-  const t0 = run[0].t, t1 = run[run.length - 1].t, dur = t1 - t0;
-  if (dur < MIN_RUN) return null;
-  let net = 0, base = Infinity, top = -Infinity, cx = 0, cy = 0, hx = 0, hy = 0;
-  for (let i = 0; i < run.length; i++) {
-    const s = run[i];
-    base = Math.min(base, s.alt); top = Math.max(top, s.alt); cx += s.lon; cy += s.lat;
-    hx += Math.sin(s.hdg * Math.PI / 180); hy += Math.cos(s.hdg * Math.PI / 180);
-    if (i) net += ((s.hdg - run[i - 1].hdg + 540) % 360) - 180;
-  }
-  if (Math.abs(net) > MAX_NET) return null;                 // really circling → not wave
-  const gain = top - base; if (gain < MIN_GAIN) return null;
-  const strength = gain / dur; if (strength < MIN_STRENGTH) return null;
-  const c: [number, number] = [cx / run.length, cy / run.length];
-  const g = terrainElevAt(c[0], c[1]); if (g != null && top - g < AGL_MIN) return null;   // too close to the ground → ridge beat
-  return { t0, t1, base, top, strength, c, hdg: (Math.atan2(hx, hy) * 180 / Math.PI + 360) % 360 };
-}
-
-// Straight-climb runs in one track: low turn rate + sustained climb, brief dips bridged.
-function detectWave(tr: RenderTrack): WaveClimb[] {
-  const out: WaveClimb[] = [];
-  if (tr.rend - tr.rstart < MIN_RUN) return out;
-  const s: Samp[] = [];
-  for (let t = tr.rstart; t <= tr.rend; t += STEP) { const p = posAt(tr, t); s.push({ t, lon: p[0], lat: p[1], alt: p[2], hdg: 0 }); }
-  const n = s.length; if (n < 4) return out;
-  for (let i = 0; i < n; i++) {
-    const a = posAt(tr, Math.max(tr.rstart, s[i].t - HW)), b = posAt(tr, Math.min(tr.rend, s[i].t + HW));
-    s[i].hdg = bearing(a[0], a[1], b[0], b[1]);
-  }
-  const g = Math.max(1, Math.round(HW / STEP));
-  const straightClimb = s.map((_, i) => {
-    const a = s[Math.max(0, i - g)], b = s[Math.min(n - 1, i + g)];
-    const turn = Math.abs(((b.hdg - a.hdg + 540) % 360) - 180) / (2 * g * STEP);   // deg/s
-    const climb = (b.alt - a.alt) / (2 * g * STEP);                                // m/s
-    return turn < TURN_MAX && climb > CLIMB_MIN;
-  });
-  let i = 0;
-  while (i < n) {
-    if (!straightClimb[i]) { i++; continue; }
-    let last = i, gap = 0, k = i + 1;
-    while (k < n) { if (straightClimb[k]) { last = k; gap = 0; } else if ((gap += STEP) > GAP) break; k++; }
-    const w = makeWave(s.slice(i, last + 1)); if (w) out.push(w);
-    i = last + 1;
-  }
-  return out;
-}
-
-const overlap = (a: WaveClimb, b: WaveClimb): boolean => a.t0 <= b.t1 + 60 && b.t0 <= a.t1 + 60;
-function merge(list: WaveClimb[]): WaveClimb[] {
-  const merged: WaveClimb[] = [];
-  for (const w of list.slice().sort((a, b) => a.t0 - b.t0)) {
-    const m = merged.find(x => overlap(x, w) && distM(x.c[0], x.c[1], w.c[0], w.c[1]) < MERGE_M);
-    if (!m) { merged.push({ ...w }); continue; }
-    m.t0 = Math.min(m.t0, w.t0); m.t1 = Math.max(m.t1, w.t1);
-    m.base = Math.min(m.base, w.base); m.top = Math.max(m.top, w.top);
-    m.strength = Math.max(m.strength, w.strength);
-    m.c = [(m.c[0] + w.c[0]) / 2, (m.c[1] + w.c[1]) / 2];
-  }
-  return merged;
-}
+const asProbe = (tr: RenderTrack): Probe => ({ rstart: tr.rstart, rend: tr.rend, at: t => posAt(tr, t) });
 
 let cache: { tracks: RenderTrack[]; off: number; waves: WaveClimb[] } | null = null;
-/** Detected wave climbs for the loaded day, memoised on the track set + geoid offset. */
+/** Observed wave climbs for the loaded day, memoised on the track set + geoid offset. */
 export function getWaveClimbs(): WaveClimb[] {
   if (cache && cache.tracks === S.TRACKS && cache.off === S.altOffset) return cache.waves;
-  const all: WaveClimb[] = [];
-  for (const tr of S.TRACKS) all.push(...detectWave(tr));
-  const waves = merge(all).sort((a, b) => b.strength - a.strength).slice(0, MAX_WAVE);
+  const waves = detectWave(S.TRACKS.map(asProbe), terrainElevAt);
   cache = { tracks: S.TRACKS, off: S.altOffset, waves };
   return waves;
 }

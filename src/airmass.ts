@@ -1,127 +1,27 @@
-// ============ air-mass reconstruction: thermals from OGN tracks ============
-// A glider is an atmospheric probe: where one circles while gaining height, the
-// air is rising. We detect circling-climb runs across every track, merge the
-// ones that overlap in space and time (several gliders in the same thermal), and
-// expose them as drifting columns + cumulus at their top — so the invisible lift
-// becomes visible geometry, independent of the individual glider trails.
+// ============ drawing the air mass the gliders found ============
+// The detection lives in core/airmass.ts: a glider circling while it gains height IS a
+// thermal marker. This file is the viewer's half — it turns the loaded tracks into probes,
+// memoises the day's thermals, and draws them as drifting columns with cumulus on top, so
+// the invisible lift becomes geometry independent of the individual trails.
 import { S } from './state';
 import { SimpleMeshLayer, IconLayer, COORDINATE_SYSTEM } from './deck';
 import { posAt } from './flight-math';
 import { getWeather, weatherCloudbase, weatherWind } from './weather';
 import type { RenderTrack, Pos3 } from './types';
-import { M_PER_LAT, mPerLng, distM } from './core/geo';
+import { M_PER_LAT, mPerLng } from './core/geo';
+import { detectThermals, MIN_STRENGTH, type Thermal } from './core/airmass';
+import type { Probe } from './core/ports';
 
-export interface Thermal {
-  t0: number; t1: number;         // active window (relative seconds)
-  base: number; top: number;      // altitude band (m, orthometric)
-  strength: number;               // representative climb (m/s)
-  c0: [number, number];           // centre (lon,lat) early in the climb
-  c1: [number, number];           // centre (lon,lat) late — the pair encodes wind drift
-}
+export type { Thermal };
 
-// ---- detection tunables ----
-const STEP = 3;          // resample step (s)
-const W = 9;             // s: heading baseline half-window — smooths ~10 s beacon noise
-const TURN_MIN = 4;      // deg/s: sustained turn rate that counts as circling
-const GAP = 21;          // s: bridge brief circling interruptions, so a climb stays one thermal
-const MIN_RUN = 24;      // s: shortest circling run kept
-const MIN_TURN = 360;    // deg: net heading swept (≥1 full turn) — rejects ridge S-turns
-const MIN_GAIN = 80;     // m: shortest climb kept
-const MIN_STRENGTH = 0.3;// m/s: weakest climb kept
-const MERGE_M = 500;     // m: centres closer than this (with overlapping time) merge
-const MAX_THERMALS = 60; // cap rendered, strongest first
-
-interface Samp { t: number; lon: number; lat: number; alt: number; hdg: number }
-
-const bearing = (aLon: number, aLat: number, bLon: number, bLat: number): number => {
-  const lat = (aLat + bLat) / 2 * Math.PI / 180;
-  const e = (bLon - aLon) * Math.cos(lat), n = bLat - aLat;
-  return (Math.atan2(e, n) * 180 / Math.PI + 360) % 360;
-};
-// Smoothed heading at time t: bearing over a ±W window, robust to sparse beacons.
-const hdgAt = (tr: RenderTrack, t: number): number => {
-  const a = posAt(tr, Math.max(tr.rstart, t - W)), b = posAt(tr, Math.min(tr.rend, t + W));
-  return bearing(a[0], a[1], b[0], b[1]);
-};
-const meanPos = (ss: Samp[]): [number, number] => {
-  let x = 0, y = 0; for (const s of ss) { x += s.lon; y += s.lat; }
-  return [x / ss.length, y / ss.length];
-};
-
-function makeThermal(run: Samp[]): Thermal | null {
-  const t0 = run[0].t, t1 = run[run.length - 1].t, dur = t1 - t0;
-  if (dur < MIN_RUN) return null;
-  let net = 0;                                            // net signed heading swept
-  for (let i = 1; i < run.length; i++) net += ((run[i].hdg - run[i - 1].hdg + 540) % 360) - 180;
-  if (Math.abs(net) < MIN_TURN) return null;              // not really circling (e.g. ridge beats)
-  let base = Infinity, top = -Infinity;
-  for (const s of run) { base = Math.min(base, s.alt); top = Math.max(top, s.alt); }
-  const gain = top - base;
-  if (gain < MIN_GAIN) return null;
-  const strength = gain / dur;
-  if (strength < MIN_STRENGTH) return null;
-  const k = Math.max(1, Math.floor(run.length / 3));
-  return { t0, t1, base, top, strength, c0: meanPos(run.slice(0, k)), c1: meanPos(run.slice(-k)) };
-}
-
-// Find every circling-climb run in one track. Circling is a smoothed turn rate
-// over threshold; brief dips (GAP seconds) are bridged so one continuous climb
-// stays a single thermal instead of shattering into fragments.
-function detectClimbs(tr: RenderTrack): Thermal[] {
-  const out: Thermal[] = [];
-  if (tr.rend - tr.rstart < MIN_RUN) return out;
-  const s: Samp[] = [];
-  for (let t = tr.rstart; t <= tr.rend; t += STEP) { const p = posAt(tr, t); s.push({ t, lon: p[0], lat: p[1], alt: p[2], hdg: 0 }); }
-  const n = s.length;
-  for (let i = 0; i < n; i++) s[i].hdg = hdgAt(tr, s[i].t);
-  const g = Math.max(1, Math.round(W / STEP));
-  const circ = s.map((_, i) => {
-    const a = s[Math.max(0, i - g)].hdg, b = s[Math.min(n - 1, i + g)].hdg;
-    return Math.abs(((b - a + 540) % 360) - 180) / (2 * g * STEP) >= TURN_MIN;   // deg/s
-  });
-  let i = 0;
-  while (i < n) {
-    if (!circ[i]) { i++; continue; }
-    let last = i, gap = 0, k = i + 1;
-    while (k < n) {
-      if (circ[k]) { last = k; gap = 0; }
-      else if ((gap += STEP) > GAP) break;
-      k++;
-    }
-    const th = makeThermal(s.slice(i, last + 1));
-    if (th) out.push(th);
-    i = last + 1;
-  }
-  return out;
-}
-
-const mid = (th: Thermal): [number, number] => [(th.c0[0] + th.c1[0]) / 2, (th.c0[1] + th.c1[1]) / 2];
-const overlap = (a: Thermal, b: Thermal): boolean => a.t0 <= b.t1 + 60 && b.t0 <= a.t1 + 60;
-
-// Collapse thermals from different gliders that are the same air: overlapping in
-// time and within MERGE_M horizontally. Keeps the widest window / band, the
-// strongest climb, and the activity-averaged centres.
-function merge(list: Thermal[]): Thermal[] {
-  const merged: Thermal[] = [];
-  for (const th of list.slice().sort((a, b) => a.t0 - b.t0)) {
-    const m = merged.find(x => overlap(x, th) && distM(mid(x)[0], mid(x)[1], mid(th)[0], mid(th)[1]) < MERGE_M);
-    if (!m) { merged.push({ ...th }); continue; }
-    m.t0 = Math.min(m.t0, th.t0); m.t1 = Math.max(m.t1, th.t1);
-    m.base = Math.min(m.base, th.base); m.top = Math.max(m.top, th.top);
-    m.strength = Math.max(m.strength, th.strength);
-    m.c0 = [(m.c0[0] + th.c0[0]) / 2, (m.c0[1] + th.c0[1]) / 2];
-    m.c1 = [(m.c1[0] + th.c1[0]) / 2, (m.c1[1] + th.c1[1]) / 2];
-  }
-  return merged;
-}
+/** A loaded track, seen as the atmospheric probe the kernel wants. */
+const asProbe = (tr: RenderTrack): Probe => ({ rstart: tr.rstart, rend: tr.rend, at: t => posAt(tr, t) });
 
 let cache: { tracks: RenderTrack[]; off: number; thermals: Thermal[] } | null = null;
 /** Detected thermals for the loaded day, memoised on the track set + geoid offset. */
 export function getThermals(): Thermal[] {
   if (cache && cache.tracks === S.TRACKS && cache.off === S.altOffset) return cache.thermals;
-  const all: Thermal[] = [];
-  for (const tr of S.TRACKS) all.push(...detectClimbs(tr));
-  const thermals = merge(all).sort((a, b) => b.strength - a.strength).slice(0, MAX_THERMALS);
+  const thermals = detectThermals(S.TRACKS.map(asProbe));
   cache = { tracks: S.TRACKS, off: S.altOffset, thermals };
   return thermals;
 }
