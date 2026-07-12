@@ -16,6 +16,7 @@ export interface Thermal {
   strength: number;               // representative climb (m/s)
   c0: [number, number];           // centre (lon,lat) early in the climb
   c1: [number, number];           // centre (lon,lat) late — the pair encodes the wind drift
+  dt: number;                     // seconds actually separating c0 and c1 — what the drift divides by
 }
 
 export const STEP = 3;           // resample step (s)
@@ -35,6 +36,8 @@ const meanPos = (ss: Samp[]): [number, number] => {
   return [x / ss.length, y / ss.length];
 };
 
+const meanT = (ss: Samp[]): number => ss.reduce((s, x) => s + x.t, 0) / ss.length;
+
 function makeThermal(run: Samp[]): Thermal | null {
   const t0 = run[0].t, t1 = run[run.length - 1].t, dur = t1 - t0;
   if (dur < MIN_RUN) return null;
@@ -49,8 +52,16 @@ function makeThermal(run: Samp[]): Thermal | null {
   if (gain < MIN_GAIN) return null;                        // rejects every descent: gain ≤ 0
   const strength = gain / dur;
   if (strength < MIN_STRENGTH) return null;
+  // c0 and c1 are the means of the first and last third, so they are NOT `dur` apart in time —
+  // they are about two thirds of that. Carry the interval they really span, or the drift, and
+  // so the wind read off the air, comes out a third too slow.
   const k = Math.max(1, Math.floor(run.length / 3));
-  return { t0, t1, base, top, strength, c0: meanPos(run.slice(0, k)), c1: meanPos(run.slice(-k)) };
+  const head = run.slice(0, k), tail = run.slice(-k);
+  return {
+    t0, t1, base, top, strength,
+    c0: meanPos(head), c1: meanPos(tail),
+    dt: Math.max(1, meanT(tail) - meanT(head)),
+  };
 }
 
 /** Every circling-climb run in one probe. */
@@ -78,8 +89,11 @@ export function detectThermals(probes: readonly Probe[], max = MAX_THERMALS): Th
     m.t0 = Math.min(m.t0, th.t0); m.t1 = Math.max(m.t1, th.t1);
     m.base = Math.min(m.base, th.base); m.top = Math.max(m.top, th.top);
     m.strength = Math.max(m.strength, th.strength);
+    // The centres are averaged, so the interval between them must be averaged too — else the
+    // merged column would drift at a speed neither of its parents saw.
     m.c0 = [(m.c0[0] + th.c0[0]) / 2, (m.c0[1] + th.c0[1]) / 2];
     m.c1 = [(m.c1[0] + th.c1[0]) / 2, (m.c1[1] + th.c1[1]) / 2];
+    m.dt = (m.dt + th.dt) / 2;
   }).sort((a, b) => b.strength - a.strength).slice(0, max);
 }
 
@@ -89,10 +103,9 @@ export function thermalDrift(ths: readonly Thermal[]): [number, number] | null {
   if (!ths.length) return null;
   let u = 0, v = 0;
   for (const th of ths) {
-    const dur = Math.max(1, th.t1 - th.t0);
     const lat = (th.c0[1] + th.c1[1]) / 2;
-    u += (th.c1[0] - th.c0[0]) / dur * mPerLng(lat);
-    v += (th.c1[1] - th.c0[1]) / dur * M_PER_LAT;
+    u += (th.c1[0] - th.c0[0]) / th.dt * mPerLng(lat);   // th.dt, not the full window — see makeThermal
+    v += (th.c1[1] - th.c0[1]) / th.dt * M_PER_LAT;
   }
   return [u / ths.length, v / ths.length];
 }

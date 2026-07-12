@@ -90,18 +90,20 @@ test('a climb too short, too weak or too small to matter is dropped', () => {
   expect(detectClimbs(circling(60, 1))).toEqual([]);        // 60 m of gain — under MIN_GAIN
 });
 
-test('BUG (pinned): the drift reads the wind a third too slow', () => {
-  // c0 and c1 are the means of the FIRST and LAST THIRD of the run, so they are only ~2/3 of
-  // the window apart in time — yet the drift divides their separation by the FULL window. The
-  // wind read off the air comes out ~33% too slow, systematically. It is the last-resort wind
-  // when there is no forecast, so it feeds the ridge, convergence and wave fields.
-  // Preserved exactly here; fixed in a later commit.
+test('the drift of a thermal column is the wind that blew it', () => {
   const th = detectClimbs(circling(400, 2, 5));             // 5 m/s of eastward drift
   expect(th.length).toBe(1);
   const drift = thermalDrift(th)!;
-  expect(drift[0]).toBeCloseTo(5 * 2 / 3, 0);               // east — should be 5
+  expect(drift[0]).toBeCloseTo(5, 0);                       // east
   expect(drift[1]).toBeCloseTo(0, 0);                       // north
   expect(thermalDrift([])).toBeNull();
+});
+
+test('the drift is right whatever the wind speed', () => {
+  for (const wind of [3, 5, 7]) {
+    const th = detectClimbs(circling(400, 2, wind));
+    expect(thermalDrift(th)![0]).toBeCloseTo(wind, 0);
+  }
 });
 
 test('several gliders in one thermal are one thermal', () => {
