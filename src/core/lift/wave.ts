@@ -105,7 +105,8 @@ export interface RotorSpot { lon: number; lat: number; elev: number; size: numbe
 export function rotorSpots(f: WaveField, thin = ROTOR_THIN, max = ROTOR_MAX): RotorSpot[] {
   const { n } = f.grid;
   const out: RotorSpot[] = [], occ = new Set<string>();
-  for (let j = 0; j < n && out.length < max; j++) for (let i = 0; i < n; i++) {
+  for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {
+    if (out.length >= max) return out;   // per spot, not per row: one crest-filled row can fill the quota alone
     const idx = j * n + i;
     if (!f.ok[idx] || f.w[idx] < ROTOR_W) continue;
     const bk = `${(i / thin) | 0},${(j / thin) | 0}`;

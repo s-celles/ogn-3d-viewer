@@ -134,10 +134,7 @@ test('rotors roll only under strong crests, thinned and capped', () => {
   const f = waveField(G, ridge(600, 1200, RIDGE_X), WEST_WIND, { res: RES });
   const spots = rotorSpots(f);
   expect(spots.length).toBeGreaterThan(0);
-  // NOTE: the cap overshoots — it is tested once per ROW, not per spot, so a row that starts
-  // under the cap can carry it past (50 here, for a ROTOR_MAX of 48). Pinned as it stands:
-  // this refactor changes no behaviour. Fixed in the commit that follows.
-  expect(spots.length).toBeLessThanOrEqual(ROTOR_MAX + G.n);
+  expect(spots.length).toBeLessThanOrEqual(ROTOR_MAX);
   expect(rotorSpots(waveField(G, flat, WEST_WIND, { res: RES }))).toEqual([]);   // no wave, no rotor
   // Every spot sits on the ground it was found over, and grows with its crest.
   for (const s of spots) {
@@ -145,6 +142,14 @@ test('rotors roll only under strong crests, thinned and capped', () => {
     expect(s.size).toBeGreaterThanOrEqual(320);
     expect(s.size).toBeLessThanOrEqual(700);
   }
+});
+
+test('the cap holds even when a single row is full of crests', () => {
+  // A long ridge across the flow puts a strong crest in every column, so one row alone can
+  // fill the quota. The cap has to be honoured per spot, not per row.
+  const f = waveField(G, ridge(1500, 3000, RIDGE_X), WEST_WIND, { res: RES });
+  expect(rotorSpots(f, 1, 5).length).toBe(5);        // thinning off: every node qualifies
+  expect(rotorSpots(f, 1, 1).length).toBe(1);
 });
 
 test('a weak wave spins no rotor', () => {
