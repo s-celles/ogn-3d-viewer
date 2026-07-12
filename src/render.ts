@@ -23,7 +23,7 @@ import { windAtAlt } from './wind-source';
 import { colLayers } from './cols';
 import { buildingLayers } from './buildings';
 import { convergLayers } from './layers/converg';
-import { waveLayers } from './wave';
+import { waveLayers } from './layers/wave';
 import { liftWeight } from './lift';
 import { windLayers } from './wind';
 import { thermalLayers } from './thermal';

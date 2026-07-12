@@ -28,3 +28,18 @@ export function strataBin(v: number, t: readonly [number, number]): number {
 
 /** Bin index of a vertical velocity (m/s), by |w|: <1, <2, ≥2. */
 export const liftBin = (w: number): number => strataBin(w, [1, 2]);
+
+// An elevated streamline sheet is read differently from a draped patch: it is a continuous
+// surface, so the band where the flow is level must still be drawn — faintly — or the sheet
+// would have holes in it. Hence a signed five-band ramp with a neutral middle, ordered
+// strong-up → mild-up → level → mild-down → strong-down.
+const NEUTRAL: [number, number, number, number] = [175, 205, 235, 30];   // faint band where the flow is level
+export const SHEET_COLORS: [number, number, number, number][] = [
+  LIFT_COLORS[4], LIFT_COLORS[2], NEUTRAL, SINK_COLORS[1], SINK_COLORS[0],
+];
+export const W_LO = 0.4, W_HI = 1.2;   // m/s: neutral / mild / strong colouring
+
+/** Band index (0 strong up … 2 level … 4 strong down) of a streamline's vertical velocity. */
+export function sheetBand(w: number, lo = W_LO, hi = W_HI): number {
+  return w >= hi ? 0 : w >= lo ? 1 : w > -lo ? 2 : w > -hi ? 3 : 4;
+}

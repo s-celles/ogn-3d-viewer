@@ -34,14 +34,22 @@ export interface TerrainNodes {
 /** Node spacing (m) of a lattice. */
 export const nodeStep = (g: NodeGrid): number => 2 * g.R / (g.n - 1);
 
-/** Sample the ground on the lattice. `baseline` is the half-width of the gradient stencil
- *  in metres — deliberately independent of the node spacing, so the gradient stays a
- *  property of the terrain rather than of the grid resolution. */
-export function sampleNodes(g: NodeGrid, elev: ElevSampler, baseline: number): TerrainNodes {
+/** Where the nodes are, without touching the ground: lon by i, lat by j. */
+export function nodeCoords(g: NodeGrid): { lon: Float64Array; lat: Float64Array; sp: number } {
   const { cLon, cLat, R, n } = g;
   const sp = nodeStep(g), mLng = mPerLng(cLat), mLat = M_PER_LAT;
   const lon = new Float64Array(n), lat = new Float64Array(n);
   for (let i = 0; i < n; i++) { lon[i] = cLon + (-R + i * sp) / mLng; lat[i] = cLat + (-R + i * sp) / mLat; }
+  return { lon, lat, sp };
+}
+
+/** Sample the ground on the lattice. `baseline` is the half-width of the gradient stencil
+ *  in metres — deliberately independent of the node spacing, so the gradient stays a
+ *  property of the terrain rather than of the grid resolution. */
+export function sampleNodes(g: NodeGrid, elev: ElevSampler, baseline: number): TerrainNodes {
+  const { cLat, n } = g;
+  const { lon, lat, sp } = nodeCoords(g);
+  const mLng = mPerLng(cLat), mLat = M_PER_LAT;
 
   const h = new Float32Array(n * n), gx = new Float32Array(n * n), gy = new Float32Array(n * n);
   const ok = new Uint8Array(n * n);
