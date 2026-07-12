@@ -47,7 +47,7 @@ matching FlightBook page.
 
 A **client-side single-page app** written in **TypeScript** and bundled with
 **[Bun](https://bun.sh/)** — no backend. The source lives in [`src/`](src/) as
-small ES modules ([`igc.ts`](src/igc.ts) parsing, [`flight-math.ts`](src/flight-math.ts)
+small ES modules ([`igc`](https://github.com/s-celles/soaring-core/blob/main/src/igc.ts) parsing, [`flight-math.ts`](src/flight-math.ts)
 geometry, [`terrain.ts`](src/terrain.ts), [`render.ts`](src/render.ts),
 [`ui.ts`](src/ui.ts), a shared [`state.ts`](src/state.ts), etc.). It uses:
 
@@ -69,6 +69,12 @@ don't re-download them. Preferences live in `localStorage` (see
 
 ## Tech stack
 
+- **[soaring-core](https://github.com/s-celles/soaring-core)** — the soaring kernel this
+  app stands on: geodesy and the Terrarium DEM codec, the atmosphere, ephemeris, flight
+  maths and polars, air-mass detection from tracks, and the four predicted lift fields
+  (slope, thermal, convergence, lee wave). It has no renderer, no app state and no
+  network — a flight computer can use the very same code. See
+  [docs/architecture.md](docs/architecture.md).
 - **TypeScript** (strict) — domain types for tracks, the FlightBook API and the
   shared app state.
 - **Bun** — bundler, dev server and test runner, no separate toolchain.

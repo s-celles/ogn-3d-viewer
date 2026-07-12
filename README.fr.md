@@ -48,7 +48,7 @@ d'info renvoie vers la page FlightBook correspondante.
 
 Une **application monopage côté client**, écrite en **TypeScript** et empaquetée
 avec **[Bun](https://bun.sh/)** — sans backend. Le code source se trouve dans
-[`src/`](src/) sous forme de petits modules ES ([`igc.ts`](src/igc.ts) pour
+[`src/`](src/) sous forme de petits modules ES ([`igc`](https://github.com/s-celles/soaring-core/blob/main/src/igc.ts) pour
 l'analyse, [`flight-math.ts`](src/flight-math.ts) pour la géométrie,
 [`terrain.ts`](src/terrain.ts), [`render.ts`](src/render.ts), [`ui.ts`](src/ui.ts),
 un état partagé [`state.ts`](src/state.ts), etc.). Il utilise :
@@ -73,6 +73,12 @@ retélécharger. Les préférences vivent dans le `localStorage` (voir
 
 ## Pile technique
 
+- **[soaring-core](https://github.com/s-celles/soaring-core)** — le noyau vélivole sur
+  lequel repose l'application : géodésie et codec DEM Terrarium, atmosphère, éphémérides,
+  mathématiques du vol et polaires, détection de masse d'air depuis les traces, et les
+  quatre champs de portance prédits (pente, thermique, convergence, onde de ressaut). Il
+  n'a ni rendu, ni état d'application, ni réseau — un calculateur de vol peut utiliser
+  exactement le même code. Voir [docs/architecture.md](docs/architecture.md).
 - **TypeScript** (strict) — types métier pour les traces, l'API FlightBook et
   l'état partagé de l'application.
 - **Bun** — bundler, serveur de développement et lanceur de tests, sans outillage

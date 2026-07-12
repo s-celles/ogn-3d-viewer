@@ -47,8 +47,12 @@ climbing, the air is rising.**
 
 1. **Detect circling-climb runs** in every track: a smoothed turn rate over a
    threshold, with brief interruptions bridged so one climb stays one thermal.
-   Kept only if it sweeps ≥ 1 full turn (`MIN_TURN = 360°`), climbs ≥ `MIN_GAIN = 80 m`
-   and averages ≥ `MIN_STRENGTH = 0.3 m/s` — this rejects ridge S-turns.
+   Kept only if it sweeps ≥ 1 full turn (`MIN_TURN = 360°`), **nets** ≥ `MIN_GAIN = 80 m`
+   and averages ≥ `MIN_STRENGTH = 0.3 m/s` — the full turn is what rejects ridge S-turns.
+   `strength` is the **net height gained**, not the altitude *range* covered: a range would
+   call a 3 m/s spiral **descent** a 3 m/s thermal (the circling test looks only at turn
+   rate — there is no climb condition in it), and since the list is sorted strongest-first
+   that phantom would top it and drive the calibration.
 2. **Merge** thermals from different gliders that overlap in time and lie within
    `MERGE_M = 500 m` (the same air, seen by several aircraft).
 3. **Render** each as a slim wind-leaned **plume** capped by a **cumulus** at a common
@@ -77,7 +81,7 @@ nearly empty — the lee-wave lift still shows.
 own renderer, blended by [the mixer](#the-mixer-liftts--liftmixerts). All share one
 [colour ramp](#colour-language-liftvizts): **warm = rising, blue = sinking.**
 
-### Thermal (`thermal.ts`)
+### Thermal (`soaring-core/lift/thermal` + `src/layers/thermal.ts`)
 
 The convective updraught over sun-heated ground, on an 80×80 grid draped on the terrain.
 
@@ -141,15 +145,27 @@ with the wind**. The heat flux is modulated by an across-wind cosine of waveleng
 between**, so the warm field — and the cumulus that top its cores — line up into streets. A
 redistribution (mean ≈ 1), gated off on calm or stable days.
 
-**4. Colouring** (view-independent, fixed thresholds):
+**4. Colouring** — the map shows an **anomaly**, not an absolute Vz:
 
-- A **flat reference** `wRef` = Vz of flat reference ground under the same sun/weather.
-- **Warm** where `Vz ≥ wRef`, by absolute strength `f = Vz / W_FULL` (`W_FULL = 1.5 m/s`
-  → full red), entry at `WARM_MIN = 0.30`. So a strong midday thermal reads red *where
-  it is strong*, not only where aspect beats the average.
-- **Blue** where `Vz < wRef`, by the deficit `(wRef − Vz) / scaleRef` — shaded / poorly
-  exposed faces: the **compensating subsidence** required by mass continuity (not a
-  measured downdraught). Entry at `SINK_MIN = 0.12`.
+- A **flat reference** `wRef` = the Vz that flat ground, at the **median height of the
+  terrain in view**, would get under the same sun and weather. A median, not the height
+  under the camera: one point is a coin toss between a lake and the peak beside it, and
+  it made the whole map's colours depend on where the view happened to be centred.
+- Every cell is read as `(Vz − wRef) / scaleRef` — one continuous scale through zero.
+  **Warm** above the reference (entry at +4%, full red at +26%: red means *exceptional*
+  ground, not an ordinary sunny slope), **blue** below it (entry at −20%) — shaded,
+  poorly exposed faces, and the **compensating subsidence** mass continuity requires
+  (not a measured downdraught).
+
+> This used to be an absolute scale (`Vz / W_FULL`, `W_FULL = 1.5 m/s`) *selected* by a
+> relative test (`Vz ≥ wRef`), and the two fought. On a good day `wRef` lands at 0.95 ·
+> `W_FULL`, so every cell that beat the reference went straight to full red and the four
+> intermediate warm shades were unreachable — the map came out red-or-nothing, in stripes,
+> because the cloud streets' ±15% ripple kept flipping cells across the cliff at `wRef`.
+> And an absolute scale cannot survive its own calibration (below): multiply the field by
+> 3 and everything shoots past `W_FULL`. The anomaly is **invariant** under calibration —
+> `cal` scales `Vz` and `wRef` alike — which is what settled it. The cost is honest: the
+> legend can no longer read absolute m/s.
 
 **5. Cumulus vs blue.** Cloud forms when dry convection (the ceiling) reaches the
 **LCL** (cloudbase, `weatherCloudbase`). On a **cu day** (`ceiling ≥ cloudbase`) the
@@ -160,7 +176,7 @@ the layer wind × the parcel's climb time to the base (`Δz / DRIFT_CLIMB`, capp
 cloud sits downwind of the hot slope — matching the leaning columns of the track-based air-mass
 reconstruction.
 
-### Slope lift (`ridge.ts`)
+### Slope lift (`soaring-core/lift/ridge` + `src/layers/ridge.ts`)
 
 Slope lift is wind deflected by the ground, so it is **predicted** from the DEM and the
 wind — everywhere, with or without traffic:
@@ -180,7 +196,7 @@ is warm, leeward (`w < 0`) blue; drawn above `W_MIN = 0.4 m/s`. Patches are tilt
 slope so the bands lie on the ground. (So ridges now "work" on a calm sunny day, not only
 in wind.)
 
-### Convergence (`converg.ts`)
+### Convergence (`soaring-core/lift/converg` + `src/layers/converg.ts`)
 
 Where the wind, deflected by terrain, **piles up** it must rise — at valley heads,
 bowls and confluences facing the flow; in the lee it spreads (sink). Distinct from slope
@@ -199,7 +215,7 @@ lift because it responds to terrain **curvature**, not gradient:
    damped by strong synoptic wind. Works on a **calm** sunny day (the terrain-convergence
    calm cutoff is lifted when a water source is present).
 
-### Wave (`wave.ts`)
+### Wave (`soaring-core/lift/wave` + `src/layers/wave.ts`)
 
 Lee (mountain) waves: a stable airstream crossing a ridge with enough wind oscillates
 downwind as a standing wave — smooth lift in the crests, sink in the troughs — at
@@ -238,13 +254,13 @@ reconstructed from the tracks (see [Air mass](#air-mass--reconstruction-from-tra
 
 ### Calibration against the tracks (`calib.ts`)
 
-The thermal field's absolute scale (`W_FULL`) is only a guess — but the day's tracks
-give **real climb rates** (`airmass.ts`). So we predict Vz at each detected thermal's
+The thermal field's absolute magnitude is only a guess — but the day's tracks give
+**real climb rates** (`soaring-core/airmass`). So we predict Vz at each detected thermal's
 place and time with the same physics (uniform land-cover, no shadow — a point estimate),
 take the **robust median of `observed climb / predicted Vz`** (needs ≥ 4 thermals,
-clamped to `[0.4, 3.5]`), and multiply the whole thermal field by it. Red then means
-*"as strong as the day's best real climbs"*. It is a single **global factor** — it
-changes how strong the day reads, not the spatial pattern — memoised on the track set,
+clamped to `[0.4, 3.5]`), and multiply the whole thermal field by it. It is a single
+**global factor** — it changes how strong the day reads, not the spatial pattern, and the
+anomaly colouring is deliberately invariant under it — memoised on the track set,
 date and weather-readiness; `1` (no change) for imported files or too few thermals.
 
 > **Opt-in, off by default** (a "Calibrate on tracks" checkbox). Because it is a global
@@ -275,22 +291,36 @@ side dragged toward). A ↺ button resets to an equal split. Adding a new compon
 (e.g. **wave**) is one entry in `LIFT_COMPS` + a renderer in `render.ts`: the mixer
 grows a vertex on its own.
 
-## Wind field (`ridge.ts`)
+## Wind field (`src/wind-source.ts`)
 
 `windAtAlt(lat, lon, alt)` returns the wind [east, north] at an AMSL altitude: the
 Open-Meteo profile at the view centre (bucketed ~10 km), else at the airfield, else the
-mean thermal drift. `windBg` samples it ~400 m above the local surface; `shelterScale`
-exposes the terrain-sheltering factor. This one field feeds slope lift, convergence and
-the wind visualisation.
+**mean drift of the observed thermals** — the wind read off the air itself, when there is
+no forecast at all.
 
-## Colour language (`liftviz.ts`)
+**Slope lift takes the whole profile, not one vector.** `windProfile(lat, lon)` is a
+`WindProfile = (alt) => [east, north]`, and `ridgeField` samples it at **each cell's own
+height + 400 m** — including for the upwind sheltering probe, because a cell cannot be
+sheltered from a wind it is not standing in. On a windy day the wind at a 1600 m crest is
+*twice* what it is over the valley floor below it, and on a calmer one it can veer 60° on
+the way up; giving the whole scene the valley's wind threw all of that away.
+
+The port is deliberately `(alt) => wind`, **not** `(lon, lat, alt)`. The forecast is
+bucketed to ~0.1° — about 8 km — so a horizontal wind field would be piecewise constant
+with 8 km steps, and **convergence takes the divergence of the wind**, where a step is a
+singularity: it would paint convergence lines along the forecast's own grid. So
+convergence and wave still take a single uniform wind — the wave's linear resonance
+*assumes* a uniform basic state, and a varying wind would stop it being a resonance.
+
+## Colour language (`soaring-core/liftviz`)
 
 A single ramp shared by every component so lift reads the same everywhere:
 `LIFT_COLORS` (5 warm steps, green → red = stronger lift) and `SINK_COLORS` (3 cool
 steps, light → deep blue = stronger sink). Thermal uses all 5 warm + 3 cool; slope and
 convergence use a 3-warm / 3-cool subset. A **legend** of this ramp is shown in the lift
-panel (below the mixer), with an approximate Vz anchor for the thermal component
-(green ≈ 0.5, yellow ≈ 0.9, red ≥ 1.4 m/s at the nominal scale).
+panel (below the mixer). For the thermal component the anchors are **anomalies**, not
+absolute climb rates: green ≈ +5%, orange ≈ +15%, red ≥ +25% against the flat ground in
+view.
 
 ## Day-structure panel (`daystruct.ts`)
 
