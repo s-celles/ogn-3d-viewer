@@ -9,7 +9,8 @@
 import { S } from './state';
 import { SimpleMeshLayer, IconLayer, COORDINATE_SYSTEM } from './deck';
 import { terrainElevAt } from './terrain';
-import { sunLightDir, sceneMs } from './sky';
+import { sceneMs } from './sky';
+import { sunLightDir } from './core/sky';
 import { getWeather, weatherRad, weatherConvTop, weatherCloudbase, weatherWind, wxEpoch } from './weather';
 import { cloudSprite } from './airmass';
 import { getLC, sampleGrid, lcVersion } from './landcover';

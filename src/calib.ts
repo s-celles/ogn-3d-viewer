@@ -8,7 +8,7 @@
 import { S } from './state';
 import { getThermals } from './airmass';
 import { terrainElevAt } from './terrain';
-import { sunLightDir } from './sky';
+import { sunLightDir } from './core/sky';
 import { getWeather, weatherRad, weatherConvTop } from './weather';
 import { M_PER_LAT, mPerLng } from './core/geo';
 
