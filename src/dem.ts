@@ -3,10 +3,10 @@
 // (AWS CDN, no API rate limit), decoded in pure JS with UPNG. Tiles are cached, so a
 // cluster of nearby sample points costs one fetch. Used by the wave scan to measure a
 // site's relief without hammering a metered elevation API.
-// The tile maths and the Terrarium codec live in core/geo.ts; this only fetches.
+// The tile maths and the Terrarium codec live in soaring-core/geo; this only fetches.
 import UPNG from 'upng-js';
 import { TERRAIN } from './config';
-import { lonLatToTile, elevAtFromTiles, type ElevTile } from './core/geo';
+import { lonLatToTile, elevAtFromTiles, type ElevTile } from 'soaring-core/geo';
 
 const Z = 11;                       // zoom (~20 km tile, ~76 m pixel) — fine enough for relief
 type Tile = ElevTile | null;

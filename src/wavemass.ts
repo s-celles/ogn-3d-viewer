@@ -1,5 +1,5 @@
 // ============ drawing the wave the gliders found ============
-// The detection lives in core/wavemass.ts: a wave climb is straight, sustained, and high
+// The detection lives in soaring-core/wavemass: a wave climb is straight, sustained, and high
 // above the ground — the mirror image of a thermal, and what the thermal detector throws
 // away. This file is the viewer's half: probes in, violet wave bars out.
 import { S } from './state';
@@ -7,9 +7,9 @@ import { SimpleMeshLayer, COORDINATE_SYSTEM } from './deck';
 import { posAt } from './flight-math';
 import { terrainElevAt } from './terrain';
 import type { RenderTrack } from './types';
-import { M_PER_LAT, mPerLng } from './core/geo';
-import { detectWave, type WaveClimb } from './core/wavemass';
-import type { Probe } from './core/ports';
+import { M_PER_LAT, mPerLng } from 'soaring-core/geo';
+import { detectWave, type WaveClimb } from 'soaring-core/wavemass';
+import type { Probe } from 'soaring-core/ports';
 
 export type { WaveClimb };
 

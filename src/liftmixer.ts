@@ -7,8 +7,8 @@
 import { S } from './state';
 import { t } from './i18n';
 import { LIFT_COMPS } from './lift';
-import { simplexVerts, weightsFromPoint, pointFromWeights, clampToSimplex } from './core/lift/mix';
-import { LIFT_COLORS, SINK_COLORS } from './core/liftviz';
+import { simplexVerts, weightsFromPoint, pointFromWeights, clampToSimplex } from 'soaring-core/lift/mix';
+import { LIFT_COLORS, SINK_COLORS } from 'soaring-core/liftviz';
 
 const NS = 'http://www.w3.org/2000/svg';
 const rgb = (c: [number, number, number]): string => `rgb(${c[0]},${c[1]},${c[2]})`;

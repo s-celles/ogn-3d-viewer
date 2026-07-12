@@ -7,17 +7,17 @@ import { S } from '../state';
 import { SimpleMeshLayer, IconLayer, COORDINATE_SYSTEM } from '../deck';
 import { terrainElevAt } from '../terrain';
 import { sceneMs } from '../sky';
-import { sunLightDir } from '../core/sky';
+import { sunLightDir } from 'soaring-core/sky';
 import { getWeather, weatherRad, weatherConvTop, weatherCloudbase, weatherWind, wxEpoch } from '../weather';
 import { cloudSprite } from '../airmass';
 import { getLC, sampleGrid, lcVersion } from '../landcover';
 import { liftCalibration } from '../calib';
-import { THERMAL_COLORS, thermalBin } from '../core/liftviz';
+import { THERMAL_COLORS, thermalBin } from 'soaring-core/liftviz';
 import {
   thermalField, cumulusSpots, snowLineM, diurnalStore, SUN_MIN,
   type ThermalField, type LandCover, type Streets,
-} from '../core/lift/thermal';
-import { M_PER_LAT, mPerLng, metresPerPixel } from '../core/geo';
+} from 'soaring-core/lift/thermal';
+import { M_PER_LAT, mPerLng, metresPerPixel } from 'soaring-core/geo';
 
 const GN = 80;           // grid nodes per side (map resolution)
 const OFF = 26;          // drape offset (m) — float above the fine terrain, no sinking/holes

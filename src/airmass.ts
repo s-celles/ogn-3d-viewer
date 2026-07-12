@@ -1,5 +1,5 @@
 // ============ drawing the air mass the gliders found ============
-// The detection lives in core/airmass.ts: a glider circling while it gains height IS a
+// The detection lives in soaring-core/airmass: a glider circling while it gains height IS a
 // thermal marker. This file is the viewer's half — it turns the loaded tracks into probes,
 // memoises the day's thermals, and draws them as drifting columns with cumulus on top, so
 // the invisible lift becomes geometry independent of the individual trails.
@@ -8,9 +8,9 @@ import { SimpleMeshLayer, IconLayer, COORDINATE_SYSTEM } from './deck';
 import { posAt } from './flight-math';
 import { getWeather, weatherCloudbase, weatherWind } from './weather';
 import type { RenderTrack, Pos3 } from './types';
-import { M_PER_LAT, mPerLng } from './core/geo';
-import { detectThermals, MIN_STRENGTH, type Thermal } from './core/airmass';
-import type { Probe } from './core/ports';
+import { M_PER_LAT, mPerLng } from 'soaring-core/geo';
+import { detectThermals, MIN_STRENGTH, type Thermal } from 'soaring-core/airmass';
+import type { Probe } from 'soaring-core/ports';
 
 export type { Thermal };
 

@@ -1,5 +1,5 @@
 // ============ the app's view of a flight ============
-// The maths lives in core/flight.ts: where the glider was, how fast it climbed, how it was
+// The maths lives in soaring-core/flight: where the glider was, how fast it climbed, how it was
 // banked, what the flight added up to. What is left here is everything that needs the app —
 // which track is the subject, which ones are shown, what the clock reads — plus the glider
 // glyphs, which are geometry for a renderer.
@@ -7,13 +7,13 @@ import { S } from './state';
 import { GLIDER, ARROW, LIVE, clampv } from './config';
 import { isPowered } from './aircraft-mesh';
 import type { RenderTrack, Pos3, RelPoint, TrackPoint } from './types';
-import { M_PER_LAT, mPerLng } from './core/geo';
+import { M_PER_LAT, mPerLng } from 'soaring-core/geo';
 import {
   buildRel as buildRelCore, posAt as posAtCore, airborne as airborneCore, slice as sliceCore,
   headingAt as headingAtCore, varioAt as varioAtCore, groundSpeedAt as groundSpeedAtCore,
   compVarioAt as compVarioAtCore, flightStats, attitudeAt as attitudeAtCore,
   brg, type Attitude, type TrackStats, type Dynamics,
-} from './core/flight';
+} from 'soaring-core/flight';
 
 export { brg };
 export type { Attitude, TrackStats };

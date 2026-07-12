@@ -11,7 +11,7 @@ import { terrainElevAt } from './terrain';
 import { windBg, windAtAlt } from './wind-source';
 import { windArrow, windSpd, windDir } from './dom';
 import type { Pos3 } from './types';
-import { M_PER_LAT, mPerLng, metresPerPixel } from './core/geo';
+import { M_PER_LAT, mPerLng, metresPerPixel } from 'soaring-core/geo';
 
 const GN = 56;           // wind-grid nodes per side (finer → smoother contours)
 const N = 1100;          // particle count

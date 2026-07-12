@@ -1,9 +1,9 @@
 // ============ shared app types ============
-// The domain types (track samples, imported files) live in core/ — the app-free,
+// The domain types (track samples, imported files) live in the soaring-core package — the
 // render-free soaring kernel — and are re-exported here so app modules keep a
 // single import site. Everything below is app/rendering state.
-export type { TrackPoint, ImportedTrack, ImportedFile, RelPoint, Pos3 } from './core/types';
-import type { TrackPoint, RelPoint, Pos3 } from './core/types';
+export type { TrackPoint, ImportedTrack, ImportedFile, RelPoint, Pos3 } from 'soaring-core/types';
+import type { TrackPoint, RelPoint, Pos3 } from 'soaring-core/types';
 
 export type RGB = [number, number, number];
 
@@ -232,7 +232,7 @@ export interface AppState {
   // any loaded flights.
   wxSim: { on: boolean; wind: number; dir: number; shear: number; nStab: number; tsurf: number; rh: number; date: string; hour: number };
   // Active glider polar (for the netto vario); imported from an XCSoar/LK8000 .plr.
-  polar: import('./core/polar').Polar;
+  polar: import('soaring-core/polar').Polar;
   // Netto vario readout in the HUD: 'off' (default), 'netto' (air-mass Vz), or 'super'
   // (also the super/relative netto — the climb achievable by circling in this air).
   nettoMode: 'off' | 'netto' | 'super';

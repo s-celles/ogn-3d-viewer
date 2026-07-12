@@ -11,9 +11,9 @@ import { drawGraphs } from './graphs';
 import { drawTraffic } from './traffic';
 import { varioAudio } from './vario-audio';
 import { updateSky, getSun, getMoon, sceneMs } from './sky';
-import { nightPolygon } from './core/sky';
+import { nightPolygon } from 'soaring-core/sky';
 import { subjectTrack, shown, scaled, posAt, presence, airborne, isActive, headingAt, varioAt, compVarioAt, groundSpeedAt, clampCur, attitudeAt, nearestToCenter, displayReg } from './flight-math';
-import { nettoAt, minSink } from './core/polar';
+import { nettoAt, minSink } from 'soaring-core/polar';
 import { GLIDER_MESH, PLANE_MESH, PROP_MESH, GLIDER_FLAT, PLANE_FLAT, isPowered } from './aircraft-mesh';
 import { getPeaks, getWaypoints, loadPeaks, type Poi } from './poi';
 import { updateMinimap } from './minimap';
@@ -32,7 +32,7 @@ import { poiLabelsDiv } from './dom';
 import { CHASE, FAR_PLANE } from './config';
 import { saveSettings } from './settings';
 import type { RGB, Pos3, RenderTrack } from './types';
-import { M_PER_LAT, mPerLng, metresPerPixel } from './core/geo';
+import { M_PER_LAT, mPerLng, metresPerPixel } from 'soaring-core/geo';
 
 // First-person/chase far plane — the dev-mode override when active, else the
 // device-tiered default.

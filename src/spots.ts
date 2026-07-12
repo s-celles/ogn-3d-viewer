@@ -18,7 +18,7 @@ import { scanWaveSites, ensureRelief, isWaveSite, siteRelief, siteTerrain, type 
 import { nearbyAerodromes } from './poi';
 import spotsCsv from '../data/spots/spots.csv' with { type: 'text' };
 import type { Lang } from './types';
-import { MERC } from './core/geo';
+import { MERC } from 'soaring-core/geo';
 
 interface Spot { code: string; name: string; country: string; continent: string; lat: number; lon: number; checked: string; blurb: string; user?: boolean; }
 

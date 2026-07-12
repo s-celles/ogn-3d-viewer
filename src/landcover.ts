@@ -5,7 +5,7 @@
 // fraction per class. Ways + relation multipolygons (outer rings; inner holes ignored).
 // Rough and illustrative — see the docs.
 import { overpass, overpassDown } from './overpass';
-import { M_PER_LAT, mPerLng } from './core/geo';
+import { M_PER_LAT, mPerLng } from 'soaring-core/geo';
 
 // alb = albedo, sens = sensible-heat fraction, iner = thermal inertia/admittance (0..1:
 // high = stores heat then releases it late, e.g. rock/urban; low = heats & cools fast,

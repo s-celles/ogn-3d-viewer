@@ -9,13 +9,13 @@ import { SimpleMeshLayer, COORDINATE_SYSTEM } from '../deck';
 import { terrainElevAt } from '../terrain';
 import { windBg } from '../wind-source';
 import { sceneMs } from '../sky';
-import { sunLightDir } from '../core/sky';
+import { sunLightDir } from 'soaring-core/sky';
 import { getLC, sampleGrid, lcVersion } from '../landcover';
 import { wxEpoch } from '../weather';
-import { BIN_COLORS, strataBin } from '../core/liftviz';
-import { insolation } from '../core/lift/ridge';
-import { convergField, convergActive, nodeStep, CONV_FRAC, type ConvCell } from '../core/lift/converg';
-import { M_PER_LAT, mPerLng, metresPerPixel } from '../core/geo';
+import { BIN_COLORS, strataBin } from 'soaring-core/liftviz';
+import { insolation } from 'soaring-core/lift/ridge';
+import { convergField, convergActive, nodeStep, CONV_FRAC, type ConvCell } from 'soaring-core/lift/converg';
+import { M_PER_LAT, mPerLng, metresPerPixel } from 'soaring-core/geo';
 
 const NG = 64;           // grid nodes per side
 const OFF = 12;          // patch lift off the surface (m) — avoid z-fighting

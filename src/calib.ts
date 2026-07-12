@@ -5,9 +5,9 @@
 import { S } from './state';
 import { getThermals } from './airmass';
 import { terrainElevAt } from './terrain';
-import { sunLightDir } from './core/sky';
+import { sunLightDir } from 'soaring-core/sky';
 import { getWeather, weatherRad, weatherConvTop } from './weather';
-import { predictVzAt, calibrationFactor, type Radiation } from './core/lift/calib';
+import { predictVzAt, calibrationFactor, type Radiation } from 'soaring-core/lift/calib';
 
 /** The radiation the point prediction needs, at an hour of the loaded day. */
 function radiationAt(lon: number, lat: number, hour: number, sunUp: number): Radiation {

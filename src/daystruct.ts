@@ -4,7 +4,7 @@
 // ceiling), the cloudbase (LCL) and the ceiling — plus a one-line summary (convective
 // depth, cumulus vs blue). Helps read WHY the thermal field looks the way it does.
 // The atmosphere it draws (sounding interpolation, parcel adiabat, the day's summary)
-// is domain code from core/weather.ts; this module only turns it into an SVG.
+// is domain code from soaring-core/weather; this module only turns it into an SVG.
 import { S } from './state';
 import { t } from './i18n';
 import { getWeather, weatherSounding, envT, parcelT, daySummary } from './weather';

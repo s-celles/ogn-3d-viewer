@@ -10,7 +10,7 @@ import { PathLayer } from './deck';
 import { terrainElevAt } from './terrain';
 import { windBg } from './wind-source';
 import { wxEpoch } from './weather';
-import { M_PER_LAT, mPerLng, metresPerPixel } from './core/geo';
+import { M_PER_LAT, mPerLng, metresPerPixel } from 'soaring-core/geo';
 
 const NG = 56;           // grid nodes per side
 const COL_OFF = 45;      // m: lift the marker off the col

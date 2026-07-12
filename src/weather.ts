@@ -2,19 +2,19 @@
 // The app half of the weather: WHERE the day's atmosphere comes from — the network,
 // a lazy per-location cache, or the sandbox knobs in S. The atmosphere ITSELF (wind
 // profile, sounding, cloudbase, ceiling, stability) is domain code and lives in
-// core/weather.ts, which knows nothing of fetch or of S — so an offline flight
+// soaring-core/weather, which knows nothing of fetch or of S — so an offline flight
 // computer can feed it from a pre-flight data pack instead.
 // Any failure here simply leaves the caller on its track-derived estimates.
 // Recent dates use the forecast endpoint (ERA5 archive lags ~5 days), older ones the
 // archive endpoint.
 import { S } from './state';
-import { LEVELS, parseOpenMeteo, syntheticWx, type Wx } from './core/weather';
+import { LEVELS, parseOpenMeteo, syntheticWx, type Wx } from 'soaring-core/weather';
 
 // Re-exported so app modules keep one import site for the weather.
 export {
   weatherCloudbase, weatherRad, weatherConvTop, weatherSounding, weatherStability, weatherWind,
   envT, parcelT, daySummary, type Wx, type Sounding,
-} from './core/weather';
+} from 'soaring-core/weather';
 
 const daysAgo = (date: string): number => (Date.parse(new Date().toISOString().slice(0, 10)) - Date.parse(date)) / 86400000;
 
@@ -61,7 +61,7 @@ export function getWeather(lat: number, lon: number, date: string): Wx | null {
 }
 
 // ---- weather sandbox ----
-// The synthetic atmosphere itself is core/weather.ts's syntheticWx; here we only bind
+// The synthetic atmosphere itself is soaring-core/weather's syntheticWx; here we only bind
 // it to the UI knobs in S and memoise it. The sun still follows the real date, so
 // thermals keep their diurnal geometry.
 let simKey = '', simCache: Wx | null = null, epoch = 0;

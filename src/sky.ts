@@ -1,11 +1,11 @@
 // ============ the app's sky: sun/moon lights, CSS gradient, scene clock ============
-// The astronomy lives in core/sky.ts. This is what the viewer does with it: the deck
+// The astronomy lives in soaring-core/sky. This is what the viewer does with it: the deck
 // lighting, the moon disc, the #map gradient, and the clock that says WHICH instant the
 // scene is showing (replay time, or the weather sandbox's date/hour).
 import { S } from './state';
 import {
   solar, sunLightDir, skyColors, moonRaDec, horizonCoords, moonIllumination, days, mix, RAD, type RGB,
-} from './core/sky';
+} from 'soaring-core/sky';
 
 const clamp = (x: number, a: number, b: number) => Math.max(a, Math.min(b, x));
 

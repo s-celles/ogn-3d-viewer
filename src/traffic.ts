@@ -11,7 +11,7 @@ import { subjectTrack, posAt, presence, headingAt } from './flight-math';
 import { TRAFFIC } from './config';
 import { LED_STEP, LED_OFFSET, litLeds } from './traffic-led';
 import { t } from './i18n';
-import { M_PER_LAT, mPerLng } from './core/geo';
+import { M_PER_LAT, mPerLng } from 'soaring-core/geo';
 
 interface Tgt { dist: number; dAlt: number; rel: number; lvl: number; }
 const ALERT = '#ff4d4d', WARN = '#ffb02e', OTHER = '#cfe0ee', DIM = 'rgba(190,205,225,0.38)';

@@ -10,10 +10,10 @@ import { terrainElevAt } from '../terrain';
 import { wxEpoch } from '../weather';
 import { windBg, windProfile } from '../wind-source';
 import { sceneMs } from '../sky';
-import { sunLightDir } from '../core/sky';
-import { BIN_COLORS, liftBin } from '../core/liftviz';
-import { ridgeField, ridgeActive, type LiftCell } from '../core/lift/ridge';
-import { M_PER_LAT, mPerLng, metresPerPixel } from '../core/geo';
+import { sunLightDir } from 'soaring-core/sky';
+import { BIN_COLORS, liftBin } from 'soaring-core/liftviz';
+import { ridgeField, ridgeActive, type LiftCell } from 'soaring-core/lift/ridge';
+import { M_PER_LAT, mPerLng, metresPerPixel } from 'soaring-core/geo';
 
 const OFF = 10;          // patch lift off the surface, to avoid z-fighting (m)
 const MIN_CELLS = 20;    // below this the terrain has not streamed in here yet — don't cache

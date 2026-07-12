@@ -9,12 +9,12 @@ import { TERRAIN, BASEMAPS, TERRAIN_N, DECK_CACHE, ELEV_CACHE, DEM_MAXZOOM, ramC
   IGN_DEM_WMS, IGN_DEM_PX, IGN_DEM_MINZOOM, IGN_DEM_MAXZOOM, IGN_COVER, IGN_ORTHO } from './config';
 import { TileLayer, SimpleMeshLayer, PathLayer, TextLayer, COORDINATE_SYSTEM } from './deck';
 import { tileBBox, tile3857, sampleTerrarium, sampleTerrainBilinear, encodeTerrarium, elevAtFromTiles,
-  M_PER_LAT, mPerLng, type ElevTile } from './core/geo';
+  M_PER_LAT, mPerLng, type ElevTile } from 'soaring-core/geo';
 import type { DecodedTile } from './types';
 
 // The tile pyramid, the Terrarium codec and the elevation sampler are domain code
-// (core/geo.ts) — storage-agnostic, so the same maths serves a data pack offline.
-export { tileBBox } from './core/geo';
+// (soaring-core/geo) — storage-agnostic, so the same maths serves a data pack offline.
+export { tileBBox } from 'soaring-core/geo';
 
 /** Build a textured, lit mesh (positions/normals/texCoords) from a decoded tile.
  * (su0, sv0, sf) select the sub-window of the DEM this mesh covers: su0/sv0 are

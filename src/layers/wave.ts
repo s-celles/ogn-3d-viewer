@@ -12,9 +12,9 @@ import { terrainElevAt } from '../terrain';
 import { windBg } from '../wind-source';
 import { cloudSprite } from '../airmass';
 import { getWeather, weatherStability, wxEpoch } from '../weather';
-import { SHEET_COLORS, sheetBand } from '../core/liftviz';
-import { waveField, waveResonance, rotorSpots, type WaveField, type RotorSpot } from '../core/lift/wave';
-import { M_PER_LAT, mPerLng, metresPerPixel, rad } from '../core/geo';
+import { SHEET_COLORS, sheetBand } from 'soaring-core/liftviz';
+import { waveField, waveResonance, rotorSpots, type WaveField, type RotorSpot } from 'soaring-core/lift/wave';
+import { M_PER_LAT, mPerLng, metresPerPixel, rad } from 'soaring-core/geo';
 
 const RMIN = 7000, RMAX = 32000;   // m: wave-domain half-width bounds
 const NODE_M = 640;      // m: target node spacing (drives the lattice size from the domain)

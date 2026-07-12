@@ -2,15 +2,15 @@
 import UPNG from 'upng-js';
 import { S } from './state';
 import { API_BASE, PALETTE, TERRAIN, GAP_MIN, GAP_FACTOR, MINZ, MAXZ, clampv, OVERVIEW_MINZOOM } from './config';
-import { parseTz, parseIGC, pool } from './core/igc';
-import { parseTrackFile, TRACK_EXT } from './core/track-import';
+import { parseTz, parseIGC, pool } from 'soaring-core/igc';
+import { parseTrackFile, TRACK_EXT } from 'soaring-core/track-import';
 import { t } from './i18n';
 import { statusEl, loadBtn, subjEl, viewsEl, playBtn, icaoEl } from './dom';
 import { render } from './render';
 import { buildLegend, syncUI, applyFollowClass, setCollapsed } from './ui';
 import { buildRel, displayReg } from './flight-math';
 import type { FBLogbook, FBDevice, FetchResult, FBAirfield, Track, TrackPoint, RGB, ViewStateLike } from './types';
-import { M_PER_LAT } from './core/geo';
+import { M_PER_LAT } from 'soaring-core/geo';
 
 interface Task { dev: FBDevice; t0: number; t1: number; maxalt: number; stop: number; }
 

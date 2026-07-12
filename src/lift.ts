@@ -3,7 +3,7 @@
 // binding that reads the user's blend out of S — the kernel takes the arrays as arguments,
 // because a flight computer has no S.
 import { S } from './state';
-import { LIFT_COMPS, liftWeight as weightOf, type LiftComp } from './core/lift/mix';
+import { LIFT_COMPS, liftWeight as weightOf, type LiftComp } from 'soaring-core/lift/mix';
 
 export { LIFT_COMPS, type LiftComp };
 

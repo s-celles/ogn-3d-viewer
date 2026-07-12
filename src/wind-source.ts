@@ -2,13 +2,13 @@
 // The kernel's lift fields take the wind as a plain vector; this is the app-side
 // adapter that produces it — the weather forecast at the view centre when we have one,
 // the airfield's profile otherwise, and as a last resort the mean drift of the observed
-// thermals. It reads app state and the weather cache, so it stays out of src/core.
+// thermals. It reads app state and the weather cache, so it stays out of the kernel.
 import { S } from './state';
 import { terrainElevAt } from './terrain';
 import { getWeather, weatherWind } from './weather';
 import { getThermals } from './airmass';
-import type { WindProfile } from './core/ports';
-import { M_PER_LAT, mPerLng } from './core/geo';
+import type { WindProfile } from 'soaring-core/ports';
+import { M_PER_LAT, mPerLng } from 'soaring-core/geo';
 
 // Mean thermal drift (m/s) — the last-resort wind when there is no weather.
 function driftWind(): [number, number] | null {

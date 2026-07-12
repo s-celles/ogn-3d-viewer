@@ -9,7 +9,7 @@ import { SimpleMeshLayer, PolygonLayer, COORDINATE_SYSTEM } from './deck';
 import { terrainElevAt } from './terrain';
 import { getLC, isUrbanClass, lcVersion } from './landcover';
 import type { RGB } from './types';
-import { M_PER_LAT, mPerLng, metresPerPixel } from './core/geo';
+import { M_PER_LAT, mPerLng, metresPerPixel } from 'soaring-core/geo';
 
 const MINZOOM = 12.5;    // procedural boxes only read well fairly close in
 const SP = 26;           // m: grid spacing between buildings inside an urban area
