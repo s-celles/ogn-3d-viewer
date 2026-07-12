@@ -22,7 +22,7 @@ import { ridgeLayers } from './layers/ridge';
 import { windAtAlt } from './wind-source';
 import { colLayers } from './cols';
 import { buildingLayers } from './buildings';
-import { convergLayers } from './converg';
+import { convergLayers } from './layers/converg';
 import { waveLayers } from './wave';
 import { liftWeight } from './lift';
 import { windLayers } from './wind';

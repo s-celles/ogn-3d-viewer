@@ -17,6 +17,65 @@ export interface TerrainCell { lon: number; lat: number; elev: number; gx: numbe
  *  a different fact from "the ground here is flat" — callers cache on one, not the other. */
 export interface DiscSample { cells: TerrainCell[]; sampled: number }
 
+/** An n×n lattice of nodes spanning 2R metres around (cLon, cLat). Unlike the disc, the
+ *  nodes are *indexed*: a field that needs neighbours — a divergence, a curvature, a blur
+ *  — can only be computed on a lattice. */
+export interface NodeGrid { cLon: number; cLat: number; R: number; n: number }
+
+/** The ground on a lattice, as parallel arrays indexed j * n + i (i east, j north).
+ *  `ok` marks the nodes whose stencil was fully known; `ready` counts them. */
+export interface TerrainNodes {
+  n: number; sp: number;
+  lon: Float64Array; lat: Float64Array;          // node coordinates, by i and by j
+  h: Float32Array; gx: Float32Array; gy: Float32Array;
+  ok: Uint8Array; ready: number;
+}
+
+/** Node spacing (m) of a lattice. */
+export const nodeStep = (g: NodeGrid): number => 2 * g.R / (g.n - 1);
+
+/** Sample the ground on the lattice. `baseline` is the half-width of the gradient stencil
+ *  in metres — deliberately independent of the node spacing, so the gradient stays a
+ *  property of the terrain rather than of the grid resolution. */
+export function sampleNodes(g: NodeGrid, elev: ElevSampler, baseline: number): TerrainNodes {
+  const { cLon, cLat, R, n } = g;
+  const sp = nodeStep(g), mLng = mPerLng(cLat), mLat = M_PER_LAT;
+  const lon = new Float64Array(n), lat = new Float64Array(n);
+  for (let i = 0; i < n; i++) { lon[i] = cLon + (-R + i * sp) / mLng; lat[i] = cLat + (-R + i * sp) / mLat; }
+
+  const h = new Float32Array(n * n), gx = new Float32Array(n * n), gy = new Float32Array(n * n);
+  const ok = new Uint8Array(n * n);
+  let ready = 0;
+  for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {
+    const lo = lon[i], la = lat[j], idx = j * n + i;
+    const hC = elev(lo, la);
+    const hE = elev(lo + baseline / mLng, la), hW = elev(lo - baseline / mLng, la);
+    const hN = elev(lo, la + baseline / mLat), hS = elev(lo, la - baseline / mLat);
+    if (hC == null || hE == null || hW == null || hN == null || hS == null) continue;
+    h[idx] = hC;
+    gx[idx] = (hE - hW) / (2 * baseline);
+    gy[idx] = (hN - hS) / (2 * baseline);
+    ok[idx] = 1; ready++;
+  }
+  return { n, sp, lon, lat, h, gx, gy, ok, ready };
+}
+
+/** Separable box blur (radius r) of an n×n field — edges shrink the window, they do not wrap. */
+export function boxBlur(src: Float32Array, n: number, r: number): Float32Array {
+  const tmp = new Float32Array(n * n), out = new Float32Array(n * n);
+  for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {
+    let s = 0, c = 0;
+    for (let d = -r; d <= r; d++) { const ii = i + d; if (ii < 0 || ii >= n) continue; s += src[j * n + ii]; c++; }
+    tmp[j * n + i] = s / c;
+  }
+  for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {
+    let s = 0, c = 0;
+    for (let d = -r; d <= r; d++) { const jj = j + d; if (jj < 0 || jj >= n) continue; s += tmp[jj * n + i]; c++; }
+    out[j * n + i] = s / c;
+  }
+  return out;
+}
+
 /** Sample the ground over the disc, taking the gradient from a 5-point stencil of
  *  width `step`. A cell whose stencil is not fully known is dropped, never guessed. */
 export function sampleDisc(g: FieldGrid, elev: ElevSampler): DiscSample {

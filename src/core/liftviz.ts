@@ -17,8 +17,14 @@ export const BIN_COLORS: [number, number, number, number][] = [
   LIFT_COLORS[0], LIFT_COLORS[2], LIFT_COLORS[4], ...SINK_COLORS,
 ];
 
-/** Bin index (0..2 lift, 3..5 sink) of a vertical velocity (m/s), by |w|: <1, <2, ≥2. */
-export function liftBin(w: number): number {
-  const aw = Math.abs(w), lvl = aw >= 2 ? 2 : aw >= 1 ? 1 : 0;
-  return w > 0 ? lvl : 3 + lvl;
+/** Bin index (0..2 rising, 3..5 sinking) of a signed field value, by |v| against two
+ *  ascending thresholds. The thresholds are the field's own — vertical velocities are
+ *  binned in m/s, a normalised convergence in its own dimensionless units — but the six
+ *  strata, and their colours, are shared. */
+export function strataBin(v: number, t: readonly [number, number]): number {
+  const av = Math.abs(v), lvl = av >= t[1] ? 2 : av >= t[0] ? 1 : 0;
+  return v > 0 ? lvl : 3 + lvl;
 }
+
+/** Bin index of a vertical velocity (m/s), by |w|: <1, <2, ≥2. */
+export const liftBin = (w: number): number => strataBin(w, [1, 2]);
