@@ -51,10 +51,6 @@ typecheck:
 # Everything CI runs before deploying: type-check, test, build
 check: typecheck test build
 
-# Refresh the flightbook_checked column in data/spots.csv (queries OGN FlightBook)
-check-spots:
-    bun run scripts/check-spots.ts
-
 # Remove build output
 clean:
     rm -rf dist
