@@ -12,7 +12,7 @@
         "@deck.gl/mesh-layers": "9.1.0",
         "marked": "^18.0.5",
         "qrcode-generator": "^2.0.4",
-        "soaring-core": "github:s-celles/soaring-core#v0.4.0",
+        "soaring-core": "github:s-celles/soaring-core#v0.4.1",
         "upng-js": "^2.1.0",
       },
       "devDependencies": {
@@ -274,7 +274,7 @@
 
     "snappyjs": ["snappyjs@0.6.1", "", {}, "sha512-YIK6I2lsH072UE0aOFxxY1dPDCS43I5ktqHpeAsuLNYWkE5pGxRGWfDM4/vSUfNzXjC1Ivzt3qx31PCLmc9yqg=="],
 
-    "soaring-core": ["soaring-core@github:s-celles/soaring-core#6e28517", {}, "s-celles-soaring-core-6e28517", "sha512-0kYJ1SltD9M5tsr9gP8mH3PVhU25F5L8qRKqEsz1Rje+YYpwIWhZDt1MxCACYMMVo4ZFpODPFeIqus0Jc6zepQ=="],
+    "soaring-core": ["soaring-core@github:s-celles/soaring-core#49d2420", {}, "s-celles-soaring-core-49d2420", "sha512-UfJ57MO8b5Zf3IQAzOi3FHVSvbUVwG70UZoA/FExlcNUb75T/9UeYtv9u8sM+OlpD2nhkOFzzZ0EXafbShHONw=="],
 
     "sprintf-js": ["sprintf-js@1.0.3", "", {}, "sha512-D9cPgkvLlV3t3IzL0D0YLvGA9Ahk4PcvVwUbN0dSGr1aP0Nrt4AEnTUbuGvquEC0mA64Gqt1fzirlRs5ibXx8g=="],
 
