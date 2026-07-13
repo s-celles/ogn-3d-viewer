@@ -88,43 +88,48 @@ try { waypoints = JSON.parse(localStorage.getItem(WKEY) || '[]'); } catch { /* i
 export function getWaypoints(): Poi[] { return waypoints; }
 export function clearWaypoints(): void { waypoints = []; try { localStorage.removeItem(WKEY); } catch { /* ignore */ } }
 
-// SeeYou CUP latitude "DDMM.mmmN/S", longitude "DDDMM.mmmE/W".
-function cupCoord(raw: string): number {
-  const m = raw.trim().match(/^(\d{2,3})(\d{2}\.\d+)([NSEW])$/i); if (!m) return NaN;
-  let v = parseInt(m[1], 10) + parseFloat(m[2]) / 60;
-  const h = m[3].toUpperCase(); if (h === 'S' || h === 'W') v = -v;
-  return v;
-}
-function cupElev(raw: string): number {
-  const m = raw.trim().replace(/^"|"$/g, '').match(/^([\d.]+)\s*(m|ft)?$/i); if (!m) return 0;
-  const v = parseFloat(m[1]); return /ft/i.test(m[2] || '') ? v * 0.3048 : v;
-}
-// SeeYou `style` column → coarse marker category. 2/4/5 airfields (grass/gliding/
-// solid), 3 outlanding field, 6/7 pass/summit, 8/11/15 mast/tower/plant (obstacles);
-// everything else (1 waypoint, 9/10 VOR/NDB, 16 castle, 17-21 turnpoints…) is a landmark.
-function cupCat(raw: string): PoiCat {
-  switch (parseInt(raw.trim(), 10)) {
-    case 2: case 4: case 5: return 'airfield';
-    case 3: return 'outland';
-    case 6: case 7: return 'summit';
-    case 8: case 11: case 15: return 'obstacle';
+// ---- waypoint files: the PARSING is the kernel's, the display is ours ----------
+// The .cup reader that used to live here has moved to `soaring-core/poi` (v0.4.0), which also
+// speaks WinPilot .dat/.wpt and keeps the SeeYou `style` column at full granularity. It moved
+// because a sibling app needed exactly the same thing and was about to write a third copy —
+// C4bis, the same lesson the vario sound law taught.
+//
+// One real bug went with it, and it is worth naming rather than quietly deleting: the old
+// `cupElev` answered an unreadable elevation with **zero**. Here that only mis-draws a 3D
+// pole. In a FLIGHT COMPUTER, that same zero is a final glide computed to a field 1650 m
+// lower than it really is. The kernel now answers `null`, and every caller has to decide what
+// to do with not-knowing — which is the point.
+//
+// What THIS app decides: a viewer draws places. So a waypoint whose elevation the file did not
+// give is still drawn, its pole planted at 0 m — a DISPLAY fallback, chosen here, in the open,
+// and safe precisely because nothing in this app computes a glide.
+
+import { parsePoiFile, type Poi as CorePoi, type PoiCat as CoreCat } from 'soaring-core/poi';
+
+// The kernel distinguishes grass / gliding / solid airfields; this map's glyphs do not, so we
+// fold them here — a DISPLAY decision, made in the display layer, over a distinction the
+// kernel preserved rather than destroyed.
+function coarse(c: CoreCat): PoiCat {
+  switch (c) {
+    case 'airfield-solid': case 'airfield-grass': case 'airfield-gliding': return 'airfield';
+    case 'outlanding': return 'outland';
+    case 'summit': case 'pass': return 'summit';
+    case 'obstacle': return 'obstacle';
     default: return 'landmark';
   }
 }
-/** Parse a SeeYou .cup file → append its waypoints. Returns how many were added. */
+
+/** Import a waypoint file (SeeYou .cup, WinPilot .dat/.wpt — sniffed) → append its places.
+ *  Returns how many were added. */
 export function importCup(text: string): number {
-  let added = 0;
-  for (const line of text.split(/\r?\n/)) {
-    const l = line.trim();
-    if (!l || /^name\s*,/i.test(l) || l.startsWith('-----')) continue;   // blank / header / task section
-    const cells: string[] = []; let cur = '', q = false;                 // CSV split honouring quotes
-    for (const ch of line) { if (ch === '"') q = !q; else if (ch === ',' && !q) { cells.push(cur); cur = ''; } else cur += ch; }
-    cells.push(cur);
-    if (cells.length < 6) continue;
-    const name = cells[0].replace(/^"|"$/g, '').trim();
-    const lat = cupCoord(cells[3]), lon = cupCoord(cells[4]), ele = cupElev(cells[5]);
-    if (name && Number.isFinite(lat) && Number.isFinite(lon)) { waypoints.push({ lon, lat, ele, name, kind: 'wp', cat: cupCat(cells[6] || '') }); added++; }
+  const { pois } = parsePoiFile(text);
+  for (const p of pois as CorePoi[]) {
+    waypoints.push({
+      lon: p.lon, lat: p.lat,
+      ele: p.elevM ?? 0,          // the display fallback — see the note above
+      name: p.name, kind: 'wp', cat: coarse(p.cat),
+    });
   }
-  if (added) { try { localStorage.setItem(WKEY, JSON.stringify(waypoints)); } catch { /* quota */ } }
-  return added;
+  if (pois.length) { try { localStorage.setItem(WKEY, JSON.stringify(waypoints)); } catch { /* quota */ } }
+  return pois.length;
 }
