@@ -3,7 +3,7 @@ import { S } from './state';
 import { dateEl, icaoEl, dayStruct } from './dom';
 import { initDeck, render } from './render';
 import { updateDayStruct } from './daystruct';
-import { applyI18n, applyFollowClass, syncUI, syncAcScale, syncControls, easeCamera, updateCompass, updateFbLink, setLive, applyDeepLinkCursor } from './ui';
+import { applyI18n, applyFollowClass, syncUI, syncAcScale, syncControls, easeCamera, updateCompass, updateFbLink, setLive, applyDeepLinkCursor, updateWaveNote } from './ui';
 import { loadFlights } from './data';
 import { initGraphs } from './graphs';
 import { initAnalytics } from './analytics';
@@ -67,6 +67,6 @@ function frame(now: number): void {
     syncUI();
   }
   if (S.mode === 'over') easeCamera();
-  updateCompass(); updateDayStruct(dayStruct); render(); devFrame(dt); requestAnimationFrame(frame);
+  updateCompass(); updateDayStruct(dayStruct); render(); updateWaveNote(); devFrame(dt); requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);

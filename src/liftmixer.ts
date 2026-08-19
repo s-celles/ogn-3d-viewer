@@ -184,6 +184,7 @@ function rebuild(): void {
   cbInputs = []; cbSpans = [];
   LIFT_COMPS.forEach((c, i) => {
     const lab = document.createElement('label'); lab.style.cssText = 'display:flex;align-items:center;gap:5px;cursor:pointer';
+    if (c.hintIk) lab.title = t(c.hintIk);   // REQ-W-07: e.g. the wave's rotor markers are a hazard cue, not a model result
     const cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = S.liftOn[i] !== false;
     cb.onchange = () => toggle(i, cb.checked);
     const sp = document.createElement('span'); sp.textContent = t(c.ik);

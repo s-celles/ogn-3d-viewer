@@ -23,6 +23,7 @@ import { loadFlights, refreshLive, statusMsg, setStatus, rebuild, syncUrl, loadT
 import { importCup, clearWaypoints, getWaypoints, getPeaks } from './poi';
 import { terrainElevAt } from './terrain';
 import { findSpot, searchSpots, closestSpot } from './spots';
+import { waveRegimeNote } from './layers/wave';
 import { TRACK_EXT } from 'soaring-core/track-import';
 import { parsePlr, DEFAULT_POLAR } from 'soaring-core/polar';
 import { varioAudio } from './vario-audio';
@@ -611,6 +612,21 @@ function syncWxSim(): void {
 buildWxSim();
 wxSimBtn.onclick = () => { S.wxSim.on = !S.wxSim.on; syncWxSim(); render(); };
 syncWxSim();
+
+// REQ-W-04: when the wave layer's regime cannot be classified (trapped vs. propagating), it
+// draws a single undressed sheet — and this badge says so, next to (not on top of) the
+// weather-sandbox one. Read after render() each frame, since that is what computes it.
+let waveBadge: HTMLElement | null = null;
+export function updateWaveNote(): void {
+  const uncertain = waveRegimeNote() === 'uncertain';
+  if (!waveBadge) {
+    waveBadge = document.createElement('div');
+    waveBadge.style.cssText = 'position:fixed;top:34px;left:50%;transform:translateX(-50%);z-index:50;background:rgba(150,142,138,.92);color:#111;font-size:12px;font-weight:600;padding:3px 11px;border-radius:6px;pointer-events:none';
+    document.body.appendChild(waveBadge);
+  }
+  waveBadge.textContent = t('waveUncertainNote');
+  waveBadge.style.display = uncertain ? 'block' : 'none';
+}
 // ---- wind-flow representation: off / 2D drape / 3D altitude layers ----
 ([['off', 'off'], ['drapeVec', 'windDrapeVec'], ['drapeCol', 'windDrapeCol'], ['drapeBoth', 'windDrapeBoth'], ['barbs', 'windBarbs'], ['isotachs', 'windIsotachs'], ['layers', 'windLayers'], ['rings', 'windRings'], ['hodograph', 'windHodograph']] as const)
   .forEach(([v, k]) => { const o = document.createElement('option'); o.value = v; o.dataset.k = k; windModeEl.appendChild(o); });

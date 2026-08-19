@@ -36,7 +36,7 @@ All of it runs 100 % client-side in the browser.
 | --- | --- | --- |
 | **Terrain DEM** (`terrain.ts`, `terrainElevAt`) | slope, aspect, curvature, cast shadows, convective depth | synchronous mesh sample; refines as tiles stream in |
 | **Sun geometry** (`sky.ts`, `sunLightDir`) | incidence on each facet, cast-shadow direction | ENU unit vector toward the sun |
-| **Open-Meteo** (`weather.ts`, keyless) | radiation, boundary-layer height, temperature sounding, wind profile, cloudbase | forecast API ≤ 5 days, ERA5 archive beyond; offline-first |
+| **Open-Meteo** (`weather.ts`, keyless) | radiation, boundary-layer height, temperature sounding (925→300 hPa), wind profile, cloudbase | live forecast API ≤ 5 days, `historical-forecast-api` beyond (**not** the ERA5 archive — that endpoint serves no pressure levels at all); offline-first |
 | **OSM land-cover** (`landcover.ts`, Overpass) | per-cell albedo & Bowen ratio | offline-first; uniform fallback when Overpass is down |
 | **OGN tracks** | the reconstructed air mass (circling detection) | the only *observed* input |
 
@@ -71,6 +71,16 @@ this one keeps sustained climbs with a **low turn rate** (`< 3.2°/s`), net head
 becomes a vertical **violet ribbon** (a wave bar) aligned with the climb heading, shown
 under the same *Air mass* toggle. So on a wave day — when the thermal reconstruction is
 nearly empty — the lee-wave lift still shows.
+
+Those same criteria also describe an **aerotow** — turn, net heading, AGL and a sustained
+climb are exactly what a tow looks like — so three more tests reject one (REQ-W-05),
+cumulatively: a **climb-rate ceiling** (a tow typically climbs well above a sustained wave
+vario), a **companion aircraft** flying the same profile within rope distance (the tug and
+the glider are both FLARM-tracked), and a climb that **starts near the ground and ends in a
+sharp drop of rate** (the release). The first and third are only applied to climbs starting
+near the ground (`TOW_START_AGL = 150 m`) — a genuinely high, fast, or gently-fading wave
+climb never trips them; the companion-aircraft test stands alone, since two aircraft on the
+same straight line a few tens of metres apart is not something wave produces.
 
 > The plume *position and strength are the glider's climb*, not the true air motion
 > (no netto). Weak or brief lift is missed; no traffic → nothing shown.
@@ -221,24 +231,76 @@ Lee (mountain) waves: a stable airstream crossing a ridge with enough wind oscil
 downwind as a standing wave — smooth lift in the crests, sink in the troughs — at
 
 ```
-λ = 2π·U / N        (U = cross-ridge wind, N = Brunt–Väisälä frequency)
+λ = 2π/l        with        l² = N²/U² − (1/U)·d²U/dz²        (the Scorer parameter)
 ```
 
-`N` comes from the upper sounding layer (`weatherStability`; NaN if neutral/unstable);
-`U` from the wind profile. We take the terrain forcing along the wind
-(`w₀ = wind·∇terrain`) and **convolve the upwind profile with a decaying resonant
-sinusoid** at the Scorer wavenumber `l = N/U` — the vertical velocity `w` (from `sin`) and
-the streamline displacement `η` (from `cos`, a quarter-wave out of phase). Because the
-wave is an **elevated** phenomenon, the flow is drawn as **undulating streamline sheets**
-stacked at several altitudes above the ridges (each cell rides `η`, so the sheets ripple
-downwind like the classic mountain-wave diagram), tinted warm where rising / blue where
-sinking — not draped on the ground like the surface-driven components. Gated: wind ≥
-`WIND_MIN = 7 m/s`, `N > N_MIN`, and `λ ∈ [2, 35] km`; otherwise nothing.
-**Off by default** (the mixer's 4th vertex, enabled by its checkbox) since it only applies
-on windy, stable days. Beneath the smooth wave, a **rotor** is drawn as ragged grey roll
-clouds low over the terrain (`ROTOR_HGT = 220 m`) in the strongest-updraft cells
-(`w > ROTOR_W = 0.9 m/s`) — the resonant decay concentrates them under the **first crest**
-downwind of the ridge, flagging the turbulent hazard under the lift.
+**The sounding.** `N` comes from `weatherStability`, over a sounding that now runs
+925 → 300 hPa (`LEVELS`, `soaring-core/weather.ts`) instead of stopping at 700 hPa — the
+stability that governs a lee wave is very often above that. Both Open-Meteo endpoints the
+app reads (live forecast and `historical-forecast-api`, used for past days — see *Data
+sources*) serve all seven levels. `weatherStability` picks the **highest adjacent pair of
+levels that still stays within `STABILITY_CAP` (5,500 m) of the surface** — not simply the
+top of the sounding, which with the wider levels can now reach the upper troposphere, well
+above anything a ridge forces — falling back to the lowest pair on a very high site where
+every level exceeds the cap. NaN if neutral/unstable; `U` and its vertical curvature
+`d²U/dz²` come from the wind profile, the latter by a centred finite difference over
+±500 m around the reference altitude. Where the
+profile has no data there, `l` falls back to the textbook simplified form `l = N/U` and the
+result is flagged **degraded** — a fact the layer does not currently surface in the UI, only
+in `WaveField.res.degraded` for anyone reading the field directly. We take the terrain
+forcing along the wind (`w₀ = wind·∇terrain`) and **convolve the upwind profile with a
+decaying resonant sinusoid** at wavenumber `l` — the vertical velocity `w` (from `sin`) and
+the streamline displacement `η` (from `cos`, a quarter-wave out of phase). Gated: wind ≥
+`WIND_MIN = 7 m/s`, `N > N_MIN`, `l² > 0` (the curvature term can itself rule out an
+oscillatory solution), and `λ` between an **upper** sanity bound (35 km) and a **mesh-derived
+lower** one — `MIN_NODES_PER_WAVELENGTH` (6) × the lattice's own node spacing, so a coarse
+grid honestly refuses a wavelength it cannot resolve rather than draw an aliased sinusoid;
+otherwise nothing.
+
+**Trapped or propagating.** A resonant cavity (trapped lee wave, the classic textbook
+picture) needs `l²` to **decrease with height** — in practice, wind strengthening aloft.
+`waveField` tests this by comparing `l²` at the reference altitude against `l²` some 2.5 km
+higher (same wind direction, `N` held constant — the sounding gives one representative
+stability for the layer above the ridges, so this is where the data's own resolution runs
+out; see *Limitations*), and exposes the verdict as `WaveField.trapped: boolean | null`:
+
+- **`true` (trapped)** — every stacked sheet rides the **same** `η`, as the resonance kernel
+  computes it: the classic picture of a standing wave train that does not change with height.
+- **`false` (propagating)** — the energy leaks upward rather than staying trapped near the
+  ridge. The viewer tilts each sheet's sampled phase **upwind** with height and **fades its
+  amplitude**, reproducing the well-documented qualitative signature (wave-cloud photos show
+  the crests leaning upwind at altitude) — but this is an **illustrative kinematic dressing**
+  on the one single-level field already computed, not a second vertical wavenumber solved
+  from the dispersion relation. Treat the tilt angle and the decay height as a picture, not a
+  measurement.
+- **`null` (indeterminate)** — the sounding cannot say which regime holds (missing data
+  aloft, or a reversed/critical layer the linear model has nothing to say about). Only the
+  **lowest** sheet is drawn, undressed, and the UI shows a small badge saying the regime is
+  unknown — showing six confidently-stacked sheets over an atmosphere that will not say
+  whether it traps a wave would be worse than showing one.
+
+Because the wave is an **elevated** phenomenon, the flow is drawn as undulating streamline
+sheets — not draped on the ground like the surface-driven components — tinted warm where
+rising / blue where sinking. **Off by default** (the mixer's 4th vertex, enabled by its
+checkbox) since it only applies on windy, stable days.
+
+**Linear validity (`FROUDE_MAX`).** The whole response above is small-amplitude linear
+theory: honest only while the ridge is modest next to `N/U`. `waveField` sizes the highest
+sampled ridge above the reference ground and gates the field shut when `N·h/U` — the inverse
+Froude number — exceeds `1.0`, the standard order-of-magnitude bound. Past that point the
+real atmosphere is breaking waves, blocking the flow, or forming a hydraulic jump — exactly
+the violent regime a pilot most wants to know about, and exactly what a linear sheet cannot
+represent. No field is drawn there, rather than a smooth one that quietly lies about a
+violent day.
+
+**Rotor — an indicative hazard marker, not a model result (`ROTOR_HGT = 220 m` AGL,
+`ROTOR_W = 0.9 m/s`).** Ragged grey roll clouds are drawn low over the terrain wherever the
+resonant field's crest updraft clears `ROTOR_W` — the resonant decay concentrates them under
+the **first crest** downwind of the ridge, which is where a rotor most often sits in the
+textbook picture. But there is no boundary-layer separation criterion behind it, no wind
+shear, nothing about how a real rotor actually spins up: it is a graphical placement rule
+riding on the same field. The wave checkbox's tooltip and this document say so plainly —
+"expect turbulence near here on a wave day", not a computed rotor location.
 
 A companion **worldwide wave scan** (`wavescan.ts`, the Discover **🌊** tab) ranks every
 spot for a date on four ingredients: the same **U / N / λ** test, plus the site's actual
@@ -366,19 +428,37 @@ fresh deck layer instances each frame.
   ceiling use the *instantaneous* surface temperature, so morning warm-up and evening
   collapse are not modelled — a late-afternoon residual layer can read as a deep,
   still-working day.
-- **Thermal ceiling**: from a shallow sounding (925/850/700 hPa), so a cap above 700 hPa
-  is missed and the ceiling is reported `≥` the data top; the parcel excess is a fixed
-  `1.5 K`.
+- **Thermal ceiling**: the sounding now reaches 300 hPa (~9 km), so a cap going unseen is
+  rare, but the 7-level resolution can still miss a thin inversion sitting between two of
+  them, and the ceiling is still reported `≥` the data top on the (now unusual) day it is
+  not; the parcel excess is a fixed `1.5 K`.
 - **Slope lift**: a kinematic `w = wind·∇terrain` — ignores flow separation, rotor, lee
   waves and stability; one wind for the whole scene; detail limited by the DEM.
 - **Convergence**: kinematic terrain-deflection cue only — no thermal/breeze/synoptic
   convergence, no mass consistency, one wind for the scene.
-- **Wave**: a linear 2D lee-wave response — one wind/stability for the scene, no
-  trapping/resonance modes, no rotor, phase and amplitude only indicative; the stacked
-  streamline sheets share one displacement at all heights (no tilt-with-height, no vertical
-  decay toward the tropopause) and don't show the low-level rotor turbulence.
+- **Wave**: a linear response — no Long's-equation nonlinearity, no numerically-resolved
+  atmosphere (see *Roadmap*'s WON'T); one wind/stability for the whole scene. The
+  trapped/propagating split (REQ-W-03) reads stability `N` as constant with height — the
+  sounding gives one representative value for the layer above the ridges — so it sees only
+  the WIND profile's curvature, not a genuine two-layer structure; a real two-layer
+  atmosphere with constant wind would go undetected. The propagating regime's upwind tilt
+  and amplitude fade are an **illustrative kinematic dressing** on the single-level field
+  already computed, not a second vertical wavenumber solved from the dispersion relation —
+  the tilt angle and decay height are a picture, not a measurement. The response stays 1D
+  along the wind: no lateral/3D dispersion, so a real ridge's wake — which fans out in a
+  Queney V behind an isolated peak — is not represented (REQ-W-09; the cost of a genuine 3D
+  response was judged too high for the per-pan recompute budget). The rotor markers are a
+  graphical placement rule under the strongest crests (a hazard cue), not a boundary-layer
+  separation model — see the wave checkbox's tooltip. The field closes outside its own
+  linear-theory validity bound (`N·h/U ≲ 1`, REQ-W-08) rather than attempting to represent a
+  breaking, blocking, or hydraulic-jump day — which is precisely the day most likely to
+  matter to a pilot, and precisely the one this model has nothing honest left to say about.
 - **Air mass**: shows only where a glider circled; strength is the glider's climb, not
-  netto; cloudbase is estimated (LCL), off by hundreds of metres possible.
+  netto; cloudbase is estimated (LCL), off by hundreds of metres possible. The observed-wave
+  detector's tow rejection (REQ-W-05) is itself a heuristic: a genuine wave climb entered
+  right after a low release can still be filtered out (favouring a false negative over
+  painting a tow as wave), and a tow that doesn't match any of the three signals — flown
+  solo, moderate rate, no visible release in the track — can still slip through.
 - **Weather**: a coarse model at the view centre; the sounding/BL height can be
   unreliable over complex terrain.
 
@@ -393,6 +473,16 @@ fresh deck layer instances each frame.
   just a global scale.
 - **Dewpoint profile** — fetch humidity aloft to draw Td on the day-structure emagram
   (currently only the surface dewpoint / LCL is known).
+- **Wave: lateral (3D) dispersion** — the response is convolved along the wind only (1D);
+  a real isolated ridge's wake fans out downwind in a Queney V, which this does not
+  reproduce. Considered for the wave rework (REQ-W-09) and set aside: a genuine 3D response
+  means Fourier-decomposing the terrain forcing across horizontal wavenumbers rather than
+  convolving a single resonant kernel, and the cost was judged incompatible with recomputing
+  the field on every pan. Not attempted — see *Limitations*, not a silent gap.
+
+Explicitly out of scope for this browser-side model (not "not yet" — **won't**): Long's
+equation or any non-linear lee-wave theory, and a numerically-resolved atmosphere. Both are
+proper NWP/mesoscale-model territory, not a viewer.
 
 ---
 

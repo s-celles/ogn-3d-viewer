@@ -5,6 +5,13 @@
 // **streamline sheets** stacked at several altitudes above the ridges — each rippling with
 // η and tinted warm/blue by w, like the classic mountain-wave diagram — plus the ragged
 // rotor clouds beneath the strongest crests. The "Onde" component of the lift potential.
+//
+// REQ-W-04: the field now says whether the regime is TRAPPED (`f.trapped === true`, a
+// resonant cavity — every sheet rides the SAME η, as before), vertically PROPAGATING
+// (`false` — phase tilts upwind with height, amplitude fades with height) or INDETERMINATE
+// (`null` — only the lowest sheet is drawn, and the UI says the regime is unknown). The tilt
+// is an illustrative kinematic shift (REQ-W-04's own wording: "incline vers l'amont"), not a
+// re-solved dispersion relation for a second vertical wavenumber — see docs/lift-model.md.
 import { S } from '../state';
 import { SimpleMeshLayer, IconLayer, COORDINATE_SYSTEM, MapView } from '../deck';
 import { mapDiv } from '../dom';
@@ -14,6 +21,7 @@ import { cloudSprite } from '../airmass';
 import { getWeather, weatherStability, wxEpoch } from '../weather';
 import { SHEET_COLORS, sheetBand } from 'soaring-core/liftviz';
 import { waveField, rotorSpots, type WaveField, type RotorSpot } from 'soaring-core/lift/wave';
+import { nodeStep } from 'soaring-core/lift/grid';
 import { M_PER_LAT, mPerLng, metresPerPixel, rad } from 'soaring-core/geo';
 
 const RMIN = 7000, RMAX = 32000;   // m: wave-domain half-width bounds
@@ -24,6 +32,20 @@ const ETA_FLAT = 20;     // m: below this displacement AND below W_LO, the sheet
 const READY_FRAC = 0.4;  // below this share of loaded nodes the terrain has not streamed in yet
 const ROTOR_HGT = 220;   // m: height of the rotor / roll-cloud band above the terrain
 const ROTOR_COL: [number, number, number, number] = [150, 142, 138, 205];   // dirty-grey ragged roll cloud
+// REQ-W-04, propagating regime only: an illustrative upwind tilt of the phase lines with
+// height (the well-documented qualitative signature of upward energy propagation — see e.g.
+// the classic mountain-wave cloud photos, wave crests leaning upwind at altitude) and an
+// amplitude decay representing energy spreading upward rather than staying trapped near the
+// ridge. Both are kinematic dressing on the SAME single-level field, not a new PDE solve.
+const TILT_DEG = 25;                                    // ° from vertical
+const TILT_RATIO = Math.tan(TILT_DEG * Math.PI / 180);   // horizontal shift per metre of height
+const PROPAGATE_DECAY_H = 2500;   // m: amplitude e-folding height for the propagating sheets
+
+export type WaveRegime = 'trapped' | 'propagating' | 'uncertain';
+let lastRegime: WaveRegime | null = null;
+/** The regime behind the sheets currently drawn (or last drawn from cache), for the UI to
+ *  disclose when it is uncertain (REQ-W-04). Null when no wave layer is showing at all. */
+export function waveRegimeNote(): WaveRegime | null { return lastRegime; }
 
 const meshParams = {
   depthCompare: 'less-equal', depthWriteEnabled: false, blend: true, cullMode: 'none',
@@ -35,17 +57,39 @@ interface Puff { pos: [number, number, number]; size: number }
 interface Bin { pos: number[]; nrm: number[]; idx: number[] }
 
 // One quad of an undulating streamline sheet: a horizontal cell whose four corners ride the
-// wave's vertical displacement η — so the sheet ripples up and down downwind.
-function addSheetQuad(b: Bin, f: WaveField, i: number, j: number, base: number, k: number): void {
-  const n = f.grid.n, s = b.pos.length / 3, z = (idx: number) => (base + f.eta[idx]) * k;
+// wave's vertical displacement η — so the sheet ripples up and down downwind. The geometry
+// sits at (i, j); the η/w it reads come from (i+di, j+dj) and are scaled by `decay` — REQ-W-04's
+// upwind phase tilt and amplitude fade for a vertically-propagating regime (di=dj=0, decay=1
+// for the trapped or indeterminate cases, which read the node directly under the geometry).
+function addSheetQuad(
+  b: Bin, f: WaveField, i: number, j: number, base: number, k: number,
+  di: number, dj: number, decay: number,
+): void {
+  const n = f.grid.n, s = b.pos.length / 3;
+  const z = (ii: number, jj: number) => (base + f.eta[(jj + dj) * n + (ii + di)] * decay) * k;
   b.pos.push(
-    f.lon[i], f.lat[j], z(j * n + i),
-    f.lon[i + 1], f.lat[j], z(j * n + i + 1),
-    f.lon[i + 1], f.lat[j + 1], z((j + 1) * n + i + 1),
-    f.lon[i], f.lat[j + 1], z((j + 1) * n + i),
+    f.lon[i], f.lat[j], z(i, j),
+    f.lon[i + 1], f.lat[j], z(i + 1, j),
+    f.lon[i + 1], f.lat[j + 1], z(i + 1, j + 1),
+    f.lon[i], f.lat[j + 1], z(i, j + 1),
   );
   for (let m = 0; m < 4; m++) b.nrm.push(0, 0, 1);
   b.idx.push(s, s + 1, s + 2, s, s + 2, s + 3);
+}
+
+/** How sheet level `lv` reads the (single-level) field, per REQ-W-04's regime split.
+ *  Trapped or indeterminate: read the node straight below (no tilt, no decay) — indeterminate
+ *  additionally caps the caller at ONE level. Propagating: shift the read point DOWNWIND by
+ *  TILT_RATIO·Δz (so the geometry at a given ground point shows the phase that was, at the
+ *  reference level, further downwind — i.e. the pattern leans upwind as height increases) and
+ *  fade the amplitude with height. */
+function levelShift(f: WaveField, lv: number, sp: number): { di: number; dj: number; decay: number } {
+  if (f.trapped !== false) return { di: 0, dj: 0, decay: 1 };
+  const spd = Math.hypot(f.wind[0], f.wind[1]);
+  if (!(spd > 0)) return { di: 0, dj: 0, decay: 1 };
+  const dz = lv * DZ, shiftM = TILT_RATIO * dz;
+  const decay = Math.exp(-dz / PROPAGATE_DECAY_H);
+  return { di: Math.round((shiftM * f.wind[0] / spd) / sp), dj: Math.round((shiftM * f.wind[1] / spd) / sp), decay };
 }
 
 const mkLayers = (meshes: { color: number[]; mesh: any }[], rotor: Puff[], alpha: number): any[] => {
@@ -63,7 +107,10 @@ const mkLayers = (meshes: { color: number[]; mesh: any }[], rotor: Puff[], alpha
   return ls;
 };
 
-let cache: { cLon: number; cLat: number; R: number; hour: number; wk: string; meshes: { color: number[]; mesh: any }[]; rotor: Puff[] } | null = null;
+let cache: {
+  cLon: number; cLat: number; R: number; hour: number; wk: string;
+  meshes: { color: number[]; mesh: any }[]; rotor: Puff[]; regime: WaveRegime;
+} | null = null;
 
 // Size + centre the wave domain to the VISIBLE terrain: in the overview we unproject a
 // screen sample grid to the ground and take its (RMAX-capped) bounding box, so the wave
@@ -99,6 +146,7 @@ function waveDomain(cLat: number, cLon: number, zoom: number): { cLon: number; c
 }
 
 export function waveLayers(k: number, alpha = 1): any[] {
+  lastRegime = null;
   if (alpha <= 0) return [];
   const cLat = S.mapVS.latitude, cLon = S.mapVS.longitude, zoom = S.mapVS.zoom || 11;
   if (!S.wxSim.on && (S.source === 'file' || !S.date)) return [];
@@ -118,24 +166,36 @@ export function waveLayers(k: number, alpha = 1): any[] {
   const wk = `${Math.round(wind[0])}|${Math.round(wind[1])}|${wxEpoch()}`;
   if (cache && cache.hour === hour && cache.wk === wk && Math.abs(Math.log(cache.R / R)) < 0.2) {
     const moved = Math.hypot((cache.cLon - gLon) * mPerLng(gLat), (cache.cLat - gLat) * M_PER_LAT);
-    if (moved < R * 0.25) return mkLayers(cache.meshes, cache.rotor, alpha);
+    if (moved < R * 0.25) { lastRegime = cache.regime; return mkLayers(cache.meshes, cache.rotor, alpha); }
   }
 
   const f = waveField({ cLon: gLon, cLat: gLat, R, n }, terrainElevAt, windProfile(cLat, cLon), { N });
   if (!f.res) return [];                            // no wind, too neutral, or an implausible λ
   if (f.ready < f.total * READY_FRAC) return [];   // terrain not loaded here yet — retry next frame
 
+  // REQ-W-04: trapped shares one η at every level (as before); propagating tilts the phase
+  // upwind and fades it with height; indeterminate shows only the lowest sheet, undressed —
+  // the honest thing to draw when the regime itself is not known.
+  const regime: WaveRegime = f.trapped === true ? 'trapped' : f.trapped === false ? 'propagating' : 'uncertain';
+  const activeLevels = regime === 'uncertain' ? 1 : LEVELS;
+  const sp = nodeStep(f.grid);
+
   // Build the stacked undulating sheets: each quad coloured by its vertical velocity, its
   // corners riding η, so the flow ripples over the ridges just like the textbook picture.
   const bins: Bin[] = SHEET_COLORS.map(() => ({ pos: [], nrm: [], idx: [] }));
-  for (let lv = 0; lv < LEVELS; lv++) {
+  for (let lv = 0; lv < activeLevels; lv++) {
     const base = f.maxTerr + WAVE_BASE + lv * DZ;
+    const { di, dj, decay } = levelShift(f, lv, sp);
     for (let j = 0; j < n - 1; j++) for (let i = 0; i < n - 1; i++) {
+      const si = i + di, sj = j + dj;
+      if (si < 0 || si + 1 >= n || sj < 0 || sj + 1 >= n) continue;   // the shifted sample falls off the grid
       const idx = j * n + i;
       if (!f.ok[idx] || !f.ok[idx + 1] || !f.ok[idx + n] || !f.ok[idx + n + 1]) continue;
-      const band = sheetBand(f.w[idx]);
-      if (band === 2 && Math.abs(f.eta[idx]) < ETA_FLAT) continue;   // no wave here → skip the flat sheet
-      addSheetQuad(bins[band], f, i, j, base, k);
+      const sIdx = sj * n + si, sIdx1 = sIdx + 1, sIdxN = sIdx + n, sIdxN1 = sIdxN + 1;
+      if (!f.ok[sIdx] || !f.ok[sIdx1] || !f.ok[sIdxN] || !f.ok[sIdxN1]) continue;
+      const band = sheetBand(f.w[sIdx] * decay);
+      if (band === 2 && Math.abs(f.eta[sIdx] * decay) < ETA_FLAT) continue;   // no wave here → skip the flat sheet
+      addSheetQuad(bins[band], f, i, j, base, k, di, dj, decay);
     }
   }
   const meshes = bins.map((b, i) => b.idx.length ? {
@@ -151,6 +211,7 @@ export function waveLayers(k: number, alpha = 1): any[] {
   const rotor: Puff[] = rotorSpots(f).map((s: RotorSpot) => ({
     pos: [s.lon, s.lat, (s.elev + ROTOR_HGT) * k] as [number, number, number], size: s.size,
   }));
-  cache = { cLon: gLon, cLat: gLat, R, hour, wk, meshes, rotor };
+  lastRegime = regime;
+  cache = { cLon: gLon, cLat: gLat, R, hour, wk, meshes, rotor, regime };
   return mkLayers(meshes, rotor, alpha);
 }
