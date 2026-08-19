@@ -24,7 +24,7 @@
     "@deck.gl/mesh-layers": "9.1.0",
     "marked": "^18.0.5",
     "qrcode-generator": "^2.0.4",
-    "soaring-core": "github:s-celles/soaring-core#v0.4.1",
+    "soaring-core": "github:s-celles/soaring-core#v0.10.1",
     "soaring-data": "github:s-celles/soaring-data",
     "upng-js": "^2.1.0"
   },
