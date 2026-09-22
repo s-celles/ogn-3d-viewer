@@ -1,0 +1,31 @@
+# Keeps pinned dependencies current.
+#
+# Nothing watched them before this file: CompatHelper, where it runs, looks
+# at Julia `[compat]` bounds and never at workflows, so the pinned actions
+# drift silently until a runner image change breaks them.
+#
+# One PR per dependency rather than a combined bump, so a failure is
+# attributable to the thing that caused it. That matters most across a
+# major: a bot updates the version string, never the configuration the new
+# major expects.
+
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore(ci)"
+    labels:
+      - dependencies
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore(ci)"
+    labels:
+      - dependencies
