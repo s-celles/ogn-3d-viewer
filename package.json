@@ -30,7 +30,7 @@
   },
   "devDependencies": {
     "@types/bun": "latest",
-    "typescript": "^5.6.0"
+    "typescript": "^7.0.2"
   },
   "comment:overrides": "Pin luma.gl to 9.1.x to match deck.gl 9.1.0 — luma 9.3 changed the SimpleMeshLayer mesh/Geometry API and breaks our hand-built terrain mesh.",
   "overrides": {
