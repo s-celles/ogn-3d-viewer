@@ -17,7 +17,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@deck.gl/core": "9.1.0",
+    "@deck.gl/core": "9.4.0",
     "@deck.gl/extensions": "9.1.0",
     "@deck.gl/geo-layers": "9.1.0",
     "@deck.gl/layers": "9.1.0",
