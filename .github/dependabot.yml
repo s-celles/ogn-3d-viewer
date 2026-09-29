@@ -25,6 +25,12 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
+    # deck.gl and luma.gl only move together, as one deliberate migration
+    # tested against the hand-built terrain mesh (see "overrides" in
+    # package.json): a lone bump mixes versions and breaks the renderer.
+    ignore:
+      - dependency-name: "@deck.gl/*"
+      - dependency-name: "@luma.gl/*"
     commit-message:
       prefix: "chore(ci)"
     labels:
