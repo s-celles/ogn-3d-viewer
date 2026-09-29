@@ -7,7 +7,7 @@ import { parseTrackFile, TRACK_EXT } from 'soaring-core/track-import';
 import { t } from './i18n';
 import { statusEl, loadBtn, subjEl, viewsEl, playBtn, icaoEl } from './dom';
 import { render } from './render';
-import { buildLegend, syncUI, applyFollowClass, setCollapsed } from './ui';
+import { buildLegend, syncUI, applyFollowClass, setCollapsed, isPhone } from './ui';
 import { buildRel, displayReg } from './flight-math';
 import type { FBLogbook, FBDevice, FetchResult, FBAirfield, Track, TrackPoint, RGB, ViewStateLike } from './types';
 import { M_PER_LAT } from 'soaring-core/geo';
@@ -146,9 +146,11 @@ export async function loadFlights(icao: string, date: string): Promise<void> {
         S.CURAF = res.af; S.CURTZ = res.tzoff;
         S.AF = { name: res.af.name, code: res.af.code, lon: res.af.latlng[1], lat: res.af.latlng[0], elev: res.af.elevation || 0, tz_off: res.tzoff, country: res.af.country };
         S.mapTarget = { longitude: res.af.latlng[1], latitude: res.af.latlng[0], zoom: 11, pitch: 55, bearing: 0, minZoom: OVERVIEW_MINZOOM, maxPitch: 85 };
+        document.body.classList.remove('terrainready');   // new place: show the pill until its ground is in
         document.body.classList.add('loaded');
       }
       buildLegend(); syncUI(); render();
+      if (isPhone()) setCollapsed(true);   // empty day: show the ground, not the panel
       loadBtn.disabled = false; return;
     }
     // Sample the rendered DEM at the airfield so the geoid/datum offset lands
@@ -244,6 +246,7 @@ export function rebuild(af: FBAirfield | null, tzoff: number | null, preserve: b
     document.body.classList.remove('fpv'); applyFollowClass();
     S.INIT = { longitude: S.AF.lon, latitude: S.AF.lat, zoom: 11.3, pitch: 62, bearing: 0, minZoom: OVERVIEW_MINZOOM, maxPitch: 85 };
     S.mapTarget = { ...S.INIT };
+    document.body.classList.remove('terrainready');
   } else {
     if (!S.TRACKS.some(tr => tr.reg === S.subject)) S.subject = S.TRACKS[0].reg;
     if (S.solo && !S.TRACKS.some(tr => tr.reg === S.solo)) S.solo = null;
@@ -260,7 +263,7 @@ export function rebuild(af: FBAirfield | null, tzoff: number | null, preserve: b
   [...viewsEl.children].forEach(c => { const el = c as HTMLElement; el.classList.toggle('on', el.dataset.m === S.mode); });
   playBtn.textContent = S.playing ? t('pause') : t('play'); playBtn.classList.toggle('on', S.playing);
   buildLegend(); render(); syncUI();
-  if (!preserve && window.innerWidth <= 640) setCollapsed(true);
+  if (!preserve && isPhone()) setCollapsed(true);
 }
 
 export async function refreshLive(): Promise<void> {

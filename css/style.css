@@ -231,6 +231,40 @@ body.collapsed #legend{display:none}
   .guide-card{padding:20px 18px 28px}
 }
 
+/* ---- "loading terrain" pill: shown until the coarse terrain covers the view
+   (body.terrainready, set by src/terrain.ts). Without it a slow link shows a
+   bare sky for seconds, which looks like a broken app. ---- */
+#terrainLoading{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:4;
+  display:flex;align-items:center;gap:8px;padding:8px 14px;border-radius:999px;
+  background:rgba(14,20,27,.75);backdrop-filter:blur(6px);border:1px solid var(--line);
+  color:var(--txt);font-size:13px;pointer-events:none;transition:opacity .4s}
+body.terrainready #terrainLoading{opacity:0;visibility:hidden}
+#terrainLoading .spin{width:14px;height:14px;border-radius:50%;border:2px solid rgba(255,255,255,.25);
+  border-top-color:var(--accent);animation:tlspin .8s linear infinite}
+@keyframes tlspin{to{transform:rotate(360deg)}}
+
+/* ---- mobile mode: on a phone the 3D view is the product, so the chrome
+   gets out of its way. Panel collapsed after each load (src/data.ts), mouse
+   hints dropped (touch gestures instead), minimap kept for cockpit/chase
+   views where it earns its space, attribution pinned as a thin full-width
+   strip at the very bottom with the bottom cards lifted above it. ---- */
+@media (max-width:640px){
+  #nav .cap{display:none}
+  body.collapsed #panel .hdr{margin-bottom:0}
+  #nav{padding:7px;gap:6px}
+  #nav button{width:32px;height:32px}
+  #minimap{width:96px;height:96px}
+  body.loaded.minimap:not(.fpv):not(.chase) #minimap{display:none}
+  #windDial{top:64px;bottom:auto;left:8px;padding:5px 9px}
+  #windDial svg{width:32px;height:32px}
+  body:not(.graphs) #attribution{left:0;right:0;bottom:0;transform:none;max-width:none;
+    border-radius:0;font-size:8.5px;padding:2px 6px}
+  body:not(.graphs):not(.noattr) #legend,
+  body:not(.graphs):not(.noattr) #nav,
+  body:not(.graphs):not(.noattr) #hud{bottom:30px}
+  body.ovhud.loaded:not(.fpv):not(.chase):not(.graphs):not(.noattr) #nav{bottom:180px}
+}
+
 /* ---- full-screen feature guide (markdown rendered by src/guide.ts) ---- */
 /* ---- Discover overlay (also the landing page): map + list side by side on
    desktop, stacked into one scrolling column on phones so list rows aren't
