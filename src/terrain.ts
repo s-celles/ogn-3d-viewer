@@ -271,13 +271,19 @@ export function makeTerrain() {
   // provider — a full refresh, not just newly-panned tiles.
   const tag = `${S.basemap}-${S.ignDem ? 'ign' : 't'}`;   // id encodes the DEM source too → toggling refetches
   return [
-    tileLayer(dev, `terrain-base-${tag}`, Math.min(11, gm), 64, 96, 140),          // Terrarium only (coarse backdrop)
+    tileLayer(dev, `terrain-base-${tag}`, Math.min(11, gm), 64, 96, 140, false, markTerrainReady),          // Terrarium only (coarse backdrop)
     tileLayer(dev, `terrain-${tag}`, gm, deckCache, dev.on ? dev.maxRequests : 12, 0, true),   // detail: IGN over France
   ];
 }
 
-function tileLayer(dev: typeof S.dev, id: string, maxZoom: number, maxCacheSize: number, maxRequests: number, zShiftM: number, allowIgn = false) {
+// The coarse base layer covering the view means the ground is on screen: drop
+// the "loading terrain" pill (body.terrainready, see css). Slow mobile links
+// otherwise show a bare sky for several seconds, which reads as a broken app.
+function markTerrainReady(): void { document.body.classList.add('terrainready'); }
+
+function tileLayer(dev: typeof S.dev, id: string, maxZoom: number, maxCacheSize: number, maxRequests: number, zShiftM: number, allowIgn = false, onViewportLoad?: () => void) {
   return new TileLayer({
+    ...(onViewportLoad ? { onViewportLoad } : {}),
     // maxZoom = the ground-detail setting. Up to the DEM ceiling (15) each tile
     // is a normal DEM tile textured with its own Esri image; BEYOND 15 the tile
     // takes its DEM elevation from the coarser z15 ancestor while still fetching

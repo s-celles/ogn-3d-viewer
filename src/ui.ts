@@ -818,6 +818,8 @@ mapDiv.addEventListener('drop', e => {
 });
 
 // ---- collapse panel (keeps the map visible, esp. on phones) ----
+/** Phone-sized viewport: same breakpoint as the mobile rules in css/style.css. */
+export const isPhone = (): boolean => window.matchMedia('(max-width:640px)').matches;
 export function setCollapsed(c: boolean): void {
   document.body.classList.toggle('collapsed', c);
   collapseBtn.textContent = c ? '▸' : '▾'; collapseBtn.title = t(c ? 'expand' : 'collapse');
